@@ -1,19 +1,25 @@
 import { Notice, Plugin, TFile } from 'obsidian';
 import { RenameService } from './rename-service';
-import { DEFAULT_SETTINGS, H1AlignerSettings } from './settings';
+import {
+    DEFAULT_SETTINGS,
+    H1AlignerSettings,
+    H1AlignerSettingTab,
+} from './settings';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
  *
  * Phase 1 MVP responsibilities:
- *   1. Load/save settings (delegated to Obsidian Plugin.loadData/saveData).
- *   2. Subscribe to workspace `file-open` via `registerEvent`
- *      (per PPLX Q2 — registerEvent prevents memory leaks on plugin unload).
- *   3. Filter eligible files (`.md` + not in ignoreFolders prefix per Q4).
- *   4. Per-file debounce 100ms (PPLX Q5: 50-150ms burst coalescing window).
- *   5. Delegate to RenameService (serial mutex + 4-layer guard).
- *   6. Quiet by default (Q2); show Notice only when settings.showNoticeOnRename.
- *   7. Manual command "Rename active file from first H1" lands in E3.
+ *   1. Load/save settings (Plugin.loadData/saveData).
+ *   2. Register SettingTab.
+ *   3. Subscribe to workspace `file-open` via `registerEvent`
+ *      (per PPLX Q2 — registerEvent prevents memory leaks on unload).
+ *   4. Filter eligible files (`.md` + not in ignoreFolders prefix per Q4).
+ *   5. Per-file debounce 100ms (PPLX Q5: 50-150ms burst coalescing).
+ *   6. Delegate to RenameService (serial mutex + 4-layer guard).
+ *   7. Quiet by default (Q2); show Notice only when settings.showNoticeOnRename.
+ *   8. Manual command "Rename active file from first H1" (bypasses debounce
+ *      and the renameOnFileOpen switch — but still honours ignoreFolders).
  */
 export default class H1AlignerPlugin extends Plugin {
     settings: H1AlignerSettings = { ...DEFAULT_SETTINGS };
@@ -25,10 +31,27 @@ export default class H1AlignerPlugin extends Plugin {
         await this.loadSettings();
         this.renameService = new RenameService(this.app, () => this.settings);
 
+        this.addSettingTab(new H1AlignerSettingTab(this.app, this));
+
         // file-open event — registerEvent required to avoid leaks (PPLX Q2)
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => this.onFileOpen(file)),
         );
+
+        // Manual command — palette-accessible, bypasses debounce
+        this.addCommand({
+            id: 'rename-active-file-from-h1',
+            name: 'Rename active file from first H1',
+            checkCallback: (checking: boolean) => {
+                const file = this.app.workspace.getActiveFile();
+                if (!file || file.extension !== 'md') return false;
+                if (this.isIgnored(file.path)) return false;
+                if (!checking) {
+                    void this.triggerRename(file, /* manual */ true);
+                }
+                return true;
+            },
+        });
 
         console.log('[H1Aligner] loaded');
     }
@@ -52,7 +75,7 @@ export default class H1AlignerPlugin extends Plugin {
 
         const timer = setTimeout(() => {
             this.debounceTimers.delete(key);
-            void this.triggerRename(file);
+            void this.triggerRename(file, /* manual */ false);
         }, H1AlignerPlugin.DEBOUNCE_MS);
         this.debounceTimers.set(key, timer);
     }
@@ -72,20 +95,23 @@ export default class H1AlignerPlugin extends Plugin {
         return false;
     }
 
-    private async triggerRename(file: TFile): Promise<void> {
+    private async triggerRename(file: TFile, manual: boolean): Promise<void> {
         const outcome = await this.renameService.renameFromH1(file);
 
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
-            if (this.settings.showNoticeOnRename) {
+            if (this.settings.showNoticeOnRename || manual) {
                 new Notice(`H1Aligner error: ${outcome.error.message}`);
             }
             return;
         }
 
-        if (outcome.skipped === 'none' && outcome.newName) {
-            if (this.settings.showNoticeOnRename) {
-                new Notice(`H1Aligner: renamed -> ${outcome.newName}`);
+        // Manual command always reports outcome; auto rename only when noticeable
+        if (this.settings.showNoticeOnRename || manual) {
+            if (outcome.skipped === 'none' && outcome.newName) {
+                new Notice(`H1Aligner: renamed → ${outcome.newName}`);
+            } else if (manual) {
+                new Notice(`H1Aligner: skipped (${outcome.skipped})`);
             }
         }
     }

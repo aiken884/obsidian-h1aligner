@@ -4,17 +4,16 @@
  * Phase 1 MVP algorithm (per Aiken Q3 拍板 + PPLX Q4 cross-platform research):
  *
  *   1. NFC normalisation                            (preserve Chinese / emoji)
- *   2. Strip control characters (0x00-0x1F, 0x7F)   (always — break filesystems)
+ *   2. Strip C0/DEL control chars EXCEPT tab/LF/CR  (let those be collapsed)
  *   3. Replace Windows-illegal `\ / : * ? " < > |`  (Q3.2 = true)
  *      with the configured replacement char         (Q3.3 = 空白)
  *   4. trim leading/trailing whitespace             (Q3.1 = true)
- *   5. Collapse repeated whitespace -> single space
- *   6. Strip leading dots (no accidental hidden files)
- *      Strip trailing dots & spaces (Windows refuses)
+ *   5. Collapse repeated whitespace -> single space (covers tab/LF/CR)
+ *   6. Strip leading dots & trailing dots/spaces
+ *      (Windows refuses both; macOS strips trailing too)
  *   7. Append `_` if Windows reserved name (CON, PRN, AUX, NUL,
  *      COM1-9, LPT1-9 — case-insensitive)
  *   8. Truncate to maxLength code points            (Q3.4 = 150)
- *      Re-trim trailing whitespace after truncation
  */
 export interface SanitizeOpts {
     trimWhitespace: boolean;
@@ -31,7 +30,9 @@ export const DEFAULT_SANITIZE_OPTS: SanitizeOpts = {
 };
 
 const WINDOWS_ILLEGAL = /[\\/:*?"<>|]/g;
-const CONTROL_CHARS = /[\x00-\x1f\x7f]/g;
+// Strip C0 control chars + DEL, but KEEP tab (0x09), LF (0x0A), CR (0x0D)
+// so they can be collapsed as whitespace in step 5.
+const CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 const MULTI_WHITESPACE = /\s+/g;
 const LEADING_DOTS = /^\.+/;
 const TRAILING_DOT_OR_SPACE = /[.\s]+$/;
@@ -47,7 +48,7 @@ export function sanitizeFileName(
     // 1. NFC
     try { s = s.normalize('NFC'); } catch { /* runtime without Intl normalize */ }
 
-    // 2. Strip control chars (always)
+    // 2. Strip control chars (except tab/LF/CR — those become spaces in step 5)
     s = s.replace(CONTROL_CHARS, '');
 
     // 3. Replace Windows-illegal chars

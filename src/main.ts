@@ -1,10 +1,7 @@
 import { Notice, Plugin, TFile } from 'obsidian';
 import { RenameService } from './rename-service';
-import {
-    DEFAULT_SETTINGS,
-    H1AlignerSettings,
-    H1AlignerSettingTab,
-} from './settings';
+import { DEFAULT_SETTINGS, H1AlignerSettings } from './settings';
+import { H1AlignerSettingTab } from './settings-tab';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
@@ -106,7 +103,6 @@ export default class H1AlignerPlugin extends Plugin {
             return;
         }
 
-        // Manual command always reports outcome; auto rename only when noticeable
         if (this.settings.showNoticeOnRename || manual) {
             if (outcome.skipped === 'none' && outcome.newName) {
                 new Notice(`H1Aligner: renamed → ${outcome.newName}`);

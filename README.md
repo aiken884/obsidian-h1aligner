@@ -78,6 +78,19 @@ All settings are stored in `data.json` inside the plugin folder.
 
 ---
 
+---
+
+## Behaviour notes
+
+### Case-only renames are intentional
+
+On case-insensitive but case-preserving filesystems (Windows NTFS, macOS APFS default), a file saved as `linker.md` whose first H1 reads `# Linker` will be renamed to `Linker.md` (capital L) the next time you open it. This is **intentional** — H1Aligner treats filename casing as part of the H1↔filename alignment contract. If you typed the H1 with a capital L, the filename adopts it.
+
+You'll see a visible case flip in the file tree; this is not a duplicate file and not a bug.
+
+### Manual command always notifies
+
+The palette command `Rename active file from first H1` shows a Notice toast regardless of the `Show notice on rename` setting. The setting only suppresses notices on **automatic** (file-open) renames. Manual invocation always reports its outcome — including skip reasons like `no-h1`, `same-name`, or `collision` — so you know what happened.
 ## ⚠️ Compatibility — do NOT pair with these plugins
 
 H1Aligner manages the filename ⇄ H1 relationship one way. Several existing plugins also touch that relationship; running them together is asking for **rename loops, lost edits, or cursor jumps**. Pick **one** and uninstall the others.

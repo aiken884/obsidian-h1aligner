@@ -38,7 +38,8 @@ Backlinks update automatically because the plugin uses `app.fileManager.renameFi
 ## How it works
 
 ```
-trigger: file-open (debounced 100ms) | vault modify (debounced 2s) | manual command
+trigger: file-open (debounced 100ms) | editor-change (local typing only,
+         debounced 2s — Sync/programmatic writes never trigger) | manual command
     └─ scope filter: .md + ignoreFolders + includeFolders whitelist
        + basename exclude patterns (daily-notes date pattern by default)
         └─ RenameService.renameFromH1(file)

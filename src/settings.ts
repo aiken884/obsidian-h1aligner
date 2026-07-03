@@ -172,11 +172,18 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
     return out;
 }
 
-/** Parse the comma-separated folders text fields (ignore / include). */
+/**
+ * Parse the comma-separated folders text fields (ignore / include).
+ * '/' (or '\') survives as the vault-root marker.
+ */
 export function parseIgnoreFolders(input: string): string[] {
     return input
         .split(',')
-        .map((s) => s.trim().replace(/\/+$/, ''))
+        .map((s) => {
+            const trimmed = s.trim();
+            if (trimmed === '/' || trimmed === '\\') return '/';
+            return trimmed.replace(/\/+$/, '');
+        })
         .filter((s) => s.length > 0);
 }
 

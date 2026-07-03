@@ -54,10 +54,10 @@ const en = {
     'set.scope.heading': 'Scope',
     'set.ignore.name': 'Ignore folders',
     'set.ignore.desc':
-        'Comma-separated folder paths to ignore (prefix match). Default: .obsidian, .trash',
+        'Comma-separated folder paths to ignore (prefix match; / means the vault root layer). Default: .obsidian, .trash',
     'set.include.name': 'Include only these folders',
     'set.include.desc':
-        'Comma-separated whitelist. When non-empty, ONLY notes inside these folders are renamed. Leave empty to process the whole vault.',
+        'Comma-separated whitelist. When non-empty, ONLY notes inside these folders are renamed. Use / for the vault root layer (root files only). Leave empty to process the whole vault.',
     'set.exclude.name': 'Exclude filename patterns',
     'set.exclude.desc':
         'One regular expression per line, tested against the note name (without .md). Unanchored substring match — use ^ and $ for exact names. Matching notes are not auto-renamed (the manual command still works). The default protects date-named daily notes.',
@@ -156,10 +156,10 @@ const zhTW: Record<LocaleKey, string> = {
     'set.trigger.manual': '僅手動',
     'set.scope.heading': '套用範圍',
     'set.ignore.name': '忽略資料夾',
-    'set.ignore.desc': '逗號分隔的資料夾路徑（前綴比對）。預設：.obsidian, .trash',
+    'set.ignore.desc': '逗號分隔的資料夾路徑（前綴比對；/ 代表 vault 根目錄層）。預設：.obsidian, .trash',
     'set.include.name': '僅套用於這些資料夾',
     'set.include.desc':
-        '逗號分隔的白名單。填寫後「只有」這些資料夾內的筆記會被改名；留空則套用整個 vault。',
+        '逗號分隔的白名單。填寫後「只有」這些資料夾內的筆記會被改名；輸入 / 代表 vault 根目錄那一層（不含子資料夾）；留空則套用整個 vault。',
     'set.exclude.name': '排除檔名 pattern',
     'set.exclude.desc':
         '每行一條正規表達式，比對筆記名稱（不含 .md）。未錨定的子字串比對 — 精確比對請用 ^ 與 $。符合的筆記不會被自動改名（手動指令仍可用）。預設保護日期命名的 daily notes。',
@@ -251,10 +251,10 @@ const ja: Record<LocaleKey, string> = {
     'set.trigger.manual': '手動のみ',
     'set.scope.heading': '適用範囲',
     'set.ignore.name': '除外フォルダ',
-    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致）。デフォルト：.obsidian, .trash',
+    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致。/ はルート階層）。デフォルト：.obsidian, .trash',
     'set.include.name': '対象をこれらのフォルダに限定',
     'set.include.desc':
-        'カンマ区切りのホワイトリスト。指定すると、これらのフォルダ内のノート「のみ」リネームされます。空欄で保管庫全体が対象になります。',
+        'カンマ区切りのホワイトリスト。指定すると、これらのフォルダ内のノート「のみ」リネームされます。/ は保管庫のルート階層（サブフォルダを除く）を意味します。空欄で保管庫全体が対象になります。',
     'set.exclude.name': '除外ファイル名パターン',
     'set.exclude.desc':
         '1 行につき 1 つの正規表現。ノート名（.md を除く）と照合します。アンカーなしの部分一致 — 完全一致には ^ と $ を使ってください。一致したノートは自動リネームされません（手動コマンドは使用可能）。デフォルトは日付名のデイリーノートを保護します。',

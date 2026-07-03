@@ -36,13 +36,22 @@ describe('isInScope', () => {
             expect(isInScope('_inbox/a.md', 'a', { ...base, includeFolders: ['_inbox/'] })).toBe(true);
         });
 
-        it('ignores entries that normalise to nothing — they must not lock out the whole vault', () => {
-            // A stray '\' or '/' typed into the include field previously
-            // enabled whitelist mode with zero matchable folders.
-            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['\\'] })).toBe(true);
+        it("treats '/' (or '\\') as the vault ROOT layer — root files only, no subfolders", () => {
             expect(isInScope('a.md', 'a', { ...base, includeFolders: ['/'] })).toBe(true);
-            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['\\', 'notes'] })).toBe(false);
-            expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['\\', 'notes'] })).toBe(true);
+            expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['/'] })).toBe(false);
+            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['\\'] })).toBe(true);
+            expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['\\'] })).toBe(false);
+        });
+
+        it("combines root '/' with named folders", () => {
+            const s = { ...base, includeFolders: ['/', 'notes'] };
+            expect(isInScope('a.md', 'a', s)).toBe(true);
+            expect(isInScope('notes/a.md', 'a', s)).toBe(true);
+            expect(isInScope('other/x.md', 'x', s)).toBe(false);
+        });
+
+        it('still ignores blank entries without locking out the vault', () => {
+            expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['  '] })).toBe(true);
         });
     });
 

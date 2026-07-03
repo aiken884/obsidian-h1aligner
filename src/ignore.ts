@@ -8,9 +8,13 @@
  */
 export function isIgnoredPath(path: string, ignoreFolders: string[]): boolean {
     for (const raw of ignoreFolders) {
-        if (!raw) continue;
-        const prefix = raw.replace(/\/+$/, '');
-        if (!prefix) continue;
+        if (!raw || !raw.trim()) continue;
+        const prefix = raw.replace(/\\/g, '/').replace(/\/+$/, '');
+        if (prefix === '') {
+            // '/' (or '\') means the vault ROOT layer: files with no folder.
+            if (!path.includes('/')) return true;
+            continue;
+        }
         if (path === prefix) return true;
         if (path.startsWith(prefix + '/')) return true;
     }

@@ -162,6 +162,11 @@ describe('parseIgnoreFolders', () => {
         expect(parseIgnoreFolders('templates/, daily//')).toEqual(['templates', 'daily']);
     });
 
+    it("preserves '/' (vault root) as a valid entry", () => {
+        expect(parseIgnoreFolders('/')).toEqual(['/']);
+        expect(parseIgnoreFolders('\\, notes')).toEqual(['/', 'notes']);
+    });
+
     it('returns empty array for empty input', () => {
         expect(parseIgnoreFolders('')).toEqual([]);
         expect(parseIgnoreFolders('  ,  ')).toEqual([]);

@@ -149,12 +149,17 @@ export default class H1AlignerPlugin extends Plugin {
         );
     }
 
+    /** normalizePath, but preserving the '/'-means-vault-root convention. */
+    private static normalizeFolderEntry(f: string): string {
+        return f === '/' || f === '\\' ? '/' : normalizePath(f);
+    }
+
     /** Full scope filter (automatic triggers + batch). */
     private shouldProcess(file: TFile): boolean {
         if (file.extension !== 'md') return false;
         return isInScope(file.path, file.basename, {
-            ignoreFolders: this.settings.ignoreFolders.map((f) => normalizePath(f)),
-            includeFolders: this.settings.includeFolders.map((f) => normalizePath(f)),
+            ignoreFolders: this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
+            includeFolders: this.settings.includeFolders.map(H1AlignerPlugin.normalizeFolderEntry),
             excludePatterns: this.settings.excludePatterns,
         });
     }
@@ -164,7 +169,7 @@ export default class H1AlignerPlugin extends Plugin {
         if (file.extension !== 'md') return false;
         return !isIgnoredPath(
             file.path,
-            this.settings.ignoreFolders.map((f) => normalizePath(f)),
+            this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
         );
     }
 

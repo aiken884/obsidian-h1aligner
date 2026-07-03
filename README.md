@@ -86,7 +86,7 @@ Concurrency is handled by a serial chain Promise plus a per-file in-progress Set
 |---|---|---|
 | Rename trigger | On file open | `On file open` / `After editing (debounced)` / `Manual only`. The manual command always works. |
 | Ignore folders | `.obsidian, .trash` | Prefix match. Files at or under these paths are skipped. |
-| Include only these folders | *(empty)* | Whitelist mode — when non-empty, only notes inside these folders are processed. |
+| Include only these folders | *(empty)* | Whitelist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored substring match — use `^`/`$` for exact names). Applies to automatic triggers and batch; the manual command bypasses it. The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` in frontmatter are never renamed. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required — templates without it are treated as plain `{{h1}}`), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. |

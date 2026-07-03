@@ -32,4 +32,10 @@ describe('isIgnoredPath', () => {
         expect(isIgnoredPath('a.md', [])).toBe(false);
         expect(isIgnoredPath('notes/a.md', ['', 'notes'])).toBe(true);
     });
+
+    it("treats '/' as the vault root layer (root files only)", () => {
+        expect(isIgnoredPath('a.md', ['/'])).toBe(true);
+        expect(isIgnoredPath('notes/a.md', ['/'])).toBe(false);
+        expect(isIgnoredPath('a.md', ['\\'])).toBe(true);
+    });
 });

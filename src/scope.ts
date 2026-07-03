@@ -25,13 +25,22 @@ function underFolder(path: string, folder: string): boolean {
 export function isInScope(path: string, basename: string, scope: ScopeSettings): boolean {
     if (isIgnoredPath(path, scope.ignoreFolders)) return false;
 
-    // Entries that normalise to nothing (a stray '\' or '/') are ignored —
-    // they must never switch on whitelist mode with zero matchable folders,
-    // which would silently lock out the entire vault.
-    const includes = scope.includeFolders.filter((f) => f.replace(/[\\/]+/g, '').length > 0);
-    if (includes.length > 0) {
-        if (!includes.some((f) => underFolder(path, f))) return false;
+    // '/' (or '\') means the vault ROOT layer — files with no folder.
+    // Blank entries are ignored so they never switch on whitelist mode with
+    // zero matchable folders (which would silently lock out the vault).
+    let hasValidInclude = false;
+    let includeMatched = false;
+    for (const raw of scope.includeFolders) {
+        if (!raw.trim()) continue;
+        const norm = raw.replace(/\\/g, '/').replace(/\/+$/, '');
+        hasValidInclude = true;
+        if (norm === '') {
+            if (!path.includes('/')) includeMatched = true;
+        } else if (underFolder(path, norm)) {
+            includeMatched = true;
+        }
     }
+    if (hasValidInclude && !includeMatched) return false;
 
     for (const pattern of scope.excludePatterns) {
         if (!pattern) continue;

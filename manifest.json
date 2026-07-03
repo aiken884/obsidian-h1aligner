@@ -1,7 +1,7 @@
 {
     "id": "h1aligner",
     "name": "H1Aligner",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "minAppVersion": "1.4.0",
     "description": "Align your note filename with the first H1 on file switch.",
     "author": "Aiken Lin",

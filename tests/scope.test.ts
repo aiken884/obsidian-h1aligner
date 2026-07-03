@@ -35,6 +35,15 @@ describe('isInScope', () => {
         it('tolerates trailing slashes in entries', () => {
             expect(isInScope('_inbox/a.md', 'a', { ...base, includeFolders: ['_inbox/'] })).toBe(true);
         });
+
+        it('ignores entries that normalise to nothing — they must not lock out the whole vault', () => {
+            // A stray '\' or '/' typed into the include field previously
+            // enabled whitelist mode with zero matchable folders.
+            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['\\'] })).toBe(true);
+            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['/'] })).toBe(true);
+            expect(isInScope('a.md', 'a', { ...base, includeFolders: ['\\', 'notes'] })).toBe(false);
+            expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['\\', 'notes'] })).toBe(true);
+        });
     });
 
     describe('excludePatterns (regex vs basename)', () => {

@@ -22,7 +22,7 @@
     "devDependencies": {
         "@types/node": "^20.0.0",
         "@vitest/coverage-v8": "^2.1.9",
-        "builtin-modules": "^3.3.0",
+        "builtin-modules": "^5.3.0",
         "esbuild": "^0.21.0",
         "fast-check": "^4.8.0",
         "obsidian": "~1.4.11",

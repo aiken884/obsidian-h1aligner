@@ -59,6 +59,11 @@ describe('normalizeSettings', () => {
         expect(s.collisionStrategy).toBe(DEFAULT_SETTINGS.collisionStrategy);
     });
 
+    it("accepts the 0.8.0 trigger modes 'both' and 'leave'", () => {
+        expect(normalizeSettings({ renameTrigger: 'both' }).renameTrigger).toBe('both');
+        expect(normalizeSettings({ renameTrigger: 'leave' }).renameTrigger).toBe('leave');
+    });
+
     it('clamps or rejects debounce values', () => {
         expect(normalizeSettings({ fileOpenDebounceMs: -5 }).fileOpenDebounceMs).toBe(
             DEFAULT_SETTINGS.fileOpenDebounceMs,

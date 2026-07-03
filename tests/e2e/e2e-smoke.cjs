@@ -279,6 +279,32 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/switching.md').length, 0, 'pending timer dropped after mode switch');
     console.log('✓ 9. edit 觸發：editor-change（本地輸入限定，Sync/backlink 寫入不觸發）、debounce 重置、切換模式取消 pending');
 
+    // --- 9b: 'both' trigger — file-open AND editor-change both rename ---
+    plugin.settings.renameTrigger = 'both';
+    const fboth1 = addFile(app, 'notes/both-open.md', '# Both Open\n', 'Both Open');
+    app._ws['file-open'](fboth1);
+    await sleep(180);
+    assert.ok(app._files.has('notes/Both Open.md'), 'both: file-open renames');
+    const fboth2 = addFile(app, 'notes/both-edit.md', '# Both Edit\n', 'Both Edit');
+    plugin.settings.editDebounceMs = 120;
+    app._ws['editor-change'](null, { file: fboth2 });
+    await sleep(250);
+    assert.ok(app._files.has('notes/Both Edit.md'), 'both: editor-change renames');
+    console.log('✓ 9b. both 模式：開檔與編輯後兩種事件都會改名');
+
+    // --- 9c: 'leave' trigger — renames the note you switched AWAY from ---
+    plugin.settings.renameTrigger = 'leave';
+    const fl = addFile(app, 'notes/leave-me.md', '# Left Behind\n', 'Left Behind');
+    app._ws['file-open'](fl); // becomes the active note
+    await sleep(180);
+    assert.ok(app._files.has('notes/leave-me.md'), 'leave: current note untouched while open');
+    const felse = addFile(app, 'notes/elsewhere.md', '# elsewhere\n', 'elsewhere');
+    app._ws['file-open'](felse); // switching away → previous note renames
+    await sleep(180);
+    assert.ok(app._files.has('notes/Left Behind.md'), 'leave: previous note renamed after switching away');
+    plugin.settings.renameTrigger = 'file-open';
+    console.log('✓ 9c. leave 模式：正在看的檔案不動，切走後前一個檔案改名');
+
     // --- 10: BOM safety ---
     plugin.settings.renameTrigger = 'file-open';
     before = app._renameCalls.length;
@@ -375,5 +401,5 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/pending.md').length, 0, 'no rename after unload');
     console.log('✓ 16. onunload 取消未觸發的 debounce → 卸載後不再改名');
 
-    console.log('\nE2E smoke test: 16/16 scenarios passed（真實 production bundle main.js, v0.5.0）');
+    console.log('\nE2E smoke test: 18/18 scenarios passed（真實 production bundle main.js, v0.8.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

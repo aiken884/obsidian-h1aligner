@@ -41,6 +41,8 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 d
                     .addOption('file-open', t('set.trigger.fileOpen'))
                     .addOption('edit', t('set.trigger.edit'))
+                    .addOption('both', t('set.trigger.both'))
+                    .addOption('leave', t('set.trigger.leave'))
                     .addOption('manual', t('set.trigger.manual'))
                     .setValue(this.plugin.settings.renameTrigger)
                     .onChange(async (v) => {

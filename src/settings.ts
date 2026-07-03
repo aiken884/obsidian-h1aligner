@@ -13,7 +13,7 @@
  */
 import { cleanReplacementChar } from './filename';
 
-export type RenameTrigger = 'file-open' | 'edit' | 'manual';
+export type RenameTrigger = 'file-open' | 'edit' | 'both' | 'leave' | 'manual';
 export type NoticeLevel = 'off' | 'errors' | 'all';
 export type CollisionStrategy = 'skip' | 'number';
 
@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
 const MAX_FILENAME_LENGTH_CEILING = 255;
 const MAX_DEBOUNCE_MS = 60000;
 
-const TRIGGERS: readonly RenameTrigger[] = ['file-open', 'edit', 'manual'];
+const TRIGGERS: readonly RenameTrigger[] = ['file-open', 'edit', 'both', 'leave', 'manual'];
 const LEVELS: readonly NoticeLevel[] = ['off', 'errors', 'all'];
 const COLLISIONS: readonly CollisionStrategy[] = ['skip', 'number'];
 

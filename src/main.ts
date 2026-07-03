@@ -37,6 +37,8 @@ export default class H1AlignerPlugin extends Plugin {
     private readonly history = new RenameHistory(20);
     private readonly activity = new ActivityLog(200);
     private readonly debouncer = new KeyedDebouncer(DEFAULT_SETTINGS.fileOpenDebounceMs);
+    /** Previous active file — the 'leave' trigger renames this one. */
+    private lastActiveFile: TFile | null = null;
 
     async onload(): Promise<void> {
         const raw = await this.loadData();
@@ -62,12 +64,21 @@ export default class H1AlignerPlugin extends Plugin {
             }
         }
 
-        // file-open trigger — registerEvent required to avoid leaks
+        // file-open trigger — registerEvent required to avoid leaks.
+        // Also drives 'leave' mode: switching to a note means leaving the
+        // previous one, which is the moment that mode renames it (it never
+        // touches the note the user is currently looking at).
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
                 if (!this.settings.onboardingShown) return; // consent pending
-                if (this.settings.renameTrigger !== 'file-open') return;
-                this.scheduleRename(file, this.settings.fileOpenDebounceMs, 'file-open');
+                const previous = this.lastActiveFile;
+                this.lastActiveFile = file instanceof TFile ? file : null;
+                const trigger = this.settings.renameTrigger;
+                if (trigger === 'file-open' || trigger === 'both') {
+                    this.scheduleRename(file, this.settings.fileOpenDebounceMs, trigger, 'file-open');
+                } else if (trigger === 'leave' && previous && previous !== file) {
+                    this.scheduleRename(previous, this.settings.fileOpenDebounceMs, trigger, 'leave');
+                }
             }),
         );
 
@@ -80,10 +91,11 @@ export default class H1AlignerPlugin extends Plugin {
         this.registerEvent(
             this.app.workspace.on('editor-change', (_editor, info) => {
                 if (!this.settings.onboardingShown) return; // consent pending
-                if (this.settings.renameTrigger !== 'edit') return;
+                const trigger = this.settings.renameTrigger;
+                if (trigger !== 'edit' && trigger !== 'both') return;
                 const file = (info as { file?: TFile | null } | null)?.file ?? null;
                 if (!(file instanceof TFile)) return;
-                this.scheduleRename(file, this.settings.editDebounceMs, 'edit');
+                this.scheduleRename(file, this.settings.editDebounceMs, trigger, 'edit');
             }),
         );
 
@@ -133,7 +145,8 @@ export default class H1AlignerPlugin extends Plugin {
     private scheduleRename(
         file: TFile | null,
         delayMs: number,
-        expectedTrigger: 'file-open' | 'edit',
+        expectedTrigger: H1AlignerSettings['renameTrigger'],
+        source: ActivitySource,
     ): void {
         if (!file || !this.shouldProcess(file)) return;
         this.debouncer.schedule(
@@ -143,7 +156,7 @@ export default class H1AlignerPlugin extends Plugin {
                 // trigger mode or moved the file out of scope meanwhile.
                 if (this.settings.renameTrigger !== expectedTrigger) return;
                 if (!this.shouldProcess(file)) return;
-                void this.triggerRename(file, /* manual */ false, expectedTrigger);
+                void this.triggerRename(file, /* manual */ false, source);
             },
             delayMs,
         );

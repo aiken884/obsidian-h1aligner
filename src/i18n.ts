@@ -46,9 +46,11 @@ const en = {
     // Settings — trigger
     'set.trigger.name': 'Rename trigger',
     'set.trigger.desc':
-        'When to rename automatically. "On file open" renames when you switch to a note; "After editing" renames after you pause typing; "Manual only" leaves it to the command.',
+        'When to rename automatically. "On file open" renames when you switch to a note; "After editing" renames after you pause typing; "Both" combines the two; "On leaving a note" renames the note you just switched away from (never touches what you are looking at); "Manual only" leaves it to the command.',
     'set.trigger.fileOpen': 'On file open',
     'set.trigger.edit': 'After editing (debounced)',
+    'set.trigger.both': 'Both (file open + after editing)',
+    'set.trigger.leave': 'On leaving a note',
     'set.trigger.manual': 'Manual only',
     // Settings — scope
     'set.scope.heading': 'Scope',
@@ -150,9 +152,11 @@ const zhTW: Record<LocaleKey, string> = {
     'onboard.manualOnly': '先用手動模式',
     'set.trigger.name': '改名觸發時機',
     'set.trigger.desc':
-        '自動改名的時機。「開檔時」在切換到筆記時改名；「編輯後」在停止打字後改名；「僅手動」只透過指令改名。',
+        '自動改名的時機。「開檔時」在切換到筆記時改名；「編輯後」在停止打字後改名；「兩者皆啟用」同時套用前兩者；「切離筆記時」在你切換到別的筆記時，替剛離開的那篇改名（絕不動你正在看的檔案）；「僅手動」只透過指令改名。',
     'set.trigger.fileOpen': '開檔時',
     'set.trigger.edit': '編輯後（延遲觸發）',
+    'set.trigger.both': '兩者皆啟用（開檔＋編輯後）',
+    'set.trigger.leave': '切離筆記時',
     'set.trigger.manual': '僅手動',
     'set.scope.heading': '套用範圍',
     'set.ignore.name': '忽略資料夾',
@@ -245,9 +249,11 @@ const ja: Record<LocaleKey, string> = {
     'onboard.manualOnly': 'まずは手動のみで使う',
     'set.trigger.name': 'リネームのトリガー',
     'set.trigger.desc':
-        '自動リネームのタイミング。「ファイルを開いたとき」はノートに切り替えた時、「編集後」は入力が止まった後、「手動のみ」はコマンド実行時のみリネームします。',
+        '自動リネームのタイミング。「ファイルを開いたとき」はノートに切り替えた時、「編集後」は入力が止まった後、「両方」はその両方、「ノートを離れたとき」は別のノートへ切り替えた際に直前のノートをリネームします（表示中のファイルには触れません）。「手動のみ」はコマンド実行時のみです。',
     'set.trigger.fileOpen': 'ファイルを開いたとき',
     'set.trigger.edit': '編集後（遅延実行）',
+    'set.trigger.both': '両方（開く＋編集後）',
+    'set.trigger.leave': 'ノートを離れたとき',
     'set.trigger.manual': '手動のみ',
     'set.scope.heading': '適用範囲',
     'set.ignore.name': '除外フォルダ',

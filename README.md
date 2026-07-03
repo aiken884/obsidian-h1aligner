@@ -7,7 +7,7 @@
 H1Aligner watches `file-open` events in Obsidian, reads the first H1 (`# Title`) inside the file, and renames the file on disk to match. Quiet by default. No notices. No surprises.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -84,7 +84,7 @@ Concurrency is handled by a serial chain Promise plus a per-file in-progress Set
 
 | Setting | Default | Notes |
 |---|---|---|
-| Rename trigger | On file open | `On file open` / `After editing (debounced)` / `Manual only`. The manual command always works. |
+| Rename trigger | On file open | `On file open` / `After editing (debounced)` / `Both` / `On leaving a note` (renames the note you switched away from — never touches what you are viewing) / `Manual only`. The manual command always works. |
 | Ignore folders | `.obsidian, .trash` | Prefix match. Files at or under these paths are skipped. |
 | Include only these folders | *(empty)* | Whitelist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored substring match — use `^`/`$` for exact names). Applies to automatic triggers and batch; the manual command bypasses it. The default protects date-named daily notes. |
@@ -176,7 +176,7 @@ npm run dev            # watch-mode build (writes main.js on change)
 npm run build          # one-shot production build
 npm test               # run vitest suites
 npm run test:coverage  # vitest + v8 coverage report
-npm run test:e2e       # drive the built main.js through 16 end-to-end scenarios
+npm run test:e2e       # drive the built main.js through 18 end-to-end scenarios
 ```
 
 Project layout:
@@ -212,7 +212,7 @@ tests/
 
 ### Testing
 
-Vitest with 227 unit tests (including 7 fast-check property-based invariants for the sanitiser) covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
+Vitest with 233 unit tests (including 7 fast-check property-based invariants for the sanitiser) covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
 
 ```bash
 npm test

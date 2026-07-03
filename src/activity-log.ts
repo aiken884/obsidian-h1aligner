@@ -3,7 +3,7 @@
  * obsidian import). Answers "why wasn't this file renamed?" without
  * telemetry: entries live in memory only and die with the session.
  */
-export type ActivitySource = 'file-open' | 'edit' | 'manual' | 'batch' | 'undo';
+export type ActivitySource = 'file-open' | 'edit' | 'leave' | 'manual' | 'batch' | 'undo';
 
 export interface ActivityEntry {
     ts: number;

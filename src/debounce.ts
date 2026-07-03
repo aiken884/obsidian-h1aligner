@@ -8,8 +8,12 @@ export class KeyedDebouncer {
 
     constructor(private readonly delayMs: number) {}
 
-    /** (Re)start the timer for `key`; only the latest callback fires. */
-    schedule(key: string, fn: () => void): void {
+    /**
+     * (Re)start the timer for `key`; only the latest callback fires.
+     * `delayMs` overrides the constructor default for this call (used for
+     * runtime-configurable debounce settings).
+     */
+    schedule(key: string, fn: () => void, delayMs: number = this.delayMs): void {
         const existing = this.timers.get(key);
         if (existing !== undefined) clearTimeout(existing);
         this.timers.set(
@@ -17,7 +21,7 @@ export class KeyedDebouncer {
             setTimeout(() => {
                 this.timers.delete(key);
                 fn();
-            }, this.delayMs),
+            }, delayMs),
         );
     }
 

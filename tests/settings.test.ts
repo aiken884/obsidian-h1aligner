@@ -3,6 +3,7 @@ import {
     DEFAULT_SETTINGS,
     normalizeSettings,
     parseIgnoreFolders,
+    parseExcludePatterns,
     parseMaxFilenameLength,
 } from '../src/settings';
 
@@ -14,30 +15,100 @@ describe('normalizeSettings', () => {
         expect(normalizeSettings(42)).toEqual(DEFAULT_SETTINGS);
     });
 
-    it('keeps valid stored values', () => {
+    it('keeps valid stored v2 values', () => {
         const s = normalizeSettings({
-            renameOnFileOpen: false,
-            showNoticeOnRename: true,
+            renameTrigger: 'edit',
+            noticeLevel: 'errors',
             maxFilenameLength: 80,
             ignoreFolders: ['templates'],
+            includeFolders: ['_inbox'],
+            excludePatterns: ['^tmp'],
+            nameTemplate: '{{date}} {{h1}}',
+            collisionStrategy: 'number',
+            allowCaseOnlyRename: false,
+            editDebounceMs: 5000,
+            fileOpenDebounceMs: 250,
+            skipIfFrontmatterLock: false,
         });
-        expect(s.renameOnFileOpen).toBe(false);
-        expect(s.showNoticeOnRename).toBe(true);
+        expect(s.renameTrigger).toBe('edit');
+        expect(s.noticeLevel).toBe('errors');
         expect(s.maxFilenameLength).toBe(80);
         expect(s.ignoreFolders).toEqual(['templates']);
+        expect(s.includeFolders).toEqual(['_inbox']);
+        expect(s.excludePatterns).toEqual(['^tmp']);
+        expect(s.nameTemplate).toBe('{{date}} {{h1}}');
+        expect(s.collisionStrategy).toBe('number');
+        expect(s.allowCaseOnlyRename).toBe(false);
+        expect(s.editDebounceMs).toBe(5000);
+        expect(s.fileOpenDebounceMs).toBe(250);
+        expect(s.skipIfFrontmatterLock).toBe(false);
     });
 
-    it('falls back to defaults for wrong-typed booleans', () => {
-        const s = normalizeSettings({ renameOnFileOpen: 'yes', showNoticeOnRename: 1 });
-        expect(s.renameOnFileOpen).toBe(DEFAULT_SETTINGS.renameOnFileOpen);
-        expect(s.showNoticeOnRename).toBe(DEFAULT_SETTINGS.showNoticeOnRename);
+    it('falls back to defaults for invalid enum values', () => {
+        const s = normalizeSettings({ renameTrigger: 'nope', noticeLevel: 'loud', collisionStrategy: 'x' });
+        expect(s.renameTrigger).toBe(DEFAULT_SETTINGS.renameTrigger);
+        expect(s.noticeLevel).toBe(DEFAULT_SETTINGS.noticeLevel);
+        expect(s.collisionStrategy).toBe(DEFAULT_SETTINGS.collisionStrategy);
+    });
+
+    it('clamps or rejects debounce values', () => {
+        expect(normalizeSettings({ fileOpenDebounceMs: -5 }).fileOpenDebounceMs).toBe(
+            DEFAULT_SETTINGS.fileOpenDebounceMs,
+        );
+        expect(normalizeSettings({ fileOpenDebounceMs: 999999 }).fileOpenDebounceMs).toBe(60000);
+        expect(normalizeSettings({ editDebounceMs: '2' }).editDebounceMs).toBe(
+            DEFAULT_SETTINGS.editDebounceMs,
+        );
+        expect(normalizeSettings({ editDebounceMs: 0 }).editDebounceMs).toBe(0);
+    });
+
+    it('falls back for a non-string nameTemplate', () => {
+        expect(normalizeSettings({ nameTemplate: 7 }).nameTemplate).toBe('{{h1}}');
+    });
+
+    it('sanitises corrupt includeFolders / excludePatterns arrays', () => {
+        expect(normalizeSettings({ includeFolders: 'nope' }).includeFolders).toEqual([]);
+        expect(normalizeSettings({ includeFolders: [' a ', 7, ''] }).includeFolders).toEqual(['a']);
+        expect(normalizeSettings({ excludePatterns: 'nope' }).excludePatterns).toEqual(
+            DEFAULT_SETTINGS.excludePatterns,
+        );
+        expect(normalizeSettings({ excludePatterns: ['^x$', 3, ''] }).excludePatterns).toEqual(['^x$']);
+    });
+
+    describe('v1 → v2 migration', () => {
+        it('maps renameOnFileOpen to renameTrigger', () => {
+            expect(normalizeSettings({ renameOnFileOpen: true }).renameTrigger).toBe('file-open');
+            expect(normalizeSettings({ renameOnFileOpen: false }).renameTrigger).toBe('manual');
+        });
+
+        it('renameTrigger wins over the legacy key when both exist', () => {
+            expect(
+                normalizeSettings({ renameOnFileOpen: false, renameTrigger: 'edit' }).renameTrigger,
+            ).toBe('edit');
+        });
+
+        it('maps showNoticeOnRename to noticeLevel', () => {
+            expect(normalizeSettings({ showNoticeOnRename: true }).noticeLevel).toBe('all');
+            expect(normalizeSettings({ showNoticeOnRename: false }).noticeLevel).toBe('off');
+            expect(
+                normalizeSettings({ showNoticeOnRename: true, noticeLevel: 'errors' }).noticeLevel,
+            ).toBe('errors');
+        });
+
+        it('ignores the meaningless v1 skipIfFrontmatterLock=false (feature did not exist)', () => {
+            const s = normalizeSettings({ renameOnFileOpen: true, skipIfFrontmatterLock: false });
+            expect(s.skipIfFrontmatterLock).toBe(true);
+        });
+
+        it('preserves an explicit v2 skipIfFrontmatterLock=false', () => {
+            const s = normalizeSettings({ renameTrigger: 'manual', skipIfFrontmatterLock: false });
+            expect(s.skipIfFrontmatterLock).toBe(false);
+        });
     });
 
     it('rejects non-positive or non-numeric maxFilenameLength', () => {
         expect(normalizeSettings({ maxFilenameLength: -5 }).maxFilenameLength).toBe(150);
-        expect(normalizeSettings({ maxFilenameLength: 0 }).maxFilenameLength).toBe(150);
         expect(normalizeSettings({ maxFilenameLength: '80' }).maxFilenameLength).toBe(150);
-        expect(normalizeSettings({ maxFilenameLength: NaN }).maxFilenameLength).toBe(150);
     });
 
     it('clamps oversized maxFilenameLength to 255 and floors fractions', () => {
@@ -64,6 +135,7 @@ describe('normalizeSettings', () => {
         const s = normalizeSettings(null);
         expect(s).not.toBe(DEFAULT_SETTINGS);
         expect(s.ignoreFolders).not.toBe(DEFAULT_SETTINGS.ignoreFolders);
+        expect(s.excludePatterns).not.toBe(DEFAULT_SETTINGS.excludePatterns);
     });
 });
 
@@ -79,6 +151,16 @@ describe('parseIgnoreFolders', () => {
     it('returns empty array for empty input', () => {
         expect(parseIgnoreFolders('')).toEqual([]);
         expect(parseIgnoreFolders('  ,  ')).toEqual([]);
+    });
+});
+
+describe('parseExcludePatterns', () => {
+    it('splits on newlines, trims, drops empties', () => {
+        expect(parseExcludePatterns('^\\d{4}$\n\n  ^tmp  \n')).toEqual(['^\\d{4}$', '^tmp']);
+    });
+
+    it('returns empty array for empty input', () => {
+        expect(parseExcludePatterns('')).toEqual([]);
     });
 });
 

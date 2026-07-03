@@ -41,6 +41,26 @@ const ATX_H1 = /^ {0,3}#(?!#)[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/;
 // heading per CommonMark — treated like `#` alone: keep scanning.
 const ATX_H1_EMPTY = /^ {0,3}#(?!#)([ \t]+#+)?[ \t]*$/;
 
+// Top-level `h1aligner-lock: true` (YAML booleans are unquoted or quoted;
+// nested/indented keys deliberately do NOT count).
+const LOCK_LINE = /^h1aligner-lock:\s*(true|"true"|'true')\s*$/i;
+
+/**
+ * Content-fallback lock check: when the metadata cache is not populated yet,
+ * rename-service scans the raw content it just read for the frontmatter lock.
+ */
+export function hasFrontmatterLock(content: string): boolean {
+    if (typeof content !== 'string' || content.length === 0) return false;
+    const text = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+    const lines = text.split(/\r?\n/);
+    if (!FRONTMATTER_FENCE.test(lines[0] ?? '')) return false;
+    for (let i = 1; i < lines.length; i++) {
+        if (FRONTMATTER_END.test(lines[i])) return false;
+        if (LOCK_LINE.test(lines[i])) return true;
+    }
+    return false;
+}
+
 export function extractFirstH1(
     cache: CachedMetadata | null | undefined,
     content?: string,

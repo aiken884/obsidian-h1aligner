@@ -5,67 +5,132 @@
  * That keeps it unit-testable from vitest without needing to stub the Obsidian
  * package. The SettingTab UI class lives in `settings-tab.ts`.
  *
- * Phase 1 MVP defaults (all per Aiken 拍板, see [[H1Aligner 拍板議題展開_2026-05-29]]):
- *   - renameOnFileOpen              = true  (core feature switch)
- *   - showNoticeOnRename            = false (Q2 — quiet by default)
- *   - trimWhitespace                = true  (Q3.1)
- *   - replaceIllegalCharacters      = true  (Q3.2)
- *   - illegalReplacementChar        = ' '   (Q3.3 — 空白)
- *   - maxFilenameLength             = 150   (Q3.4)
- *   - ignoreFolders                 = ['.obsidian', '.trash'] (Q4 — prefix match)
- *   - skipIfFrontmatterLock         = false (Q5 — schema kept, logic NOT implemented in Phase 1)
+ * Schema v2 (0.4.0). v1 keys are migrated on load:
+ *   renameOnFileOpen: boolean  → renameTrigger: 'file-open' | 'manual'
+ *   showNoticeOnRename: boolean → noticeLevel: 'all' | 'off'
+ *   skipIfFrontmatterLock — v1 stored `false` but the feature did not exist,
+ *   so v1 data adopts the new default (true).
  */
 import { cleanReplacementChar } from './filename';
 
+export type RenameTrigger = 'file-open' | 'edit' | 'manual';
+export type NoticeLevel = 'off' | 'errors' | 'all';
+export type CollisionStrategy = 'skip' | 'number';
+
 export interface H1AlignerSettings {
-    renameOnFileOpen: boolean;
-    showNoticeOnRename: boolean;
+    // Trigger
+    renameTrigger: RenameTrigger;
+    /** Debounce for file-open bursts (ms). */
+    fileOpenDebounceMs: number;
+    /** Debounce after edits before renaming (ms) — long, to avoid renaming mid-typing. */
+    editDebounceMs: number;
+    // Scope
+    ignoreFolders: string[];
+    /** Whitelist mode: non-empty → only these folders are processed. */
+    includeFolders: string[];
+    /** Regexes tested against the basename; matches are skipped. */
+    excludePatterns: string[];
+    /** Honour `h1aligner-lock: true` in frontmatter. */
+    skipIfFrontmatterLock: boolean;
+    // Naming
+    nameTemplate: string;
+    collisionStrategy: CollisionStrategy;
+    allowCaseOnlyRename: boolean;
     trimWhitespace: boolean;
     replaceIllegalCharacters: boolean;
     illegalReplacementChar: string;
     maxFilenameLength: number;
-    ignoreFolders: string[];
-    /**
-     * Phase 1: schema kept, logic deferred to Phase 2 (per Q5).
-     */
-    skipIfFrontmatterLock: boolean;
+    // Notifications
+    noticeLevel: NoticeLevel;
 }
 
 export const DEFAULT_SETTINGS: H1AlignerSettings = {
-    renameOnFileOpen: true,
-    showNoticeOnRename: false,
+    renameTrigger: 'file-open',
+    fileOpenDebounceMs: 100,
+    editDebounceMs: 2000,
+    ignoreFolders: ['.obsidian', '.trash'],
+    includeFolders: [],
+    // Daily notes protection: date-named files are never renamed by default.
+    excludePatterns: ['^\\d{4}-\\d{2}-\\d{2}$'],
+    skipIfFrontmatterLock: true,
+    nameTemplate: '{{h1}}',
+    collisionStrategy: 'skip',
+    allowCaseOnlyRename: true,
     trimWhitespace: true,
     replaceIllegalCharacters: true,
     illegalReplacementChar: ' ',
     maxFilenameLength: 150,
-    ignoreFolders: ['.obsidian', '.trash'],
-    skipIfFrontmatterLock: false,
+    noticeLevel: 'off',
 };
 
 /** Filename length ceiling: one UTF-8 byte per char is already NAME_MAX. */
 const MAX_FILENAME_LENGTH_CEILING = 255;
+const MAX_DEBOUNCE_MS = 60000;
+
+const TRIGGERS: readonly RenameTrigger[] = ['file-open', 'edit', 'manual'];
+const LEVELS: readonly NoticeLevel[] = ['off', 'errors', 'all'];
+const COLLISIONS: readonly CollisionStrategy[] = ['skip', 'number'];
+
+function cleanStringArray(v: unknown): string[] | null {
+    if (!Array.isArray(v)) return null;
+    return v
+        .filter((x): x is string => typeof x === 'string')
+        .map((x) => x.trim())
+        .filter((x) => x.length > 0);
+}
+
+function clampMs(v: unknown, fallback: number): number {
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return fallback;
+    return Math.min(Math.floor(v), MAX_DEBOUNCE_MS);
+}
 
 /**
- * Validate whatever came out of data.json (may be corrupt, hand-edited, or
- * from a future/older plugin version) into a well-typed settings object.
+ * Validate whatever came out of data.json (may be corrupt, hand-edited, from
+ * a v1 install, or from a future version) into a well-typed settings object.
  * Wrong-typed fields fall back to their defaults.
  */
 export function normalizeSettings(raw: unknown): H1AlignerSettings {
     const out: H1AlignerSettings = {
         ...DEFAULT_SETTINGS,
         ignoreFolders: [...DEFAULT_SETTINGS.ignoreFolders],
+        includeFolders: [...DEFAULT_SETTINGS.includeFolders],
+        excludePatterns: [...DEFAULT_SETTINGS.excludePatterns],
     };
     if (typeof raw !== 'object' || raw === null) return out;
     const r = raw as Record<string, unknown>;
+    const isV1 = typeof r.renameOnFileOpen === 'boolean' && r.renameTrigger === undefined;
 
-    if (typeof r.renameOnFileOpen === 'boolean') out.renameOnFileOpen = r.renameOnFileOpen;
-    if (typeof r.showNoticeOnRename === 'boolean') out.showNoticeOnRename = r.showNoticeOnRename;
+    // Trigger
+    if (TRIGGERS.includes(r.renameTrigger as RenameTrigger)) {
+        out.renameTrigger = r.renameTrigger as RenameTrigger;
+    } else if (typeof r.renameOnFileOpen === 'boolean') {
+        out.renameTrigger = r.renameOnFileOpen ? 'file-open' : 'manual';
+    }
+    out.fileOpenDebounceMs = clampMs(r.fileOpenDebounceMs, DEFAULT_SETTINGS.fileOpenDebounceMs);
+    out.editDebounceMs = clampMs(r.editDebounceMs, DEFAULT_SETTINGS.editDebounceMs);
+
+    // Scope
+    const ignore = cleanStringArray(r.ignoreFolders);
+    if (ignore !== null) out.ignoreFolders = ignore;
+    const include = cleanStringArray(r.includeFolders);
+    if (include !== null) out.includeFolders = include;
+    const patterns = cleanStringArray(r.excludePatterns);
+    if (patterns !== null) out.excludePatterns = patterns;
+    if (typeof r.skipIfFrontmatterLock === 'boolean' && !isV1) {
+        out.skipIfFrontmatterLock = r.skipIfFrontmatterLock;
+    }
+
+    // Naming
+    if (typeof r.nameTemplate === 'string' && r.nameTemplate.trim()) {
+        out.nameTemplate = r.nameTemplate;
+    }
+    if (COLLISIONS.includes(r.collisionStrategy as CollisionStrategy)) {
+        out.collisionStrategy = r.collisionStrategy as CollisionStrategy;
+    }
+    if (typeof r.allowCaseOnlyRename === 'boolean') out.allowCaseOnlyRename = r.allowCaseOnlyRename;
     if (typeof r.trimWhitespace === 'boolean') out.trimWhitespace = r.trimWhitespace;
     if (typeof r.replaceIllegalCharacters === 'boolean') {
         out.replaceIllegalCharacters = r.replaceIllegalCharacters;
-    }
-    if (typeof r.skipIfFrontmatterLock === 'boolean') {
-        out.skipIfFrontmatterLock = r.skipIfFrontmatterLock;
     }
     if (typeof r.illegalReplacementChar === 'string') {
         out.illegalReplacementChar = cleanReplacementChar(r.illegalReplacementChar);
@@ -80,20 +145,30 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
             MAX_FILENAME_LENGTH_CEILING,
         );
     }
-    if (Array.isArray(r.ignoreFolders)) {
-        out.ignoreFolders = r.ignoreFolders
-            .filter((x): x is string => typeof x === 'string')
-            .map((x) => x.trim())
-            .filter((x) => x.length > 0);
+
+    // Notifications
+    if (LEVELS.includes(r.noticeLevel as NoticeLevel)) {
+        out.noticeLevel = r.noticeLevel as NoticeLevel;
+    } else if (typeof r.showNoticeOnRename === 'boolean') {
+        out.noticeLevel = r.showNoticeOnRename ? 'all' : 'off';
     }
+
     return out;
 }
 
-/** Parse the comma-separated ignore-folders text field. */
+/** Parse the comma-separated folders text fields (ignore / include). */
 export function parseIgnoreFolders(input: string): string[] {
     return input
         .split(',')
         .map((s) => s.trim().replace(/\/+$/, ''))
+        .filter((s) => s.length > 0);
+}
+
+/** Parse the newline-separated exclude-patterns textarea. */
+export function parseExcludePatterns(input: string): string[] {
+    return input
+        .split(/\r?\n/)
+        .map((s) => s.trim())
         .filter((s) => s.length > 0);
 }
 

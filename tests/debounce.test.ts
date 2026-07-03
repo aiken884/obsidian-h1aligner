@@ -63,6 +63,16 @@ describe('KeyedDebouncer', () => {
         expect(b).not.toHaveBeenCalled();
     });
 
+    it('honours a per-call delay override', () => {
+        const d = new KeyedDebouncer(100);
+        const fn = vi.fn();
+        d.schedule('a', fn, 500);
+        vi.advanceTimersByTime(499);
+        expect(fn).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(fn).toHaveBeenCalledOnce();
+    });
+
     it('allows re-scheduling a key after it fired', () => {
         const d = new KeyedDebouncer(100);
         const fn = vi.fn();

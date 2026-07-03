@@ -194,6 +194,18 @@ describe('extractFirstH1', () => {
     });
 
     describe('edge cases', () => {
+        it('exposes hasFrontmatterLock for the content-fallback lock check', async () => {
+            const { hasFrontmatterLock } = await import('../src/heading');
+            expect(hasFrontmatterLock('---\nh1aligner-lock: true\n---\nbody')).toBe(true);
+            expect(hasFrontmatterLock('---\nh1aligner-lock: "true"\n---\n')).toBe(true);
+            expect(hasFrontmatterLock('﻿---\nh1aligner-lock: true\n---\n')).toBe(true);
+            expect(hasFrontmatterLock('---\nh1aligner-lock: false\n---\n')).toBe(false);
+            expect(hasFrontmatterLock('---\ntitle: x\n---\nh1aligner-lock: true')).toBe(false);
+            expect(hasFrontmatterLock('no frontmatter\nh1aligner-lock: true')).toBe(false);
+            expect(hasFrontmatterLock('---\n  h1aligner-lock: true\n---\n')).toBe(false);
+            expect(hasFrontmatterLock('')).toBe(false);
+        });
+
         it('returns none when both inputs are missing', () => {
             expect(extractFirstH1(null, undefined).source).toBe('none');
             expect(extractFirstH1(undefined, undefined).source).toBe('none');

@@ -8,9 +8,10 @@ interface FakeTFile {
     basename: string;
     extension: string;
     parent: { path: string } | null;
+    stat: { ctime: number };
 }
 
-function makeFile(opts: { basename: string; folder?: string; ext?: string }): FakeTFile {
+function makeFile(opts: { basename: string; folder?: string; ext?: string; ctime?: number }): FakeTFile {
     const folder = opts.folder ?? '';
     const ext = opts.ext ?? 'md';
     const name = opts.basename + '.' + ext;
@@ -21,6 +22,7 @@ function makeFile(opts: { basename: string; folder?: string; ext?: string }): Fa
         basename: opts.basename,
         extension: ext,
         parent: { path: folder },
+        stat: { ctime: opts.ctime ?? 0 },
     };
 }
 
@@ -299,6 +301,268 @@ describe('RenameService', () => {
             expect(out1.error).toBeInstanceOf(Error);
             expect(out2.skipped).toBe('none');
             expect(out2.newName).toBe('b-new');
+        });
+    });
+
+    describe('frontmatter lock', () => {
+        it('skips a locked file when skipIfFrontmatterLock is on', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: { 'h1aligner-lock': true },
+            });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('locked');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('accepts the string form "true"', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: { 'h1aligner-lock': 'true' },
+            });
+            const svc = new RenameService(app as any, () => settings);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('locked');
+        });
+
+        it('honours a lock found only in raw content when the cache is unpopulated', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue(null);
+            app.vault.cachedRead.mockResolvedValue(
+                '---\nh1aligner-lock: true\n---\n# New Title\n',
+            );
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('locked');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('renames a locked file when the setting is off', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: { 'h1aligner-lock': true },
+            });
+            const custom = { ...settings, skipIfFrontmatterLock: false };
+            const svc = new RenameService(app as any, () => custom);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('none');
+        });
+
+        it('ignores other frontmatter values', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: { 'h1aligner-lock': false, tags: ['x'] },
+            });
+            const svc = new RenameService(app as any, () => settings);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('none');
+        });
+    });
+
+    describe('case-only rename policy', () => {
+        it('performs case-only renames by default', async () => {
+            const file = makeFile({ basename: 'linker' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Linker' }],
+            });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+        });
+
+        it('skips case-only renames when allowCaseOnlyRename is off', async () => {
+            const file = makeFile({ basename: 'linker' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Linker' }],
+            });
+            const custom = { ...settings, allowCaseOnlyRename: false };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('case-only');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('still renames when the name differs beyond case', async () => {
+            const file = makeFile({ basename: 'old name' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New Name' }],
+            });
+            const custom = { ...settings, allowCaseOnlyRename: false };
+            const svc = new RenameService(app as any, () => custom);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('none');
+        });
+    });
+
+    describe('collision strategy: number', () => {
+        it('appends the first free number when the target is taken', async () => {
+            const file = makeFile({ basename: 'note', folder: 'notes' });
+            const sibling = makeFile({ basename: 'Title', folder: 'notes' });
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Title' }],
+            });
+            app.vault.getAbstractFileByPath.mockImplementation((p: string) =>
+                p === 'notes/Title.md' ? sibling : null,
+            );
+            const custom = { ...settings, collisionStrategy: 'number' as const };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+            expect(out.newName).toBe('Title 1');
+            expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, 'notes/Title 1.md');
+        });
+
+        it('skips numbers that are also taken', async () => {
+            const file = makeFile({ basename: 'note', folder: 'notes' });
+            const s0 = makeFile({ basename: 'Title', folder: 'notes' });
+            const s1 = makeFile({ basename: 'Title 1', folder: 'notes' });
+            (file.parent as any).children = [file, s0, s1];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Title' }],
+            });
+            app.vault.getAbstractFileByPath.mockImplementation((p: string) => {
+                if (p === 'notes/Title.md') return s0;
+                if (p === 'notes/Title 1.md') return s1;
+                return null;
+            });
+            const custom = { ...settings, collisionStrategy: 'number' as const };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.newName).toBe('Title 2');
+        });
+
+        it('skips as same-name when numbering resolves to the file\'s own current name', async () => {
+            // file "Note 1.md" whose H1 is "Note", sibling "Note.md" occupies
+            // the target: numbering must not "rename" the file onto itself.
+            const file = makeFile({ basename: 'Note 1', folder: 'notes' });
+            const sibling = makeFile({ basename: 'Note', folder: 'notes' });
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Note' }],
+            });
+            app.vault.getAbstractFileByPath.mockImplementation((p: string) =>
+                p === 'notes/Note.md' ? sibling : null,
+            );
+            const custom = { ...settings, collisionStrategy: 'number' as const };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('same-name');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('applies the case-only policy to numbered candidates too', async () => {
+            const file = makeFile({ basename: 'note 1', folder: 'notes' });
+            const sibling = makeFile({ basename: 'Note', folder: 'notes' });
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Note' }],
+            });
+            app.vault.getAbstractFileByPath.mockImplementation((p: string) =>
+                p === 'notes/Note.md' ? sibling : null,
+            );
+            const custom = {
+                ...settings,
+                collisionStrategy: 'number' as const,
+                allowCaseOnlyRename: false,
+            };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('case-only');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it("still skips under the default 'skip' strategy", async () => {
+            const file = makeFile({ basename: 'note', folder: 'notes' });
+            const sibling = makeFile({ basename: 'Title', folder: 'notes' });
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Title' }],
+            });
+            app.vault.getAbstractFileByPath.mockImplementation((p: string) =>
+                p === 'notes/Title.md' ? sibling : null,
+            );
+            const svc = new RenameService(app as any, () => settings);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('collision');
+        });
+    });
+
+    describe('name template', () => {
+        it('applies a {{date}} {{h1}} template using the file creation time', async () => {
+            const ctime = new Date(2026, 0, 15).getTime();
+            const file = makeFile({ basename: 'old', ctime });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Title' }],
+            });
+            const custom = { ...settings, nameTemplate: '{{date}} {{h1}}' };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.newName).toBe('2026-01-15 Title');
+        });
+
+        it('is idempotent: a file already matching the template is skipped as same-name', async () => {
+            const ctime = new Date(2026, 0, 15).getTime();
+            const file = makeFile({ basename: '2026-01-15 Title', ctime });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Title' }],
+            });
+            const custom = { ...settings, nameTemplate: '{{date}} {{h1}}' };
+            const svc = new RenameService(app as any, () => custom);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('same-name');
+        });
+    });
+
+    describe('dry run', () => {
+        it('computes the outcome without renaming', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New Title' }],
+            });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any, { dryRun: true });
+            expect(out.skipped).toBe('none');
+            expect(out.newName).toBe('New Title');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('reports skip reasons in dry run too', async () => {
+            const file = makeFile({ basename: 'doc' });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any, { dryRun: true });
+            expect(out.skipped).toBe('no-h1');
+        });
+    });
+
+    describe('rename history (undo support)', () => {
+        it('records successful renames', async () => {
+            const { RenameHistory } = await import('../src/history');
+            const history = new RenameHistory();
+            const file = makeFile({ basename: 'old', folder: 'notes' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            const svc = new RenameService(app as any, () => settings, history);
+            await svc.renameFromH1(file as any);
+            expect(history.peek()).toEqual({ from: 'notes/old.md', to: 'notes/New.md' });
+        });
+
+        it('does not record dry runs or skips', async () => {
+            const { RenameHistory } = await import('../src/history');
+            const history = new RenameHistory();
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            const svc = new RenameService(app as any, () => settings, history);
+            await svc.renameFromH1(file as any, { dryRun: true });
+            expect(history.size).toBe(0);
+            const same = makeFile({ basename: 'Same' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Same' }],
+            });
+            await svc.renameFromH1(same as any);
+            expect(history.size).toBe(0);
         });
     });
 

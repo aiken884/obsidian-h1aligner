@@ -7,7 +7,7 @@
 H1Aligner watches `file-open` events in Obsidian, reads the first H1 (`# Title`) inside the file, and renames the file on disk to match. Quiet by default. No notices. No surprises.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-218%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -102,7 +102,7 @@ Concurrency is handled by a serial chain Promise plus a per-file in-progress Set
 
 A live **preview field** at the bottom of the Naming section shows the filename a sample H1 would produce with the current settings.
 
-On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious "Manual only" start. The UI follows Obsidian's language setting (English / 繁體中文).
+On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious "Manual only" start. The UI follows Obsidian's language setting (English / 繁體中文 / 日本語).
 
 All settings are stored in `data.json` inside the plugin folder (validated on load — a corrupt or hand-edited `data.json` falls back to safe defaults per field).
 
@@ -199,7 +199,7 @@ src/
   notice.ts            # notice-level policy (pure)
   history.ts           # session rename history for undo (pure)
   activity-log.ts      # session decision ring buffer (pure)
-  i18n.ts              # en / zh-TW string tables (pure)
+  i18n.ts              # en / zh-TW / ja string tables (pure)
 styles.css             # modal/settings styles
 docs/MOBILE-TESTING.md # real-device checklist (iPhone / Android)
 tests/
@@ -212,7 +212,7 @@ tests/
 
 ### Testing
 
-Vitest with 218 unit tests (including 7 fast-check property-based invariants for the sanitiser) covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
+Vitest with 227 unit tests (including 7 fast-check property-based invariants for the sanitiser) covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
 
 ```bash
 npm test

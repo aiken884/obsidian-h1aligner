@@ -209,7 +209,103 @@ const zhTW: Record<LocaleKey, string> = {
         '「編輯後」觸發需要的停止打字時間。建議保持寬鬆 — 打字中改名會干擾書寫。預設：2000。',
 };
 
-export const LOCALES = { en, 'zh-tw': zhTW };
+const ja: Record<LocaleKey, string> = {
+    'notice.renamed': 'H1Aligner：リネームしました → {name}',
+    'notice.skipped': 'H1Aligner：スキップしました（{reason}）',
+    'notice.error': 'H1Aligner エラー：{message}',
+    'notice.nothingToUndo': 'H1Aligner：取り消せるリネームはありません',
+    'notice.undoMoved': 'H1Aligner：取り消せません — ファイルが移動または削除されています',
+    'notice.undoOccupied': 'H1Aligner：取り消せません — 元のファイル名は既に使用されています',
+    'notice.undone': 'H1Aligner：取り消しました → {path}',
+    'notice.undoFailed': 'H1Aligner：取り消しに失敗しました',
+    'notice.batchRunning': 'H1Aligner：一括スキャンは既に実行中です',
+    'notice.scanning': 'H1Aligner：{count} 件のノートをスキャン中…',
+    'notice.batchDone': 'H1Aligner：一括リネーム {done} 件完了',
+    'notice.batchChanged': '{count} 件スキップ（プレビュー後に変更あり）',
+    'notice.batchFailed': '{count} 件スキップ/失敗',
+    'notice.invalidPatterns': 'H1Aligner：無効な除外パターンを無視しました：\n{patterns}',
+    'cmd.renameActive': 'Rename active file from first H1（最初の H1 でリネーム）',
+    'cmd.batchPreview': 'Preview all renames (dry run)（一括プレビュー）',
+    'cmd.undo': 'Undo last rename（直前のリネームを取り消す）',
+    'cmd.showActivity': 'Show recent activity（アクティビティを表示）',
+    'batch.summary': '{total} 件のノートのうち {renamable} 件がリネーム対象です。',
+    'batch.hint': '適用時にリネーム先を再確認します。プレビュー後に H1 が変更されたノートはスキップされます。',
+    'batch.more': '…ほか {count} 件がリネーム対象',
+    'batch.skippedHeader': '{count} 件のノートをスキップ：',
+    'batch.close': '閉じる',
+    'batch.apply': '{count} 件のリネームを適用',
+    'activity.title': 'H1Aligner アクティビティ（このセッション）',
+    'activity.empty': 'このセッションのリネーム記録はまだありません。',
+    'onboard.title': 'H1Aligner — 一方向の原則',
+    'onboard.body1':
+        'このプラグインはファイル名を最初の H1 に合わせてリネームします。方向は一方向のみ：H1 が常に唯一の基準です。H1 と異なる手動リネームは、次のトリガー時に元へ戻されます。',
+    'onboard.body2':
+        '日付名のデイリーノートはデフォルトで保護されます。個別のノートはフロントマターに「h1aligner-lock: true」を追加すれば除外できます。設定は後からいつでも変更できます。',
+    'onboard.keepAuto': '自動のまま使う（ファイルを開いたとき）',
+    'onboard.manualOnly': 'まずは手動のみで使う',
+    'set.trigger.name': 'リネームのトリガー',
+    'set.trigger.desc':
+        '自動リネームのタイミング。「ファイルを開いたとき」はノートに切り替えた時、「編集後」は入力が止まった後、「手動のみ」はコマンド実行時のみリネームします。',
+    'set.trigger.fileOpen': 'ファイルを開いたとき',
+    'set.trigger.edit': '編集後（遅延実行）',
+    'set.trigger.manual': '手動のみ',
+    'set.scope.heading': '適用範囲',
+    'set.ignore.name': '除外フォルダ',
+    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致）。デフォルト：.obsidian, .trash',
+    'set.include.name': '対象をこれらのフォルダに限定',
+    'set.include.desc':
+        'カンマ区切りのホワイトリスト。指定すると、これらのフォルダ内のノート「のみ」リネームされます。空欄で保管庫全体が対象になります。',
+    'set.exclude.name': '除外ファイル名パターン',
+    'set.exclude.desc':
+        '1 行につき 1 つの正規表現。ノート名（.md を除く）と照合します。アンカーなしの部分一致 — 完全一致には ^ と $ を使ってください。一致したノートは自動リネームされません（手動コマンドは使用可能）。デフォルトは日付名のデイリーノートを保護します。',
+    'set.lock.name': 'フロントマターのロックを尊重',
+    'set.lock.desc':
+        'フロントマターに「h1aligner-lock: true」があるノートをスキップします。ノート単位で除外できます。',
+    'set.naming.heading': '命名規則',
+    'set.template.name': 'ファイル名テンプレート',
+    'set.template.desc':
+        'トークン：{{h1}}（見出し — 必須。含まないテンプレートは {{h1}} として扱われます）、{{date}}（ファイル作成日、YYYY-MM-DD）、{{date:書式}} は YYYY/MM/DD/HH/mm/ss に対応。作成日を使うためリネームは安定します。デフォルト：{{h1}}',
+    'set.collision.name': 'リネーム先の名前が既にあるとき',
+    'set.collision.desc': '「スキップ」は何もしません。「番号を付ける」は空いている " 1"、" 2"… を付加します。',
+    'set.collision.skip': 'スキップ（安全なデフォルト）',
+    'set.collision.number': '番号を付ける',
+    'set.caseOnly.name': '大文字小文字のみの変更を許可',
+    'set.caseOnly.desc':
+        '大文字小文字だけが異なる場合もリネームします（例：「linker.md」→「Linker.md」）。オフにするとファイルツリーの揺れを防げます。',
+    'set.alias.name': '旧ファイル名をエイリアスとして保存',
+    'set.alias.desc':
+        'リネーム後、旧ファイル名をノートのフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消してもエイリアスは削除されません。',
+    'set.trim.name': '空白のトリム',
+    'set.trim.desc': 'H1 テキストの前後の空白を除去します。',
+    'set.replace.name': '使用できない文字の置換',
+    'set.replace.desc':
+        'Windows で無効な文字（\\ / : * ? " < > |）や Obsidian のリンクを壊す文字（# ^ [ ]）を置換文字に置き換えます。パス区切り文字は常に置換されます。',
+    'set.replChar.name': '置換文字',
+    'set.replChar.desc':
+        '使用できない文字を置き換える 1 文字（使用できない文字自体は拒否されます。空欄にすると削除になります）。デフォルト：半角スペース。',
+    'set.maxLen.name': 'ファイル名の最大長',
+    'set.maxLen.desc':
+        'この文字数を超えるファイル名を切り詰めます（1-255。さらにファイルシステム互換のため常に 255 バイト上限が適用されます）。デフォルト：150。',
+    'set.preview.name': 'プレビュー',
+    'set.preview.desc':
+        'サンプルの H1 を入力すると、現在の設定で生成されるファイル名を表示します。日付トークンは現在時刻でプレビューされます。実際のリネームでは各ファイルの作成日時を使用します。',
+    'set.preview.empty': '→（サニタイズ後に空 — スキップされます）',
+    'set.notif.heading': '通知',
+    'set.notice.name': '通知レベル',
+    'set.notice.desc':
+        '自動リネームのみに適用。「オフ」は通知なし。「エラーのみ」は失敗のみ報告。「すべて」は成功したリネームも通知します。手動コマンドと一括適用は常に報告されます。',
+    'set.notice.off': 'オフ（静か）',
+    'set.notice.errors': 'エラーのみ',
+    'set.notice.all': 'すべてのリネーム',
+    'set.adv.heading': '詳細設定',
+    'set.debounceOpen.name': 'ファイルを開いたときの遅延（ミリ秒）',
+    'set.debounceOpen.desc': 'ファイルを開いてからリネームするまでの待ち時間。デフォルト：100。',
+    'set.debounceEdit.name': '編集後の遅延（ミリ秒）',
+    'set.debounceEdit.desc':
+        '「編集後」リネームが実行されるまでに必要な入力停止時間。入力中のリネームは邪魔になるため、余裕を持たせてください。デフォルト：2000。',
+};
+
+export const LOCALES = { en, 'zh-tw': zhTW, ja };
 
 /** Obsidian stores its UI language in localStorage 'language' ('' = en). */
 export function detectLanguage(): string | null {
@@ -221,8 +317,11 @@ export function detectLanguage(): string | null {
     return null;
 }
 
-export function resolveLocale(lang: string | null): 'en' | 'zh-tw' {
-    return lang && lang.toLowerCase() === 'zh-tw' ? 'zh-tw' : 'en';
+export function resolveLocale(lang: string | null): 'en' | 'zh-tw' | 'ja' {
+    const l = lang ? lang.toLowerCase() : '';
+    if (l === 'zh-tw') return 'zh-tw';
+    if (l === 'ja') return 'ja';
+    return 'en';
 }
 
 export function t(key: LocaleKey, vars?: Record<string, string | number>): string {

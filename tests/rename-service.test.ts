@@ -27,7 +27,7 @@ function makeFile(opts: { basename: string; folder?: string; ext?: string }): Fa
 interface FakeApp {
     metadataCache: { getFileCache: ReturnType<typeof vi.fn> };
     vault: {
-        read: ReturnType<typeof vi.fn>;
+        cachedRead: ReturnType<typeof vi.fn>;
         getAbstractFileByPath: ReturnType<typeof vi.fn>;
     };
     fileManager: { renameFile: ReturnType<typeof vi.fn> };
@@ -37,7 +37,7 @@ function makeApp(): FakeApp {
     return {
         metadataCache: { getFileCache: vi.fn().mockReturnValue(null) },
         vault: {
-            read: vi.fn().mockResolvedValue(''),
+            cachedRead: vi.fn().mockResolvedValue(''),
             getAbstractFileByPath: vi.fn().mockReturnValue(null),
         },
         fileManager: { renameFile: vi.fn().mockResolvedValue(undefined) },
@@ -76,15 +76,54 @@ describe('RenameService', () => {
             expect(app.fileManager.renameFile).toHaveBeenCalledOnce();
         });
 
-        it('falls back to vault.read when cache has no H1', async () => {
+        it('falls back to vault.cachedRead when cache has no H1', async () => {
             const file = makeFile({ basename: 'doc' });
             app.metadataCache.getFileCache.mockReturnValue(null);
-            app.vault.read.mockResolvedValue('# From Scan\nbody');
+            app.vault.cachedRead.mockResolvedValue('# From Scan\nbody');
             const svc = new RenameService(app as any, () => settings);
             const out = await svc.renameFromH1(file as any);
             expect(out.skipped).toBe('none');
             expect(out.newName).toBe('From Scan');
-            expect(app.vault.read).toHaveBeenCalled();
+            expect(app.vault.cachedRead).toHaveBeenCalled();
+        });
+
+        it('reads content when the only cached H1 trims to empty (contract with extractFirstH1)', async () => {
+            const file = makeFile({ basename: 'doc' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: '   ' }],
+            });
+            app.vault.cachedRead.mockResolvedValue('# Real Title\nbody');
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(app.vault.cachedRead).toHaveBeenCalled();
+            expect(out.skipped).toBe('none');
+            expect(out.newName).toBe('Real Title');
+        });
+
+        it('does not read content when the cache has a usable H1 after an empty one', async () => {
+            const file = makeFile({ basename: 'doc' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [
+                    { level: 1, heading: '   ' },
+                    { level: 1, heading: 'Usable' },
+                ],
+            });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(app.vault.cachedRead).not.toHaveBeenCalled();
+            expect(out.newName).toBe('Usable');
+        });
+
+        it('caps the final filename to 255 UTF-8 bytes including extension', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: '標'.repeat(150) }],
+            });
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+            const newPath = app.fileManager.renameFile.mock.calls[0][1] as string;
+            expect(new TextEncoder().encode(newPath).length).toBeLessThanOrEqual(255);
         });
 
         it('keeps file in subfolder when renaming', async () => {
@@ -101,7 +140,7 @@ describe('RenameService', () => {
     describe('4-layer protection', () => {
         it('L1 no-h1: skips when neither cache nor content has H1', async () => {
             const file = makeFile({ basename: 'doc' });
-            // cache=null, vault.read='' (default mocks)
+            // cache=null, vault.cachedRead='' (default mocks)
             const svc = new RenameService(app as any, () => settings);
             const out = await svc.renameFromH1(file as any);
             expect(out.skipped).toBe('no-h1');
@@ -142,6 +181,65 @@ describe('RenameService', () => {
             expect(out.skipped).toBe('collision');
             expect(out.newName).toBe('Renamed');
             expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('L4 collision: catches case-insensitive sibling conflicts (NTFS/APFS semantics)', async () => {
+            const file = makeFile({ basename: 'note', folder: 'notes' });
+            const sibling = makeFile({ basename: 'Readme', folder: 'notes' });
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'README' }],
+            });
+            // exact-path index lookup misses (index stores 'Readme.md')
+            app.vault.getAbstractFileByPath.mockReturnValue(null);
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('collision');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('L4 collision: catches NFC/NFD-equivalent sibling conflicts (APFS semantics)', async () => {
+            const file = makeFile({ basename: 'note', folder: 'notes' });
+            const sibling = makeFile({ basename: 'café', folder: 'notes' }); // NFD café
+            (file.parent as any).children = [file, sibling];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'café' }], // NFC café
+            });
+            app.vault.getAbstractFileByPath.mockReturnValue(null);
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('collision');
+        });
+
+        it('L4 collision: still allows the documented case-only self-rename', async () => {
+            const file = makeFile({ basename: 'linker', folder: 'notes' });
+            (file.parent as any).children = [file];
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Linker' }],
+            });
+            app.vault.getAbstractFileByPath.mockReturnValue(null);
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+            expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, 'notes/Linker.md');
+        });
+
+        it('rejects a newBase that still contains a path separator (defence in depth)', async () => {
+            const file = makeFile({ basename: 'doc' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Project/Alpha' }],
+            });
+            const custom = { ...settings, replaceIllegalCharacters: false };
+            const svc = new RenameService(app as any, () => custom);
+            const out = await svc.renameFromH1(file as any);
+            // sanitizeFileName now strips separators unconditionally, so this
+            // renames to a flat sibling — never a cross-folder move.
+            const target = app.fileManager.renameFile.mock.calls[0]?.[1] as string | undefined;
+            if (target !== undefined) {
+                expect(target).toBe('Project Alpha.md');
+            } else {
+                expect(out.skipped).not.toBe('none');
+            }
         });
 
         it('L4 collision: does NOT trigger when getAbstractFileByPath returns the file itself', async () => {
@@ -217,10 +315,10 @@ describe('RenameService', () => {
             expect(out.error?.message).toBe('disk full');
         });
 
-        it('captures vault.read error gracefully (treats as no content)', async () => {
+        it('captures vault.cachedRead error gracefully (treats as no content)', async () => {
             const file = makeFile({ basename: 'doc' });
             app.metadataCache.getFileCache.mockReturnValue(null);
-            app.vault.read.mockRejectedValue(new Error('read fail'));
+            app.vault.cachedRead.mockRejectedValue(new Error('read fail'));
             const svc = new RenameService(app as any, () => settings);
             const out = await svc.renameFromH1(file as any);
             // No content + no cache → L1 no-h1

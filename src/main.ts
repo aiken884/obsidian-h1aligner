@@ -1,28 +1,33 @@
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Plugin, TFile, normalizePath } from 'obsidian';
 import { RenameService } from './rename-service';
-import { DEFAULT_SETTINGS, H1AlignerSettings } from './settings';
+import { DEFAULT_SETTINGS, H1AlignerSettings, normalizeSettings } from './settings';
 import { H1AlignerSettingTab } from './settings-tab';
+import { isIgnoredPath } from './ignore';
+import { KeyedDebouncer } from './debounce';
+import { noticeFor } from './notice';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
  *
- * Phase 1 MVP responsibilities:
- *   1. Load/save settings (Plugin.loadData/saveData).
+ * Responsibilities:
+ *   1. Load/save settings (Plugin.loadData/saveData, validated by
+ *      normalizeSettings against corrupt data.json).
  *   2. Register SettingTab.
  *   3. Subscribe to workspace `file-open` via `registerEvent`
  *      (per PPLX Q2 — registerEvent prevents memory leaks on unload).
  *   4. Filter eligible files (`.md` + not in ignoreFolders prefix per Q4).
  *   5. Per-file debounce 100ms (PPLX Q5: 50-150ms burst coalescing).
  *   6. Delegate to RenameService (serial mutex + 4-layer guard).
- *   7. Quiet by default (Q2); show Notice only when settings.showNoticeOnRename.
+ *   7. Quiet by default (Q2); notice policy lives in noticeFor().
  *   8. Manual command "Rename active file from first H1" (bypasses debounce
  *      and the renameOnFileOpen switch — but still honours ignoreFolders).
  */
 export default class H1AlignerPlugin extends Plugin {
+    private static readonly DEBOUNCE_MS = 100;
+
     settings: H1AlignerSettings = { ...DEFAULT_SETTINGS };
     private renameService!: RenameService;
-    private readonly debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
-    private static readonly DEBOUNCE_MS = 100;
+    private readonly debouncer = new KeyedDebouncer(H1AlignerPlugin.DEBOUNCE_MS);
 
     async onload(): Promise<void> {
         await this.loadSettings();
@@ -49,14 +54,10 @@ export default class H1AlignerPlugin extends Plugin {
                 return true;
             },
         });
-
-        console.log('[H1Aligner] loaded');
     }
 
     onunload(): void {
-        for (const t of this.debounceTimers.values()) clearTimeout(t);
-        this.debounceTimers.clear();
-        console.log('[H1Aligner] unloaded');
+        this.debouncer.cancelAll();
     }
 
     private onFileOpen(file: TFile | null): void {
@@ -66,56 +67,28 @@ export default class H1AlignerPlugin extends Plugin {
         if (this.isIgnored(file.path)) return;
 
         // Per-file debounce — coalesce rapid file-switch bursts
-        const key = file.path;
-        const existing = this.debounceTimers.get(key);
-        if (existing) clearTimeout(existing);
-
-        const timer = setTimeout(() => {
-            this.debounceTimers.delete(key);
+        this.debouncer.schedule(file.path, () => {
             void this.triggerRename(file, /* manual */ false);
-        }, H1AlignerPlugin.DEBOUNCE_MS);
-        this.debounceTimers.set(key, timer);
+        });
     }
 
-    /**
-     * Q4 ignoreFolders — prefix match.
-     * Treat each entry as a folder prefix; match if path === prefix
-     * or path starts with `prefix + '/'`.
-     */
+    /** Q4 ignoreFolders — prefix match on normalized vault paths. */
     private isIgnored(path: string): boolean {
-        for (const raw of this.settings.ignoreFolders) {
-            if (!raw) continue;
-            const prefix = raw.endsWith('/') ? raw.slice(0, -1) : raw;
-            if (path === prefix) return true;
-            if (path.startsWith(prefix + '/')) return true;
-        }
-        return false;
+        const folders = this.settings.ignoreFolders.map((f) => normalizePath(f));
+        return isIgnoredPath(path, folders);
     }
 
     private async triggerRename(file: TFile, manual: boolean): Promise<void> {
         const outcome = await this.renameService.renameFromH1(file);
-
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
-            if (this.settings.showNoticeOnRename || manual) {
-                new Notice(`H1Aligner error: ${outcome.error.message}`);
-            }
-            return;
         }
-
-        if (this.settings.showNoticeOnRename || manual) {
-            if (outcome.skipped === 'none' && outcome.newName) {
-                new Notice(`H1Aligner: renamed → ${outcome.newName}`);
-            } else if (manual) {
-                new Notice(`H1Aligner: skipped (${outcome.skipped})`);
-            }
-        }
+        const message = noticeFor(outcome, manual, this.settings.showNoticeOnRename);
+        if (message) new Notice(message);
     }
 
     async loadSettings(): Promise<void> {
-        const raw = await this.loadData();
-        const partial = (raw ?? {}) as Partial<H1AlignerSettings>;
-        this.settings = { ...DEFAULT_SETTINGS, ...partial };
+        this.settings = normalizeSettings(await this.loadData());
     }
 
     async saveSettings(): Promise<void> {

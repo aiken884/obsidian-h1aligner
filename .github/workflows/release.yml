@@ -1,0 +1,39 @@
+name: Release Obsidian plugin
+
+# Trigger: push an un-prefixed version tag, e.g. `git push origin 0.1.0`.
+# The Obsidian community plugin loader requires the release tag to exactly
+# match manifest.json's version — no `v` prefix.
+on:
+  push:
+    tags: ["*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build plugin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Create draft release with plugin assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title="$tag" \
+            --draft \
+            main.js manifest.json

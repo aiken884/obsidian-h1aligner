@@ -2,10 +2,17 @@
  * settings-tab.ts — Obsidian SettingTab UI for H1Aligner.
  *
  * Split out from settings.ts so that the pure schema/defaults module remains
- * vitest-loadable without an `obsidian` stub.
+ * vitest-loadable without an `obsidian` stub. Input parsing/validation lives
+ * in settings.ts (parseIgnoreFolders, parseMaxFilenameLength) and
+ * filename.ts (cleanReplacementChar) so it is unit-testable.
+ *
+ * UI guidelines: no top-level plugin-name heading, section headings via
+ * Setting.setHeading(), sentence case names.
  */
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type H1AlignerPlugin from './main';
+import { parseIgnoreFolders, parseMaxFilenameLength } from './settings';
+import { cleanReplacementChar } from './filename';
 
 export class H1AlignerSettingTab extends PluginSettingTab {
     private readonly plugin: H1AlignerPlugin;
@@ -18,8 +25,6 @@ export class H1AlignerSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-
-        containerEl.createEl('h2', { text: 'H1Aligner' });
 
         new Setting(containerEl)
             .setName('Rename on file open')
@@ -47,7 +52,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     }),
             );
 
-        containerEl.createEl('h3', { text: 'Filename sanitisation' });
+        new Setting(containerEl).setName('Filename sanitisation').setHeading();
 
         new Setting(containerEl)
             .setName('Trim whitespace')
@@ -64,7 +69,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName('Replace illegal characters')
             .setDesc(
-                'Replace Windows-illegal characters \\ / : * ? " < > | with the replacement character.',
+                'Replace characters that are invalid on Windows (\\ / : * ? " < > |) or break Obsidian links (# ^ [ ]) with the replacement character.',
             )
             .addToggle((t) =>
                 t
@@ -77,27 +82,37 @@ export class H1AlignerSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Replacement character')
-            .setDesc('Character used to replace illegal characters. Default: single space.')
+            .setDesc(
+                'Single character used to replace illegal characters (illegal characters themselves are rejected; leave empty to delete instead). Default: single space.',
+            )
             .addText((t) =>
                 t
                     .setPlaceholder(' ')
                     .setValue(this.plugin.settings.illegalReplacementChar)
                     .onChange(async (v) => {
-                        this.plugin.settings.illegalReplacementChar = v;
+                        const cleaned = cleanReplacementChar(v);
+                        // Keep the field showing what will actually be used
+                        // (setValue does not re-fire onChange).
+                        if (cleaned !== v) t.setValue(cleaned);
+                        this.plugin.settings.illegalReplacementChar = cleaned;
                         await this.plugin.saveSettings();
                     }),
             );
 
         new Setting(containerEl)
             .setName('Maximum filename length')
-            .setDesc('Truncate filenames longer than this many characters. Default: 150.')
+            .setDesc(
+                'Truncate filenames longer than this many characters (1-255; filenames are additionally capped at 255 bytes for filesystem compatibility). Default: 150.',
+            )
             .addText((t) =>
                 t
                     .setPlaceholder('150')
                     .setValue(String(this.plugin.settings.maxFilenameLength))
                     .onChange(async (v) => {
-                        const n = parseInt(v, 10);
-                        if (!Number.isNaN(n) && n > 0) {
+                        const n = parseMaxFilenameLength(v);
+                        if (n !== null) {
+                            // Reflect clamping (e.g. 300 -> 255) in the field.
+                            if (String(n) !== v.trim()) t.setValue(String(n));
                             this.plugin.settings.maxFilenameLength = n;
                             await this.plugin.saveSettings();
                         }
@@ -114,10 +129,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     .setPlaceholder('.obsidian, .trash')
                     .setValue(this.plugin.settings.ignoreFolders.join(', '))
                     .onChange(async (v) => {
-                        this.plugin.settings.ignoreFolders = v
-                            .split(',')
-                            .map((s) => s.trim())
-                            .filter((s) => s.length > 0);
+                        this.plugin.settings.ignoreFolders = parseIgnoreFolders(v);
                         await this.plugin.saveSettings();
                     }),
             );

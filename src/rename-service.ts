@@ -36,6 +36,12 @@ export interface RenameOutcome {
     error?: Error;
 }
 
+/** Case-fold + NFC-normalize a file name for collision comparison. */
+function foldName(name: string): string {
+    try { name = name.normalize('NFC'); } catch { /* no Intl normalize */ }
+    return name.toLowerCase();
+}
+
 export class RenameService {
     private readonly processingFiles: Set<string> = new Set();
     private chain: Promise<unknown> = Promise.resolve();
@@ -67,15 +73,23 @@ export class RenameService {
         try {
             const settings = this.getSettings();
 
-            // Extract H1 — cache first, fall back to file read
+            // Extract H1 — cache first, fall back to file read.
+            // "Usable" mirrors extractFirstH1's Strategy A: a level-1 heading
+            // whose text is non-empty after trim. Anything less and the scan
+            // fallback needs real content to work with.
             const cache = this.app.metadataCache.getFileCache(file);
             let content: string | undefined;
-            const cacheHasH1 = Boolean(
-                cache && cache.headings && cache.headings.some((h) => h.level === 1),
+            const cacheHasUsableH1 = Boolean(
+                cache && cache.headings && cache.headings.some(
+                    (h) =>
+                        h.level === 1 &&
+                        typeof h.heading === 'string' &&
+                        h.heading.trim().length > 0,
+                ),
             );
-            if (!cacheHasH1) {
+            if (!cacheHasUsableH1) {
                 try {
-                    content = await this.app.vault.read(file);
+                    content = await this.app.vault.cachedRead(file);
                 } catch {
                     content = undefined;
                 }
@@ -87,12 +101,15 @@ export class RenameService {
                 return { skipped: 'no-h1', newName: null };
             }
 
-            // Sanitize
+            // Sanitize — byte budget keeps base + '.' + ext within the
+            // 255-byte NAME_MAX shared by APFS, ext4/f2fs and NTFS.
+            const ext = file.extension || 'md';
             const newBase = sanitizeFileName(h1, {
                 trimWhitespace: settings.trimWhitespace,
                 replaceIllegalCharacters: settings.replaceIllegalCharacters,
                 illegalReplacementChar: settings.illegalReplacementChar,
                 maxLength: settings.maxFilenameLength,
+                maxBytes: 255 - (ext.length + 1),
             });
 
             // L2: Empty after sanitize
@@ -107,14 +124,30 @@ export class RenameService {
 
             // Build new path
             const parentPath = file.parent ? file.parent.path : '';
-            const ext = file.extension || 'md';
             const newPath = (parentPath && parentPath !== '/' ? parentPath + '/' : '') +
                 newBase + '.' + ext;
 
-            // L4: Collision (sibling with same path that isn't us)
+            // L4: Collision. Exact-path index lookup first; then a case- and
+            // NFC-insensitive sibling scan, because NTFS and APFS resolve
+            // names case-insensitively (APFS also normalization-insensitively)
+            // while getAbstractFileByPath is case-sensitive — an index miss
+            // does not mean the destination is free. The file itself is
+            // exempt: case-only self-renames are a documented feature.
             const existing = this.app.vault.getAbstractFileByPath(newPath);
             if (existing && existing.path !== file.path) {
                 return { skipped: 'collision', newName: newBase };
+            }
+            const targetKey = foldName(newBase + '.' + ext);
+            const siblings: unknown = file.parent
+                ? (file.parent as { children?: unknown }).children
+                : undefined;
+            if (Array.isArray(siblings)) {
+                for (const sib of siblings as Array<{ name?: unknown }>) {
+                    if ((sib as unknown) === (file as unknown)) continue;
+                    if (typeof sib.name === 'string' && foldName(sib.name) === targetKey) {
+                        return { skipped: 'collision', newName: newBase };
+                    }
+                }
             }
 
             // Execute — fileManager.renameFile updates backlinks atomically

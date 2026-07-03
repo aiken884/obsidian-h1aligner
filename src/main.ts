@@ -7,43 +7,65 @@ import { isIgnoredPath } from './ignore';
 import { KeyedDebouncer } from './debounce';
 import { noticeFor } from './notice';
 import { RenameHistory } from './history';
+import { ActivityLog, ActivitySource } from './activity-log';
+import { ActivityModal } from './activity-modal';
+import { OnboardingModal } from './onboarding-modal';
 import { BatchPreviewModal, BatchItem } from './batch-modal';
+import { t } from './i18n';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
  *
  * Responsibilities:
  *   1. Load/save settings (validated by normalizeSettings, v1 data migrated).
- *   2. Register SettingTab.
+ *   2. Register SettingTab; show the one-time onboarding modal on first run.
  *   3. Trigger wiring: 'file-open' (debounced burst coalescing), 'edit'
- *      (vault modify, long debounce, ACTIVE FILE ONLY — programmatic writes
- *      such as backlink updates after our own renames also emit modify, and
- *      reacting to those would cascade renames through the vault), or
- *      'manual' (command only). Debounce callbacks re-validate the trigger
- *      mode and scope at fire time, so changing settings cancels stale work.
+ *      (editor-change — local typing only, never Sync/programmatic writes),
+ *      or 'manual' (command only). Debounce callbacks re-validate the
+ *      trigger mode and scope at fire time.
  *   4. Scope filter: .md + ignore/include folders + basename exclude patterns.
- *      The MANUAL command deliberately bypasses include/exclude scope —
- *      an explicit user action is consent — but still honours ignoreFolders
- *      (and the frontmatter lock, enforced in the service).
- *   5. Delegate to RenameService (serial mutex + guard layers).
+ *      The MANUAL command bypasses include/exclude scope (explicit action is
+ *      consent) but still honours ignoreFolders (and the frontmatter lock).
+ *   5. Delegate to RenameService (serial mutex + guard layers); every
+ *      decision is recorded in the session ActivityLog.
  *   6. Notice policy lives in noticeFor(); manual actions always report.
- *   7. Commands: manual rename, batch dry-run preview, undo last rename.
+ *   7. Commands: manual rename, batch dry-run preview, undo, show activity.
  */
 export default class H1AlignerPlugin extends Plugin {
     settings: H1AlignerSettings = { ...DEFAULT_SETTINGS };
     private renameService!: RenameService;
     private readonly history = new RenameHistory(20);
+    private readonly activity = new ActivityLog(200);
     private readonly debouncer = new KeyedDebouncer(DEFAULT_SETTINGS.fileOpenDebounceMs);
 
     async onload(): Promise<void> {
-        await this.loadSettings();
+        const raw = await this.loadData();
+        this.settings = normalizeSettings(raw);
         this.renameService = new RenameService(this.app, () => this.settings, this.history);
 
         this.addSettingTab(new H1AlignerSettingTab(this.app, this));
 
+        if (!this.settings.onboardingShown) {
+            if (raw == null) {
+                // Fresh install: ask before the first automatic rename.
+                // Automatic triggers stay gated until onboardingShown is set.
+                new OnboardingModal(this.app, async (trigger) => {
+                    if (trigger !== null) this.settings.renameTrigger = trigger;
+                    this.settings.onboardingShown = true;
+                    await this.saveSettings();
+                }).open();
+            } else {
+                // Upgrade from ≤0.4: the user already runs the plugin with
+                // their chosen settings — never re-ask or rewrite them.
+                this.settings.onboardingShown = true;
+                await this.saveSettings();
+            }
+        }
+
         // file-open trigger — registerEvent required to avoid leaks
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
+                if (!this.settings.onboardingShown) return; // consent pending
                 if (this.settings.renameTrigger !== 'file-open') return;
                 this.scheduleRename(file, this.settings.fileOpenDebounceMs, 'file-open');
             }),
@@ -57,6 +79,7 @@ export default class H1AlignerPlugin extends Plugin {
         // which would otherwise cascade or rename from half-typed remote H1s.
         this.registerEvent(
             this.app.workspace.on('editor-change', (_editor, info) => {
+                if (!this.settings.onboardingShown) return; // consent pending
                 if (this.settings.renameTrigger !== 'edit') return;
                 const file = (info as { file?: TFile | null } | null)?.file ?? null;
                 if (!(file instanceof TFile)) return;
@@ -68,12 +91,12 @@ export default class H1AlignerPlugin extends Plugin {
         // exclude scope (explicit user action); still honours ignoreFolders.
         this.addCommand({
             id: 'rename-active-file-from-h1',
-            name: 'Rename active file from first H1',
+            name: t('cmd.renameActive'),
             checkCallback: (checking: boolean) => {
                 const file = this.app.workspace.getActiveFile();
                 if (!file || !this.manualEligible(file)) return false;
                 if (!checking) {
-                    void this.triggerRename(file, /* manual */ true);
+                    void this.triggerRename(file, /* manual */ true, 'manual');
                 }
                 return true;
             },
@@ -81,14 +104,20 @@ export default class H1AlignerPlugin extends Plugin {
 
         this.addCommand({
             id: 'batch-preview-renames',
-            name: 'Preview all renames (dry run)',
+            name: t('cmd.batchPreview'),
             callback: () => void this.openBatchPreview(),
         });
 
         this.addCommand({
             id: 'undo-last-rename',
-            name: 'Undo last rename',
+            name: t('cmd.undo'),
             callback: () => void this.undoLastRename(),
+        });
+
+        this.addCommand({
+            id: 'show-activity',
+            name: t('cmd.showActivity'),
+            callback: () => new ActivityModal(this.app, this.activity).open(),
         });
     }
 
@@ -104,7 +133,7 @@ export default class H1AlignerPlugin extends Plugin {
     private scheduleRename(
         file: TFile | null,
         delayMs: number,
-        expectedTrigger: H1AlignerSettings['renameTrigger'],
+        expectedTrigger: 'file-open' | 'edit',
     ): void {
         if (!file || !this.shouldProcess(file)) return;
         this.debouncer.schedule(
@@ -114,7 +143,7 @@ export default class H1AlignerPlugin extends Plugin {
                 // trigger mode or moved the file out of scope meanwhile.
                 if (this.settings.renameTrigger !== expectedTrigger) return;
                 if (!this.shouldProcess(file)) return;
-                void this.triggerRename(file, /* manual */ false);
+                void this.triggerRename(file, /* manual */ false, expectedTrigger);
             },
             delayMs,
         );
@@ -139,11 +168,28 @@ export default class H1AlignerPlugin extends Plugin {
         );
     }
 
-    private async triggerRename(file: TFile, manual: boolean): Promise<void> {
+    private async triggerRename(
+        file: TFile,
+        manual: boolean,
+        source: ActivitySource,
+    ): Promise<void> {
+        const path = file.path;
         const outcome = await this.renameService.renameFromH1(file);
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
         }
+        this.activity.record({
+            ts: Date.now(),
+            path,
+            source,
+            outcome: outcome.error
+                ? 'error'
+                : outcome.skipped === 'none'
+                    ? 'renamed'
+                    : outcome.skipped,
+            newName: outcome.newName ?? undefined,
+            detail: outcome.error?.message,
+        });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
         if (message) new Notice(message);
     }
@@ -152,7 +198,7 @@ export default class H1AlignerPlugin extends Plugin {
 
     private async openBatchPreview(): Promise<void> {
         if (this.batchInFlight) {
-            new Notice('H1Aligner: a batch scan is already running');
+            new Notice(t('notice.batchRunning'));
             return;
         }
         this.batchInFlight = true;
@@ -166,7 +212,7 @@ export default class H1AlignerPlugin extends Plugin {
     private async runBatchPreview(): Promise<void> {
         const files = this.app.vault.getMarkdownFiles().filter((f) => this.shouldProcess(f));
         if (files.length > 200) {
-            new Notice(`H1Aligner: scanning ${files.length} notes…`);
+            new Notice(t('notice.scanning', { count: files.length }));
         }
         const items: BatchItem[] = [];
         // Duplicate H1s would all "claim" the same target; only the first
@@ -207,12 +253,24 @@ export default class H1AlignerPlugin extends Plugin {
                     continue;
                 }
                 const outcome = await this.renameService.renameFromH1(item.file);
+                this.activity.record({
+                    ts: Date.now(),
+                    path: item.from,
+                    source: 'batch',
+                    outcome: outcome.error
+                        ? 'error'
+                        : outcome.skipped === 'none'
+                            ? 'renamed'
+                            : outcome.skipped,
+                    newName: outcome.newName ?? undefined,
+                    detail: outcome.error?.message,
+                });
                 if (outcome.skipped === 'none' && !outcome.error) done++;
                 else failed++;
             }
-            const parts = [`H1Aligner: batch renamed ${done} file(s)`];
-            if (changed) parts.push(`${changed} skipped (changed since preview)`);
-            if (failed) parts.push(`${failed} skipped/failed`);
+            const parts = [t('notice.batchDone', { done })];
+            if (changed) parts.push(t('notice.batchChanged', { count: changed }));
+            if (failed) parts.push(t('notice.batchFailed', { count: failed }));
             new Notice(parts.join(', '));
         }).open();
     }
@@ -220,7 +278,7 @@ export default class H1AlignerPlugin extends Plugin {
     private async undoLastRename(): Promise<void> {
         const record = this.history.peek();
         if (!record) {
-            new Notice('H1Aligner: nothing to undo');
+            new Notice(t('notice.nothingToUndo'));
             return;
         }
         const file = this.app.vault.getAbstractFileByPath(record.to);
@@ -228,7 +286,7 @@ export default class H1AlignerPlugin extends Plugin {
         // moved away and an unrelated note now sits at record.to, undoing
         // would rename the stranger.
         if (!(file instanceof TFile) || (record.file !== undefined && record.file !== file)) {
-            new Notice('H1Aligner: cannot undo — file was moved or deleted');
+            new Notice(t('notice.undoMoved'));
             return;
         }
         // Occupancy check must be case- and NFC-insensitive (NTFS/APFS
@@ -242,7 +300,7 @@ export default class H1AlignerPlugin extends Plugin {
             );
         }
         if (occupied) {
-            new Notice('H1Aligner: cannot undo — original name is occupied');
+            new Notice(t('notice.undoOccupied'));
             return;
         }
         try {
@@ -250,10 +308,17 @@ export default class H1AlignerPlugin extends Plugin {
             // Pop only after success so a failed undo can be retried and
             // never silently discards (or misdirects) the history.
             this.history.pop();
-            new Notice(`H1Aligner: undone → ${record.from}`);
+            this.activity.record({
+                ts: Date.now(),
+                path: record.to,
+                source: 'undo',
+                outcome: 'renamed',
+                newName: fromName.replace(/\.[^.]+$/, ''),
+            });
+            new Notice(t('notice.undone', { path: record.from }));
         } catch (err) {
             console.error('[H1Aligner] undo failed:', err);
-            new Notice('H1Aligner: undo failed');
+            new Notice(t('notice.undoFailed'));
         }
     }
 

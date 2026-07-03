@@ -83,6 +83,7 @@ export class RenameService {
 
     private async runRename(file: TFile, dryRun: boolean): Promise<RenameOutcome> {
         const path = file.path;
+        const oldBasename = file.basename; // captured before renameFile mutates it
 
         if (this.processingFiles.has(path)) {
             return { skipped: 'in-progress', newName: null };
@@ -207,6 +208,35 @@ export class RenameService {
             // The live TFile goes into the record so undo can verify identity
             // (a path alone could later resolve to an unrelated new file).
             this.history?.push({ from: path, to: newPath, file });
+            // Optional: keep the old name findable via frontmatter aliases.
+            // Best-effort — an alias failure never fails the rename.
+            if (
+                settings.preserveOldNameAsAlias &&
+                foldName(oldBasename) !== foldName(finalBase)
+            ) {
+                try {
+                    await this.app.fileManager.processFrontMatter(
+                        file,
+                        (fm: Record<string, unknown>) => {
+                            const existing = fm.aliases;
+                            const list = Array.isArray(existing)
+                                ? existing
+                                : existing == null
+                                    ? []
+                                    : [existing];
+                            // String(a): YAML may parse an alias like 2025
+                            // as a number — it must still dedup.
+                            const already = list.some(
+                                (a) => foldName(String(a)) === foldName(oldBasename),
+                            );
+                            if (!already) list.push(oldBasename);
+                            fm.aliases = list;
+                        },
+                    );
+                } catch (err) {
+                    console.error('[H1Aligner] alias write failed:', err);
+                }
+            }
             return { skipped: 'none', newName: finalBase };
         } catch (err) {
             return {

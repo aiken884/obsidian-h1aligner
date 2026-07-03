@@ -87,6 +87,12 @@ function makeFakeApp() {
             getMarkdownFiles() { return [...files.values()].map((e) => e.file).filter((f) => f.extension === 'md'); },
         },
         fileManager: {
+            async processFrontMatter(file, cb) {
+                const e = files.get(file.path);
+                if (!e) throw new Error('ENOENT ' + file.path);
+                e.fm = e.fm || {};
+                cb(e.fm);
+            },
             async renameFile(file, newPath) {
                 renameCalls.push({ from: file.path, to: newPath });
                 files.delete(file.path);
@@ -138,8 +144,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(app._ws['file-open'], 'file-open handler registered');
     assert.ok(app._ws['editor-change'], 'editor-change handler registered');
     assert.equal(app._vault['modify'], undefined, 'no raw vault modify handler (sync/backlink writes ignored)');
-    assert.equal(plugin._commands.length, 3, 'three commands registered');
-    console.log('✓ 1. onload：settings v2 載入、file-open + modify 事件、3 個指令已註冊');
+    assert.equal(plugin._commands.length, 4, 'four commands registered');
+    const onboarding = global.__lastModal;
+    assert.ok(onboarding, 'onboarding modal shown on first run');
+    // Before the user answers, automatic triggers must stay gated.
+    const fgate = addFile(app, 'notes/pre-consent.md', '# Consent Gate\n', 'Consent Gate');
+    app._ws['file-open'](fgate);
+    await sleep(180);
+    assert.equal(app._renameCalls.length, 0, 'no auto-rename before onboarding consent');
+    const keepBtn = [...onboarding.contentEl.walk()].find((e) => e.tag === 'button' && e.text.includes('Keep automatic'));
+    assert.ok(keepBtn, 'keep-automatic button present');
+    keepBtn.listeners.click[0]();
+    onboarding.close();
+    await sleep(20);
+    assert.equal(plugin.settings.onboardingShown, true, 'onboarding flag persisted');
+    assert.equal(plugin.settings.renameTrigger, 'file-open', 'kept automatic trigger');
+    console.log('✓ 1. onload：settings v2、editor-change 事件、4 個指令、onboarding 首次顯示並保存選擇');
 
     // --- 2: happy path via cache (file-open trigger) ---
     const fa = addFile(app, 'notes/old-name.md', '# New Title\nbody', 'New Title');
@@ -321,15 +341,39 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(plugin2.settings.renameTrigger, 'manual', 'v1 renameOnFileOpen=false → manual');
     assert.equal(plugin2.settings.noticeLevel, 'all', 'v1 showNoticeOnRename=true → all');
     assert.equal(plugin2.settings.skipIfFrontmatterLock, true, 'v1 meaningless lock=false → new default true');
-    console.log('✓ 14. v1 data.json 遷移：trigger/noticeLevel/lock 正確轉換');
+    const app3 = makeFakeApp();
+    const plugin3 = new PluginClass(app3, { id: 'h1aligner' });
+    plugin3._data = { onboardingShown: true };
+    global.__lastModal = null;
+    await plugin3.onload();
+    assert.equal(global.__lastModal, null, 'onboarding not shown again once flagged');
+    console.log('✓ 14. v1 data.json 遷移正確；onboardingShown=true 不再顯示 onboarding');
 
-    // --- 15: unload cancels pending debounce ---
+    // --- 15: aliases + activity log ---
+    plugin.settings.preserveOldNameAsAlias = true;
+    const fal = addFile(app, 'notes/alias-src.md', '# Alias Target\n', 'Alias Target');
+    app._ws['file-open'](fal);
+    await sleep(180);
+    assert.ok(app._files.has('notes/Alias Target.md'), 'alias case renamed');
+    const fmEntry = app._files.get('notes/Alias Target.md').fm;
+    assert.deepEqual(fmEntry.aliases, ['alias-src'], 'old basename preserved as alias');
+    plugin.settings.preserveOldNameAsAlias = false;
+    const actCmd = plugin._commands.find((c) => c.id === 'show-activity');
+    actCmd.callback();
+    await sleep(20);
+    const actModal = global.__lastModal;
+    const actTexts = [...actModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(actTexts.some((t) => t.includes('notes/alias-src.md') && t.includes('Alias Target')), 'activity lists the rename');
+    assert.ok(actTexts.some((t) => t.includes('[file-open]')), 'activity records the trigger source');
+    console.log('✓ 15. aliases：舊檔名寫入 frontmatter；activity 紀錄含來源與結果');
+
+    // --- 16: unload cancels pending debounce ---
     const fg = addFile(app, 'notes/pending.md', '# Pending Rename\n', 'Pending Rename');
     app._ws['file-open'](fg);
     plugin.onunload();
     await sleep(180);
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/pending.md').length, 0, 'no rename after unload');
-    console.log('✓ 15. onunload 取消未觸發的 debounce → 卸載後不再改名');
+    console.log('✓ 16. onunload 取消未觸發的 debounce → 卸載後不再改名');
 
-    console.log('\nE2E smoke test: 15/15 scenarios passed（真實 production bundle main.js, v0.4.0）');
+    console.log('\nE2E smoke test: 16/16 scenarios passed（真實 production bundle main.js, v0.5.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

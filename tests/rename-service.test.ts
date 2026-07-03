@@ -32,7 +32,10 @@ interface FakeApp {
         cachedRead: ReturnType<typeof vi.fn>;
         getAbstractFileByPath: ReturnType<typeof vi.fn>;
     };
-    fileManager: { renameFile: ReturnType<typeof vi.fn> };
+    fileManager: {
+        renameFile: ReturnType<typeof vi.fn>;
+        processFrontMatter: ReturnType<typeof vi.fn>;
+    };
 }
 
 function makeApp(): FakeApp {
@@ -42,7 +45,10 @@ function makeApp(): FakeApp {
             cachedRead: vi.fn().mockResolvedValue(''),
             getAbstractFileByPath: vi.fn().mockReturnValue(null),
         },
-        fileManager: { renameFile: vi.fn().mockResolvedValue(undefined) },
+        fileManager: {
+            renameFile: vi.fn().mockResolvedValue(undefined),
+            processFrontMatter: vi.fn().mockResolvedValue(undefined),
+        },
     };
 }
 
@@ -541,6 +547,78 @@ describe('RenameService', () => {
             const svc = new RenameService(app as any, () => settings);
             const out = await svc.renameFromH1(file as any, { dryRun: true });
             expect(out.skipped).toBe('no-h1');
+        });
+    });
+
+    describe('preserve old name as alias', () => {
+        const withAlias = () => ({ ...settings, preserveOldNameAsAlias: true });
+
+        async function runAliasCase(app2: FakeApp, initialFm: Record<string, unknown>) {
+            const file = makeFile({ basename: 'old name' });
+            app2.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New Title' }],
+            });
+            const svc = new RenameService(app2 as any, withAlias);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+            expect(app2.fileManager.processFrontMatter).toHaveBeenCalledOnce();
+            const cb = app2.fileManager.processFrontMatter.mock.calls[0][1] as (
+                fm: Record<string, unknown>,
+            ) => void;
+            cb(initialFm);
+            return initialFm;
+        }
+
+        it('appends the old basename to aliases after a successful rename', async () => {
+            const fm = await runAliasCase(app, {});
+            expect(fm.aliases).toEqual(['old name']);
+        });
+
+        it('appends to an existing aliases array without duplicating', async () => {
+            const fm = await runAliasCase(app, { aliases: ['existing', 'old name'] });
+            expect(fm.aliases).toEqual(['existing', 'old name']);
+        });
+
+        it('normalises a scalar aliases value into an array', async () => {
+            const fm = await runAliasCase(app, { aliases: 'solo' });
+            expect(fm.aliases).toEqual(['solo', 'old name']);
+        });
+
+        it('does not add an alias equal to the new name (case-insensitive)', async () => {
+            const file = makeFile({ basename: 'new title' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New Title' }],
+            });
+            const svc = new RenameService(app as any, withAlias);
+            await svc.renameFromH1(file as any);
+            expect(app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+        });
+
+        it('does nothing when the setting is off, on dry runs, or on skips', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            const svcOff = new RenameService(app as any, () => settings);
+            await svcOff.renameFromH1(file as any);
+            expect(app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+
+            const file2 = makeFile({ basename: 'old2' });
+            const svcDry = new RenameService(app as any, withAlias);
+            await svcDry.renameFromH1(file2 as any, { dryRun: true });
+            expect(app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+        });
+
+        it('a failing frontmatter write does not fail the rename outcome', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            app.fileManager.processFrontMatter.mockRejectedValue(new Error('fm boom'));
+            const svc = new RenameService(app as any, withAlias);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('none');
+            expect(out.error).toBeUndefined();
         });
     });
 

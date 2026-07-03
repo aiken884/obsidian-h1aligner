@@ -42,6 +42,10 @@ export interface H1AlignerSettings {
     maxFilenameLength: number;
     // Notifications
     noticeLevel: NoticeLevel;
+    /** Append the pre-rename filename to frontmatter aliases. */
+    preserveOldNameAsAlias: boolean;
+    /** First-run onboarding modal already shown. */
+    onboardingShown: boolean;
 }
 
 export const DEFAULT_SETTINGS: H1AlignerSettings = {
@@ -61,6 +65,8 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
     illegalReplacementChar: ' ',
     maxFilenameLength: 150,
     noticeLevel: 'off',
+    preserveOldNameAsAlias: false,
+    onboardingShown: false,
 };
 
 /** Filename length ceiling: one UTF-8 byte per char is already NAME_MAX. */
@@ -150,6 +156,11 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
             MAX_FILENAME_LENGTH_CEILING,
         );
     }
+
+    if (typeof r.preserveOldNameAsAlias === 'boolean') {
+        out.preserveOldNameAsAlias = r.preserveOldNameAsAlias;
+    }
+    if (typeof r.onboardingShown === 'boolean') out.onboardingShown = r.onboardingShown;
 
     // Notifications
     if (LEVELS.includes(r.noticeLevel as NoticeLevel)) {

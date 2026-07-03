@@ -11,6 +11,7 @@
  */
 import type { RenameOutcome } from './rename-service';
 import type { NoticeLevel } from './settings';
+import { t } from './i18n';
 
 export function noticeFor(
     outcome: RenameOutcome,
@@ -19,13 +20,13 @@ export function noticeFor(
 ): string | null {
     if (outcome.error) {
         return manual || level === 'errors' || level === 'all'
-            ? `H1Aligner error: ${outcome.error.message}`
+            ? t('notice.error', { message: outcome.error.message })
             : null;
     }
     if (outcome.skipped === 'none' && outcome.newName) {
         return manual || level === 'all'
-            ? `H1Aligner: renamed → ${outcome.newName}`
+            ? t('notice.renamed', { name: outcome.newName })
             : null;
     }
-    return manual ? `H1Aligner: skipped (${outcome.skipped})` : null;
+    return manual ? t('notice.skipped', { reason: outcome.skipped }) : null;
 }

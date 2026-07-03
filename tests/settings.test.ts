@@ -44,6 +44,14 @@ describe('normalizeSettings', () => {
         expect(s.skipIfFrontmatterLock).toBe(false);
     });
 
+    it('handles the v0.5.0 fields (onboardingShown, preserveOldNameAsAlias)', () => {
+        expect(DEFAULT_SETTINGS.onboardingShown).toBe(false);
+        expect(DEFAULT_SETTINGS.preserveOldNameAsAlias).toBe(false);
+        expect(normalizeSettings({ onboardingShown: true }).onboardingShown).toBe(true);
+        expect(normalizeSettings({ preserveOldNameAsAlias: true }).preserveOldNameAsAlias).toBe(true);
+        expect(normalizeSettings({ onboardingShown: 'yes' }).onboardingShown).toBe(false);
+    });
+
     it('falls back to defaults for invalid enum values', () => {
         const s = normalizeSettings({ renameTrigger: 'nope', noticeLevel: 'loud', collisionStrategy: 'x' });
         expect(s.renameTrigger).toBe(DEFAULT_SETTINGS.renameTrigger);

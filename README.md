@@ -7,7 +7,7 @@
 H1Aligner watches `file-open` events in Obsidian, reads the first H1 (`# Title`) inside the file, and renames the file on disk to match. Quiet by default. No notices. No surprises.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-184%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-194%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -200,7 +200,7 @@ tests/
 
 ### Testing
 
-Vitest with 184 unit tests covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
+Vitest with 194 unit tests covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
 
 ```bash
 npm test

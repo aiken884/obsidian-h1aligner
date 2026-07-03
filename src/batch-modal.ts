@@ -41,16 +41,34 @@ export class BatchPreviewModal extends Modal {
         list.style.maxHeight = '50vh';
         list.style.overflowY = 'auto';
 
-        for (const item of this.items) {
+        // Renamable rows first (what Apply acts on), capped so a huge vault
+        // does not create tens of thousands of DOM nodes on mobile.
+        const MAX_ROWS = 500;
+        for (const item of renamable.slice(0, MAX_ROWS)) {
             const row = list.createEl('div');
             row.style.padding = '2px 0';
-            if (item.to !== null) {
-                row.createEl('span', { text: `${item.from} → ${item.to}.md` });
-            } else {
-                const span = row.createEl('span', {
-                    text: `${item.from} — skipped (${item.reason})`,
-                });
-                span.style.opacity = '0.6';
+            row.style.wordBreak = 'break-all';
+            row.createEl('span', { text: `${item.from} → ${item.to}.md` });
+        }
+        if (renamable.length > MAX_ROWS) {
+            const more = list.createEl('div', {
+                text: `…and ${renamable.length - MAX_ROWS} more rename(s)`,
+            });
+            more.style.opacity = '0.6';
+        }
+
+        // Skips collapse into per-reason counts — on a healthy vault they are
+        // thousands of 'same-name' rows that would drown the real renames.
+        const skipped = this.items.filter((i) => i.to === null);
+        if (skipped.length > 0) {
+            const counts = new Map<string, number>();
+            for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1);
+            const summary = list.createEl('div');
+            summary.style.marginTop = '0.5em';
+            summary.style.opacity = '0.6';
+            summary.createEl('div', { text: `Skipped ${skipped.length} note(s):` });
+            for (const [reason, count] of counts) {
+                summary.createEl('div', { text: `  ${count} × ${reason}` });
             }
         }
 

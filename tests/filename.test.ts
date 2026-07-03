@@ -165,6 +165,12 @@ describe('sanitizeFileName', () => {
             expect(sanitizeFileName('LPT')).toBe('LPT');
         });
 
+        it('never exceeds maxLength when the post-truncation guard would append', () => {
+            const r = sanitizeFileName('AUXES', { ...DEFAULT_SANITIZE_OPTS, maxLength: 3 });
+            expect(Array.from(r).length).toBeLessThanOrEqual(3);
+            expect(/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i.test(r)).toBe(false);
+        });
+
         it('guards reserved stems followed by a dot (AUX.notes)', () => {
             expect(sanitizeFileName('AUX.notes')).toBe('AUX_.notes');
             expect(sanitizeFileName('con.backup')).toBe('con_.backup');

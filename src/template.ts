@@ -16,7 +16,7 @@ export interface TemplateContext {
     ctime: number;
 }
 
-const DATE_TOKEN = /\{\{date(?::([^}]+))?\}\}/g;
+const DATE_TOKEN = /\{\{date(?::([^}]*))?\}\}/g;
 const H1_TOKEN = /\{\{h1\}\}/g;
 
 function formatDate(ts: number, fmt: string): string {
@@ -32,12 +32,15 @@ function formatDate(ts: number, fmt: string): string {
 }
 
 export function renderNameTemplate(template: string, ctx: TemplateContext): string {
-    const t =
-        typeof template === 'string' && template.includes('{{h1}}') ? template : '{{h1}}';
+    const t = typeof template === 'string' ? template : '';
     // Dates first, then h1 — so tokens inside the H1 text stay literal.
-    return t
-        .replace(DATE_TOKEN, (_m, fmt: string | undefined) =>
-            formatDate(ctx.ctime, fmt || 'YYYY-MM-DD'),
-        )
-        .replace(H1_TOKEN, () => ctx.h1);
+    const withDates = t.replace(DATE_TOKEN, (_m, fmt: string | undefined) =>
+        formatDate(ctx.ctime, fmt || 'YYYY-MM-DD'),
+    );
+    // The {{h1}} guard runs AFTER the date pass: a malformed template like
+    // '{{date:{{h1}} }}' contains the token textually but loses it during
+    // date substitution — rendering a CONSTANT name for every note. Any
+    // template that no longer carries the H1 falls back to the H1 alone.
+    if (!withDates.includes('{{h1}}')) return ctx.h1;
+    return withDates.replace(H1_TOKEN, () => ctx.h1);
 }

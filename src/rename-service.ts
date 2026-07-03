@@ -97,7 +97,12 @@ export class RenameService {
             if (settings.skipIfFrontmatterLock) {
                 const fm = cache?.frontmatter as Record<string, unknown> | undefined;
                 const lock = fm ? fm['h1aligner-lock'] : undefined;
-                if (lock === true || lock === 'true') {
+                // Case-insensitive on strings so quoted YAML ("True") agrees
+                // with the raw-content fallback scan.
+                if (
+                    lock === true ||
+                    (typeof lock === 'string' && lock.toLowerCase() === 'true')
+                ) {
                     return { skipped: 'locked', newName: null };
                 }
             }
@@ -199,7 +204,9 @@ export class RenameService {
 
             // Execute — fileManager.renameFile updates backlinks atomically
             await this.app.fileManager.renameFile(file, newPath);
-            this.history?.push({ from: path, to: newPath });
+            // The live TFile goes into the record so undo can verify identity
+            // (a path alone could later resolve to an unrelated new file).
+            this.history?.push({ from: path, to: newPath, file });
             return { skipped: 'none', newName: finalBase };
         } catch (err) {
             return {

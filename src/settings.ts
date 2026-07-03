@@ -114,8 +114,13 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
     if (ignore !== null) out.ignoreFolders = ignore;
     const include = cleanStringArray(r.includeFolders);
     if (include !== null) out.includeFolders = include;
-    const patterns = cleanStringArray(r.excludePatterns);
-    if (patterns !== null) out.excludePatterns = patterns;
+    // Patterns are kept VERBATIM (no trim): '^ ' means "starts with a
+    // space" — trimming it to '^' would exclude every file in the vault.
+    if (Array.isArray(r.excludePatterns)) {
+        out.excludePatterns = r.excludePatterns
+            .filter((x): x is string => typeof x === 'string')
+            .filter((x) => x.trim().length > 0);
+    }
     if (typeof r.skipIfFrontmatterLock === 'boolean' && !isV1) {
         out.skipIfFrontmatterLock = r.skipIfFrontmatterLock;
     }
@@ -164,12 +169,14 @@ export function parseIgnoreFolders(input: string): string[] {
         .filter((s) => s.length > 0);
 }
 
-/** Parse the newline-separated exclude-patterns textarea. */
+/**
+ * Parse the newline-separated exclude-patterns textarea. Lines are kept
+ * verbatim (regex whitespace is significant); whitespace-only lines drop.
+ */
 export function parseExcludePatterns(input: string): string[] {
     return input
         .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+        .filter((s) => s.trim().length > 0);
 }
 
 /**

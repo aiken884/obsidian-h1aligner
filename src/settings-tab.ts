@@ -288,6 +288,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     .setPlaceholder('100')
                     .setValue(String(this.plugin.settings.fileOpenDebounceMs))
                     .onChange(async (v) => {
+                        if (v.trim() === '') return; // Number('') is 0 — don't save mid-edit
                         const n = Number(v.trim());
                         if (Number.isFinite(n) && n >= 0 && n <= 60000) {
                             this.plugin.settings.fileOpenDebounceMs = Math.floor(n);
@@ -306,6 +307,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     .setPlaceholder('2000')
                     .setValue(String(this.plugin.settings.editDebounceMs))
                     .onChange(async (v) => {
+                        if (v.trim() === '') return; // Number('') is 0 — don't save mid-edit
                         const n = Number(v.trim());
                         if (Number.isFinite(n) && n >= 0 && n <= 60000) {
                             this.plugin.settings.editDebounceMs = Math.floor(n);

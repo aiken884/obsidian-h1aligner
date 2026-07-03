@@ -141,8 +141,18 @@ export function sanitizeFileName(
         }
     }
 
-    // 10. Truncation may have recreated a reserved stem (e.g. 'AUXy' -> 'AUX')
-    s = guardReservedStem(s);
+    // 10. Truncation may have recreated a reserved stem (e.g. 'AUXy' -> 'AUX').
+    //     Appending '_' must not bust the caps — drop a code point instead
+    //     (the shortened stem is no longer reserved: 'AUX' -> 'AU').
+    if (WINDOWS_RESERVED_STEM.test(s)) {
+        const enc = new TextEncoder();
+        const overLength = opts.maxLength > 0 && Array.from(s).length + 1 > opts.maxLength;
+        const overBytes = maxBytes > 0 && enc.encode(s + '_').length > maxBytes;
+        if (overLength || overBytes) {
+            s = Array.from(s).slice(0, -1).join('');
+        }
+        s = guardReservedStem(s);
+    }
 
     return s;
 }

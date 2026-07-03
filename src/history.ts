@@ -5,6 +5,12 @@
 export interface RenameRecord {
     from: string;
     to: string;
+    /**
+     * The renamed file object (opaque here to stay obsidian-free). Undo uses
+     * it to verify identity: a path alone could later resolve to an
+     * unrelated file created at the same location.
+     */
+    file?: unknown;
 }
 
 export class RenameHistory {

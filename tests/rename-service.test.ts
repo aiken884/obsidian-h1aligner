@@ -317,6 +317,16 @@ describe('RenameService', () => {
             expect(app.fileManager.renameFile).not.toHaveBeenCalled();
         });
 
+        it('accepts quoted YAML capitalisations ("True", "TRUE") like the raw scan does', async () => {
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: { 'h1aligner-lock': 'True' },
+            });
+            const svc = new RenameService(app as any, () => settings);
+            expect((await svc.renameFromH1(file as any)).skipped).toBe('locked');
+        });
+
         it('accepts the string form "true"', async () => {
             const file = makeFile({ basename: 'old' });
             app.metadataCache.getFileCache.mockReturnValue({
@@ -544,7 +554,11 @@ describe('RenameService', () => {
             });
             const svc = new RenameService(app as any, () => settings, history);
             await svc.renameFromH1(file as any);
-            expect(history.peek()).toEqual({ from: 'notes/old.md', to: 'notes/New.md' });
+            const rec = history.peek();
+            expect(rec?.from).toBe('notes/old.md');
+            expect(rec?.to).toBe('notes/New.md');
+            // Undo must be able to verify identity, not just resolve a path.
+            expect(rec?.file).toBe(file);
         });
 
         it('does not record dry runs or skips', async () => {

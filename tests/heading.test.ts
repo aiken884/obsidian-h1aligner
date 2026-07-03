@@ -199,6 +199,8 @@ describe('extractFirstH1', () => {
             expect(hasFrontmatterLock('---\nh1aligner-lock: true\n---\nbody')).toBe(true);
             expect(hasFrontmatterLock('---\nh1aligner-lock: "true"\n---\n')).toBe(true);
             expect(hasFrontmatterLock('﻿---\nh1aligner-lock: true\n---\n')).toBe(true);
+            expect(hasFrontmatterLock('---\nh1aligner-lock: true # do not rename\n---\n')).toBe(true);
+            expect(hasFrontmatterLock('---\nh1aligner-lock: true#not-a-comment\n---\n')).toBe(false);
             expect(hasFrontmatterLock('---\nh1aligner-lock: false\n---\n')).toBe(false);
             expect(hasFrontmatterLock('---\ntitle: x\n---\nh1aligner-lock: true')).toBe(false);
             expect(hasFrontmatterLock('no frontmatter\nh1aligner-lock: true')).toBe(false);

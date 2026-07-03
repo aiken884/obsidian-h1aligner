@@ -75,6 +75,12 @@ describe('normalizeSettings', () => {
         expect(normalizeSettings({ excludePatterns: ['^x$', 3, ''] }).excludePatterns).toEqual(['^x$']);
     });
 
+    it('keeps excludePatterns verbatim — trimming would change regex semantics', () => {
+        // '^ ' means "starts with a space"; trimming it to '^' would match EVERYTHING.
+        expect(normalizeSettings({ excludePatterns: ['^ '] }).excludePatterns).toEqual(['^ ']);
+        expect(normalizeSettings({ excludePatterns: ['   '] }).excludePatterns).toEqual([]);
+    });
+
     describe('v1 → v2 migration', () => {
         it('maps renameOnFileOpen to renameTrigger', () => {
             expect(normalizeSettings({ renameOnFileOpen: true }).renameTrigger).toBe('file-open');
@@ -155,8 +161,9 @@ describe('parseIgnoreFolders', () => {
 });
 
 describe('parseExcludePatterns', () => {
-    it('splits on newlines, trims, drops empties', () => {
-        expect(parseExcludePatterns('^\\d{4}$\n\n  ^tmp  \n')).toEqual(['^\\d{4}$', '^tmp']);
+    it('splits on newlines and drops whitespace-only lines, keeping patterns verbatim', () => {
+        expect(parseExcludePatterns('^\\d{4}$\n\n^tmp\n   \n')).toEqual(['^\\d{4}$', '^tmp']);
+        expect(parseExcludePatterns('^ ')).toEqual(['^ ']);
     });
 
     it('returns empty array for empty input', () => {

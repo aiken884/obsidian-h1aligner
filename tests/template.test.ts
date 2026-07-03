@@ -38,4 +38,14 @@ describe('renderNameTemplate', () => {
     it('supports multiple h1 occurrences', () => {
         expect(renderNameTemplate('{{h1}} - {{h1}}', { h1: 'A', ctime: CTIME })).toBe('A - A');
     });
+
+    it('treats {{date:}} (empty format) as the default format, never literal output', () => {
+        expect(renderNameTemplate('{{date:}} {{h1}}', { h1: 'N', ctime: CTIME })).toBe('2026-07-03 N');
+    });
+
+    it('falls back to the plain H1 when date parsing consumes the only {{h1}} token', () => {
+        // '{{date:{{h1}} }}' passes a naive includes('{{h1}}') check but would
+        // render to a CONSTANT name for every note — must fall back to the H1.
+        expect(renderNameTemplate('{{date:{{h1}} }}', { h1: 'Real', ctime: CTIME })).toBe('Real');
+    });
 });

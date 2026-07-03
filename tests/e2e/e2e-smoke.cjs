@@ -136,7 +136,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const plugin = new PluginClass(app, { id: 'h1aligner' });
     await plugin.onload();
     assert.ok(app._ws['file-open'], 'file-open handler registered');
-    assert.ok(app._vault['modify'], 'vault modify handler registered');
+    assert.ok(app._ws['editor-change'], 'editor-change handler registered');
+    assert.equal(app._vault['modify'], undefined, 'no raw vault modify handler (sync/backlink writes ignored)');
     assert.equal(plugin._commands.length, 3, 'three commands registered');
     console.log('✓ 1. onload：settings v2 載入、file-open + modify 事件、3 個指令已註冊');
 
@@ -224,29 +225,39 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(app._files.has('daily/2026-07-03.md'), 'retry succeeds — record was kept');
     console.log('✓ 8b. manual 指令可對 daily note 執行（bypass exclude）；undo 失敗保留紀錄、可重試');
 
+    // --- 8c: undo verifies file identity, not just the path ---
+    app._activeFile = addFile(app, 'notes/idcheck.md', '# ID Check\n', 'ID Check');
+    cmd.checkCallback(false);
+    await sleep(80);
+    assert.ok(app._files.has('notes/ID Check.md'), 'idcheck renamed');
+    addFile(app, 'notes/ID Check.md', 'impostor\n', null); // unrelated new file takes the path
+    const impostorFile = app._files.get('notes/ID Check.md').file;
+    undoCmd.callback();
+    await sleep(50);
+    assert.ok(notices.some((n) => n.includes('moved or deleted')), 'undo refuses a different file at the same path');
+    assert.equal(app._files.get('notes/ID Check.md').file, impostorFile, 'impostor untouched');
+    console.log('✓ 8c. undo 身分驗證：路徑被別的檔案占據時拒絕回退');
+
     // --- 9: edit trigger — active file only, debounce coalescing, mode-switch cancels ---
     plugin.settings.renameTrigger = 'edit';
     plugin.settings.editDebounceMs = 120;
     const fedit = addFile(app, 'notes/editing.md', '# Edited Title\n', 'Edited Title');
-    const fother = addFile(app, 'notes/backlink-holder.md', '# Other Note\n', 'Other Note');
     app._activeFile = fedit;
-    app._vault['modify'](fother); // programmatic write (e.g. backlink update) — NOT active
-    app._vault['modify'](fedit);
+    app._ws['editor-change'](null, { file: fedit });
     await sleep(60);
-    app._vault['modify'](fedit); // re-typing resets the timer
+    app._ws['editor-change'](null, { file: fedit }); // re-typing resets the timer
     await sleep(60);
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/editing.md').length, 0, 'debounce still pending');
     await sleep(100);
     assert.deepEqual(app._renameCalls.at(-1), { from: 'notes/editing.md', to: 'notes/Edited Title.md' });
-    assert.equal(app._renameCalls.filter((c) => c.from === 'notes/backlink-holder.md').length, 0, 'non-active modify ignored (no cascade)');
     // trigger switched while a timer is pending → fire-time re-check cancels it
     const fswitch = addFile(app, 'notes/switching.md', '# Switched Away\n', 'Switched Away');
     app._activeFile = fswitch;
-    app._vault['modify'](fswitch);
+    app._ws['editor-change'](null, { file: fswitch });
     plugin.settings.renameTrigger = 'manual';
     await sleep(200);
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/switching.md').length, 0, 'pending timer dropped after mode switch');
-    console.log('✓ 9. edit 觸發：僅 active 檔（擋反向連結連鎖）、debounce 重置、切換模式取消 pending');
+    console.log('✓ 9. edit 觸發：editor-change（本地輸入限定，Sync/backlink 寫入不觸發）、debounce 重置、切換模式取消 pending');
 
     // --- 10: BOM safety ---
     plugin.settings.renameTrigger = 'file-open';
@@ -290,7 +301,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(modal, 'batch modal opened');
     const texts = [...modal.contentEl.walk()].map((e) => e.text).filter(Boolean);
     assert.ok(texts.some((t) => t.includes('batch/a.md → Alpha Report.md')), 'dry-run lists a.md');
-    assert.ok(texts.some((t) => t.includes('batch/c.md — skipped (no-h1)')), 'dry-run lists skip reason');
+    assert.ok(texts.some((t) => t.includes('× no-h1')), 'dry-run summarises skip reasons');
     const applyBtn = [...modal.contentEl.walk()].find((e) => e.tag === 'button' && e.text.startsWith('Apply'));
     assert.ok(applyBtn, 'apply button present');
     applyBtn.listeners.click[0]();

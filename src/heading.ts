@@ -42,8 +42,9 @@ const ATX_H1 = /^ {0,3}#(?!#)[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/;
 const ATX_H1_EMPTY = /^ {0,3}#(?!#)([ \t]+#+)?[ \t]*$/;
 
 // Top-level `h1aligner-lock: true` (YAML booleans are unquoted or quoted;
-// nested/indented keys deliberately do NOT count).
-const LOCK_LINE = /^h1aligner-lock:\s*(true|"true"|'true')\s*$/i;
+// nested/indented keys deliberately do NOT count). A YAML trailing comment
+// needs whitespace before '#' — `true#x` is the string "true#x", not a lock.
+const LOCK_LINE = /^h1aligner-lock:\s*(true|"true"|'true')(?:\s+#.*)?\s*$/i;
 
 /**
  * Content-fallback lock check: when the metadata cache is not populated yet,

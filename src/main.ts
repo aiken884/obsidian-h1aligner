@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile, normalizePath } from 'obsidian';
+import { Notice, Plugin, TFile, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
 import { DEFAULT_SETTINGS, H1AlignerSettings, normalizeSettings } from './settings';
 import { H1AlignerSettingTab } from './settings-tab';
@@ -49,14 +49,17 @@ export default class H1AlignerPlugin extends Plugin {
             }),
         );
 
-        // edit trigger — long debounce; reschedules on every modify so the
-        // rename only happens after a typing pause. Active file only: backlink
-        // updates from renames also emit modify and must not cascade.
+        // edit trigger — long debounce; reschedules on every keystroke so the
+        // rename only happens after a typing pause. editor-change fires ONLY
+        // for local editor input — unlike vault 'modify', it is never emitted
+        // for programmatic writes (backlink updates after our own renames) or
+        // for Obsidian Sync applying a remote change to the open note, both of
+        // which would otherwise cascade or rename from half-typed remote H1s.
         this.registerEvent(
-            this.app.vault.on('modify', (file: TAbstractFile) => {
+            this.app.workspace.on('editor-change', (_editor, info) => {
                 if (this.settings.renameTrigger !== 'edit') return;
+                const file = (info as { file?: TFile | null } | null)?.file ?? null;
                 if (!(file instanceof TFile)) return;
-                if (file !== this.app.workspace.getActiveFile()) return;
                 this.scheduleRename(file, this.settings.editDebounceMs, 'edit');
             }),
         );
@@ -145,13 +148,37 @@ export default class H1AlignerPlugin extends Plugin {
         if (message) new Notice(message);
     }
 
+    private batchInFlight = false;
+
     private async openBatchPreview(): Promise<void> {
+        if (this.batchInFlight) {
+            new Notice('H1Aligner: a batch scan is already running');
+            return;
+        }
+        this.batchInFlight = true;
+        try {
+            await this.runBatchPreview();
+        } finally {
+            this.batchInFlight = false;
+        }
+    }
+
+    private async runBatchPreview(): Promise<void> {
         const files = this.app.vault.getMarkdownFiles().filter((f) => this.shouldProcess(f));
+        if (files.length > 200) {
+            new Notice(`H1Aligner: scanning ${files.length} notes…`);
+        }
         const items: BatchItem[] = [];
         // Duplicate H1s would all "claim" the same target; only the first
         // one can actually get it, so later ones are shown as collisions.
         const claimedTargets = new Set<string>();
+        let scanned = 0;
         for (const file of files) {
+            // Cache-hit dry runs resolve on the microtask queue; yield a
+            // macrotask periodically so the UI never freezes on big vaults.
+            if (++scanned % 200 === 0) {
+                await new Promise((r) => setTimeout(r, 0));
+            }
             const outcome = await this.renameService.renameFromH1(file, { dryRun: true });
             let to = outcome.skipped === 'none' && outcome.newName ? outcome.newName : null;
             let reason = outcome.error ? `error: ${outcome.error.message}` : outcome.skipped;
@@ -197,7 +224,10 @@ export default class H1AlignerPlugin extends Plugin {
             return;
         }
         const file = this.app.vault.getAbstractFileByPath(record.to);
-        if (!(file instanceof TFile)) {
+        // Identity check, not just path resolution: if the renamed file was
+        // moved away and an unrelated note now sits at record.to, undoing
+        // would rename the stranger.
+        if (!(file instanceof TFile) || (record.file !== undefined && record.file !== file)) {
             new Notice('H1Aligner: cannot undo — file was moved or deleted');
             return;
         }

@@ -18,6 +18,7 @@
 | 4 | daily note 保護 | 開啟 `2026-07-03.md`（H1 為其他文字） | 不被改名 |
 | 5 | frontmatter 鎖 | 筆記加 `h1aligner-lock: true` 後開啟 | 不被改名；手動指令回報 skipped (locked) |
 | 6 | edit 觸發 + 軟鍵盤 | trigger=編輯後；編輯 H1 後停筆 2 秒（鍵盤仍開啟） | 停筆後改名；打字過程中**絕不**改名、游標不跳動 |
+| 6b | both / leave 觸發 | 分別切到「兩者皆啟用」與「切離筆記時」重測 2 與 6 | both：開檔與停筆都改名；leave：停留時不動、切走後前一篇改名 |
 | 7 | Obsidian Sync 遠端變更 | 兩台裝置開同一筆記，A 裝置改 H1，B 裝置閒置於該筆記（trigger=編輯後） | B 裝置**不**因同步寫入而改名（editor-change 只回應本地輸入） |
 | 8 | 大小寫衝突（iOS APFS） | vault 有 `Readme.md`；開啟 H1 為 `README` 的另一筆記 | 跳過（collision），不得覆蓋 `Readme.md` |
 | 9 | 批次預覽 | 跑「Preview all renames (dry run)」 | modal 可開啟、可捲動；小螢幕上列表不橫向溢出；skip 摘要正確 |

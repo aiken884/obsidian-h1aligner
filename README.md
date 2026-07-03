@@ -25,6 +25,7 @@ The plugin is intentionally one-way: **H1 → filename**, never filename → H1.
 |---|---|
 | You switch to a `.md` file (default trigger) | Read first H1 from cache (or scan the file). Rename the file to match — but only when it differs, isn't empty after sanitisation, and won't collide with a sibling. |
 | You pause typing (optional "After editing" trigger) | Same logic, after a generous debounce so it never renames mid-keystroke. |
+| You switch away from a note (optional "On leaving" trigger) | Renames the note you just left — never touches what you are currently viewing. A "Both" mode combines file-open and after-editing. |
 | You run `Cmd/Ctrl+P → Rename active file from first H1` | Same logic, on-demand. Reports the outcome via a Notice. |
 | You run `Preview all renames (dry run)` | Scans the whole vault (within scope), shows what WOULD be renamed and why the rest is skipped, with an optional one-click Apply. Targets are re-checked at apply time; notes whose H1 changed meanwhile are skipped. |
 | You run `Undo last rename` | Reverts the most recent rename this session (up to 20 levels). A failed undo keeps its history entry so you can retry. |
@@ -39,8 +40,9 @@ Backlinks update automatically because the plugin uses `app.fileManager.renameFi
 ## How it works
 
 ```
-trigger: file-open (debounced 100ms) | editor-change (local typing only,
-         debounced 2s — Sync/programmatic writes never trigger) | manual command
+trigger: file-open (100ms) | editor-change (local typing only, 2s —
+         Sync/programmatic writes never trigger) | both | on-leave
+         (renames the note you switched away from) | manual command
     └─ scope filter: .md + ignoreFolders + includeFolders whitelist
        + basename exclude patterns (daily-notes date pattern by default)
         └─ RenameService.renameFromH1(file)

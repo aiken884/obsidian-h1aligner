@@ -83,7 +83,7 @@ repo's GitHub Releases.
        "id": "h1aligner",
        "name": "H1Aligner",
        "author": "Aiken Lin",
-       "description": "Align your note filename with the first H1 on file switch.",
+       "description": "Keep note filenames aligned with the first H1 — automatically and safely.",
        "repo": "aiken884/obsidian-h1aligner"
    }
    ```

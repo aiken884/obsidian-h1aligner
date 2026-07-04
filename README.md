@@ -7,6 +7,12 @@
 
 H1Aligner is an Obsidian plugin that keeps your note filenames aligned with their first H1 — automatically, quietly, and in one direction only. You write `# A Better Title`, and the file becomes `A Better Title.md`, backlinks intact. No dialogs, no drift, no surprises.
 
+**Why people install it:**
+
+- **Predictable** — one rule (H1 → filename), five clearly-scoped triggers, zero magic
+- **Safe** — locks, allowlists, dry-run preview, 20-step undo, and a full protection chain before anything touches disk
+- **Link-preserving** — renames go through Obsidian's own `renameFile()`, so every backlink follows
+
 ---
 
 ### One rule, strictly enforced
@@ -36,11 +42,46 @@ H1Aligner lets you decide *when* filenames are allowed to move. Edit-triggered r
 
 Every rename passes a full protection chain before anything touches disk: frontmatter locks, date-named daily-note protection, folder allowlists and regex excludes, cross-platform filename sanitisation (Windows-reserved names, Obsidian link-breaking characters, the 255-byte filesystem limit), and collision detection that understands case-insensitive filesystems. A vault-wide dry-run preview, a 20-step undo, and a session activity log that answers "why *wasn't* this file renamed?" round out the safety story.
 
+Designed for people who care more about predictability than magic.
+
 ### Engineered like it matters
 
-H1Aligner is built and tested like a serious tool, not a weekend experiment. It ships with **233 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **18 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **233 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **18 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
+
+**Best for** people who treat the first H1 as the real title of a note and want filenames to stay clean without surprises.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
+| **Preview all renames (dry run)** | Scans the vault within scope and shows what WOULD be renamed and why the rest is skipped, with one-click Apply. Targets are re-verified at apply time; notes whose H1 changed meanwhile are skipped. |
+| **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
+| **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
+
+## Settings
+
+| Setting | Default | Notes |
+|---|---|---|
+| Rename trigger | On file open | The five modes above. The manual command always works. |
+| Ignore folders | `.obsidian, .trash` | Prefix match. `/` means the vault root layer. |
+| Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
+| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). The default protects date-named daily notes. |
+| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
+| Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
+| When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
+| Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
+| Preserve old name as alias | ❌ off | Appends the previous filename to frontmatter `aliases` so the old name still works in the quick switcher. |
+| Trim whitespace | ✅ on | Strip leading/trailing whitespace from the H1 text. |
+| Replace illegal characters | ✅ on | Windows-invalid and Obsidian link-breaking characters → replacement char. Path separators are always replaced. |
+| Replacement character | ` ` (space) | Single character; illegal characters are rejected; empty deletes instead. |
+| Maximum filename length | `150` | 1–255 code points; additionally capped at 255 UTF-8 bytes for filesystem compatibility. |
+| Notice level | Off | For automatic renames: Off / Errors only / All. Manual actions always report. |
+| File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous — renaming mid-typing is disruptive. |
+
+A live **preview field** shows the filename a sample H1 would produce with your current settings. On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious Manual-only start.
 
 ## How it works
 
@@ -84,37 +125,6 @@ trigger: file-open (100ms) | editor-change (local typing only, 2s —
 ```
 
 Backlinks update automatically because the plugin uses `app.fileManager.renameFile()` (not `vault.rename`). Concurrency is handled by a serial chain Promise plus a per-file in-progress set; rapid file switches don't race.
-
-## Commands
-
-| Command | What it does |
-|---|---|
-| **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
-| **Preview all renames (dry run)** | Scans the vault within scope and shows what WOULD be renamed and why the rest is skipped, with one-click Apply. Targets are re-verified at apply time; notes whose H1 changed meanwhile are skipped. |
-| **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
-| **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
-
-## Settings
-
-| Setting | Default | Notes |
-|---|---|---|
-| Rename trigger | On file open | The five modes above. The manual command always works. |
-| Ignore folders | `.obsidian, .trash` | Prefix match. `/` means the vault root layer. |
-| Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
-| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). The default protects date-named daily notes. |
-| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
-| Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
-| When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
-| Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
-| Preserve old name as alias | ❌ off | Appends the previous filename to frontmatter `aliases` so the old name still works in the quick switcher. |
-| Trim whitespace | ✅ on | Strip leading/trailing whitespace from the H1 text. |
-| Replace illegal characters | ✅ on | Windows-invalid and Obsidian link-breaking characters → replacement char. Path separators are always replaced. |
-| Replacement character | ` ` (space) | Single character; illegal characters are rejected; empty deletes instead. |
-| Maximum filename length | `150` | 1–255 code points; additionally capped at 255 UTF-8 bytes for filesystem compatibility. |
-| Notice level | Off | For automatic renames: Off / Errors only / All. Manual actions always report. |
-| File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous — renaming mid-typing is disruptive. |
-
-A live **preview field** shows the filename a sample H1 would produce with your current settings. On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious Manual-only start.
 
 ## Behaviour notes
 
@@ -183,4 +193,4 @@ All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian
 
 ---
 
-*Built by a single developer who got tired of living with `Untitled 27.md` and decided filenames should be as clean and predictable as his notes.*
+*Built by a solo developer who wanted filenames to be as intentional as the notes they hold.*

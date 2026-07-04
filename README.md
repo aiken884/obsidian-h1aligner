@@ -188,6 +188,10 @@ docs/MOBILE-TESTING.md # real-device checklist (iPhone / Android)
 
 All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs build + both suites on every push. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.
 
+## Privacy
+
+H1Aligner runs entirely on your device. It makes **zero network requests** and collects **zero telemetry** — the production bundle's only import is the Obsidian API itself. The vault-wide file listing shown in the community directory's capability disclosure comes from one place: the *Preview all renames (dry run)* command, which must enumerate your notes to tell you what would be renamed. Those paths are used in-memory for that preview and nothing else; the session activity log also lives in memory only and vanishes when Obsidian closes.
+
 ## Support
 
 If H1Aligner keeps your vault tidy, you can support its development on [Ko-fi](https://ko-fi.com/aikenlin) (card or PayPal) or directly via [PayPal](https://paypal.me/aikenlin). Entirely optional — the plugin is and stays free.

@@ -42,7 +42,7 @@ npm test                      # all suites pass
 npm run build                 # main.js written, no TS errors
 
 # 3. Smoke-test in a real vault
-#    Copy main.js + manifest.json + styles.css into <vault>/.obsidian/plugins/h1aligner/
+#    Copy main.js + manifest.json + styles.css into <vault>/.obsidian/plugins/heading-aligner/
 #    Reload Obsidian, enable the plugin, verify behaviour on a few files
 
 # 4. Bump the version (updates package.json + manifest.json + versions.json,
@@ -78,7 +78,7 @@ attach `main.js` + `manifest.json` + `styles.css` as individual binary assets
    GitHub release（tag = manifest version、無 `v` 前綴，附 `main.js` + `manifest.json` + `styles.css`）。
 2. 登入 [community.obsidian.md](https://community.obsidian.md)，連結 GitHub 帳號驗證 repo 所有權。
 3. 側欄 **Plugins → New plugin** → 輸入 repo URL → 同意開發者政策 → **Submit**。
-4. 自動檢查 bot 會即時回饋。常見檢查點：`id` 唯一且不含 "obsidian"（✅ `h1aligner`）、
+4. 自動檢查 bot 會即時回饋。常見檢查點：`id` 僅限小寫字母與連字號、不含 "obsidian"、不以 "plugin" 結尾（✅ `heading-aligner` — 注意：數字不允許，`h1aligner` 曾因此被打回）、
    description ≤ 250 字元且以句號結尾、`minAppVersion` 已設、無捐款則不得留 `fundingUrl`（✅ 已移除）、
    使用 Node/Electron API 者必須 `isDesktopOnly: true`（✅ 本外掛零 Node API、`false` 經驗證）、
    指令 ID 不含外掛 ID 前綴（✅）。

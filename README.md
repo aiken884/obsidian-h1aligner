@@ -152,7 +152,7 @@ H1Aligner manages the filename ⇄ H1 relationship one way. Running plugins that
 **From source** (not yet in the community directory):
 
 1. Clone this repo, then `npm install && npm run build`
-2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/h1aligner/`
+2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/heading-aligner/`
 3. Enable it under Settings → Community plugins
 
 Requires Obsidian 1.4.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).

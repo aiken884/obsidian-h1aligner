@@ -5,7 +5,7 @@
 **每次 minor release 前，在 iPhone 與 Android 各跑一輪**，把結果記錄在最下方的表格。
 
 安裝方式：把 `main.js`、`manifest.json`、`styles.css` 放進
-`<vault>/.obsidian/plugins/h1aligner/`，在 Community plugins 啟用。
+`<vault>/.obsidian/plugins/heading-aligner/`，在 Community plugins 啟用。
 建議使用獨立的測試 vault。
 
 ## 檢查項目

@@ -139,7 +139,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(typeof PluginClass, 'function', 'bundle exports a plugin class');
 
     const app = makeFakeApp();
-    const plugin = new PluginClass(app, { id: 'h1aligner' });
+    const plugin = new PluginClass(app, { id: 'heading-aligner' });
     await plugin.onload();
     assert.ok(app._ws['file-open'], 'file-open handler registered');
     assert.ok(app._ws['editor-change'], 'editor-change handler registered');
@@ -361,14 +361,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // --- 14: v1 data migration on load ---
     const app2 = makeFakeApp();
-    const plugin2 = new PluginClass(app2, { id: 'h1aligner' });
+    const plugin2 = new PluginClass(app2, { id: 'heading-aligner' });
     plugin2._data = { renameOnFileOpen: false, showNoticeOnRename: true, skipIfFrontmatterLock: false };
     await plugin2.onload();
     assert.equal(plugin2.settings.renameTrigger, 'manual', 'v1 renameOnFileOpen=false → manual');
     assert.equal(plugin2.settings.noticeLevel, 'all', 'v1 showNoticeOnRename=true → all');
     assert.equal(plugin2.settings.skipIfFrontmatterLock, true, 'v1 meaningless lock=false → new default true');
     const app3 = makeFakeApp();
-    const plugin3 = new PluginClass(app3, { id: 'h1aligner' });
+    const plugin3 = new PluginClass(app3, { id: 'heading-aligner' });
     plugin3._data = { onboardingShown: true };
     global.__lastModal = null;
     await plugin3.onload();

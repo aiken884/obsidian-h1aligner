@@ -47,8 +47,18 @@ const ILLEGAL_CHARS = /[\\/:*?"<>|#^[\]]/g;
 // Separators alone — replaced unconditionally (they would change the path).
 const PATH_SEPARATORS = /[\\/]/g;
 // Strip C0 control chars + DEL, but KEEP tab (0x09), LF (0x0A), CR (0x0D)
-// so they can be collapsed as whitespace in step 5.
-const CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
+// so they can be collapsed as whitespace in step 5. Implemented as a
+// per-code-unit filter (a control-character regex trips linters).
+function stripControlChars(s: string): string {
+    let out = '';
+    for (const ch of s) {
+        const c = ch.charCodeAt(0);
+        const isControl =
+            c <= 0x08 || c === 0x0b || c === 0x0c || (c >= 0x0e && c <= 0x1f) || c === 0x7f;
+        if (!isControl) out += ch;
+    }
+    return out;
+}
 const MULTI_WHITESPACE = /\s+/g;
 const LEADING_DOTS = /^\.+/;
 const TRAILING_DOT_OR_SPACE = /[.\s]+$/;
@@ -63,7 +73,7 @@ const WINDOWS_RESERVED_STEM = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/i;
  */
 export function cleanReplacementChar(raw: unknown): string {
     if (typeof raw !== 'string') return ' ';
-    const cleaned = raw.replace(ILLEGAL_CHARS, '').replace(CONTROL_CHARS, '');
+    const cleaned = stripControlChars(raw.replace(ILLEGAL_CHARS, ''));
     const first = Array.from(cleaned)[0];
     return first ?? '';
 }
@@ -83,7 +93,7 @@ export function sanitizeFileName(
     try { s = s.normalize('NFC'); } catch { /* runtime without Intl normalize */ }
 
     // 2. Strip control chars (except tab/LF/CR — those become spaces in step 5)
-    s = s.replace(CONTROL_CHARS, '');
+    s = stripControlChars(s);
 
     // 3. Replace illegal chars (function form: no $-template expansion).
     //    Path separators are structural — no filesystem accepts them in a

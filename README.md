@@ -66,7 +66,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Setting | Default | Notes |
 |---|---|---|
 | Rename trigger | On file open | The five modes above. The manual command always works. |
-| Ignore folders | `.obsidian, .trash` | Prefix match. `/` means the vault root layer. |
+| Ignore folders | `.trash` | Prefix match; `/` means the vault root layer. The Obsidian config folder is always ignored automatically. |
 | Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
@@ -155,13 +155,14 @@ H1Aligner manages the filename ⇄ H1 relationship one way. Running plugins that
 2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/heading-aligner/`
 3. Enable it under Settings → Community plugins
 
-Requires Obsidian 1.4.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
+Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
 
 ## Development
 
 ```bash
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
+npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
 npm test               # 233 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
 npm run test:e2e       # 18 E2E scenarios against the built bundle

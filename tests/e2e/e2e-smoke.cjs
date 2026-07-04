@@ -2,6 +2,7 @@
  * E2E smoke test v0.4.0: load the REAL production bundle (main.js) with a
  * stubbed `obsidian` module and drive the plugin through its runtime paths.
  */
+if (typeof global.window === 'undefined') global.window = global; // window.* timer shim
 const Module = require('module');
 const path = require('path');
 const assert = require('assert');
@@ -17,6 +18,8 @@ class FakeEl {
         this.classList = { add() {} };
     }
     createEl(tag, opts) { const el = new FakeEl(tag, opts); this.children.push(el); return el; }
+    createDiv(opts) { return this.createEl('div', opts); }
+    createSpan(opts) { return this.createEl('span', opts); }
     empty() { this.children = []; }
     setText(t) { this.text = t; }
     addEventListener(evt, cb) { (this.listeners[evt] = this.listeners[evt] || []).push(cb); }
@@ -48,11 +51,12 @@ const notices = [];
 class Notice { constructor(msg) { notices.push(String(msg)); } }
 class TAbstractFile {}
 class TFile extends TAbstractFile {}
+function getLanguage() { return 'en'; }
 function normalizePath(p) {
     return String(p).replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
 }
 
-const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, normalizePath };
+const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, normalizePath, getLanguage };
 
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...rest) {
@@ -77,6 +81,7 @@ function makeFakeApp() {
             getFileCache(file) { return files.get(file.path)?.cache ?? null; },
         },
         vault: {
+            configDir: '.obsidian',
             on(evt, cb) { vaultHandlers[evt] = cb; return { evt }; },
             async cachedRead(file) {
                 const e = files.get(file.path);
@@ -140,7 +145,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     const app = makeFakeApp();
     const plugin = new PluginClass(app, { id: 'heading-aligner' });
-    await plugin.onload();
+    plugin.onload();
+    await sleep(80); // initialize() is async behind the void boundary
     assert.ok(app._ws['file-open'], 'file-open handler registered');
     assert.ok(app._ws['editor-change'], 'editor-change handler registered');
     assert.equal(app._vault['modify'], undefined, 'no raw vault modify handler (sync/backlink writes ignored)');
@@ -363,7 +369,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const app2 = makeFakeApp();
     const plugin2 = new PluginClass(app2, { id: 'heading-aligner' });
     plugin2._data = { renameOnFileOpen: false, showNoticeOnRename: true, skipIfFrontmatterLock: false };
-    await plugin2.onload();
+    plugin2.onload();
+    await sleep(80);
     assert.equal(plugin2.settings.renameTrigger, 'manual', 'v1 renameOnFileOpen=false → manual');
     assert.equal(plugin2.settings.noticeLevel, 'all', 'v1 showNoticeOnRename=true → all');
     assert.equal(plugin2.settings.skipIfFrontmatterLock, true, 'v1 meaningless lock=false → new default true');
@@ -371,7 +378,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const plugin3 = new PluginClass(app3, { id: 'heading-aligner' });
     plugin3._data = { onboardingShown: true };
     global.__lastModal = null;
-    await plugin3.onload();
+    plugin3.onload();
+    await sleep(80);
     assert.equal(global.__lastModal, null, 'onboarding not shown again once flagged');
     console.log('✓ 14. v1 data.json 遷移正確；onboardingShown=true 不再顯示 onboarding');
 
@@ -401,5 +409,5 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/pending.md').length, 0, 'no rename after unload');
     console.log('✓ 16. onunload 取消未觸發的 debounce → 卸載後不再改名');
 
-    console.log('\nE2E smoke test: 18/18 scenarios passed（真實 production bundle main.js, v0.8.0）');
+    console.log('\nE2E smoke test: 18/18 scenarios passed（真實 production bundle main.js, v0.9.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

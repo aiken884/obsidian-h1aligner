@@ -27,7 +27,7 @@ export class OnboardingModal extends Modal {
         contentEl.createEl('p', { text: t('onboard.body1') });
         contentEl.createEl('p', { text: t('onboard.body2') });
 
-        const buttons = contentEl.createEl('div');
+        const buttons = contentEl.createDiv();
         buttons.classList.add('h1aligner-buttons');
 
         const manual = buttons.createEl('button', { text: t('onboard.manualOnly') });

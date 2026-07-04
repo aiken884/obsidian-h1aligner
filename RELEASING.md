@@ -5,7 +5,7 @@
 每次 **minor** release 前跑一次：
 
 1. `npm outdated` — 看 dev dependencies 有無落後（Dependabot 每月也會開 grouped PR）。
-2. 檢查 obsidian typings：目前釘 `~1.4.11` 對齊 `minAppVersion: 1.4.0`。若程式碼開始使用較新 API，
+2. 檢查 obsidian typings：目前釘 `~1.8.7` 對齊 `minAppVersion: 1.8.0`（0.9.0 起，getLanguage 門檻）。若程式碼開始使用較新 API，
    同步提升三者：`devDependencies.obsidian`、`manifest.json` 的 `minAppVersion`、`versions.json` 新條目。
    （Dependabot 對 `obsidian` 套件設為 ignore — typings 升版是刻意決策，不自動化。）
 3. 跑 `docs/MOBILE-TESTING.md` 的實機 checklist（iPhone + Android），結果記錄在該檔案的驗證紀錄表。

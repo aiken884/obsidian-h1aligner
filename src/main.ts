@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, normalizePath } from 'obsidian';
+import { Notice, Plugin, TFile, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
 import { DEFAULT_SETTINGS, H1AlignerSettings, normalizeSettings } from './settings';
 import { H1AlignerSettingTab } from './settings-tab';
@@ -11,7 +11,7 @@ import { ActivityLog, ActivitySource } from './activity-log';
 import { ActivityModal } from './activity-modal';
 import { OnboardingModal } from './onboarding-modal';
 import { BatchPreviewModal, BatchItem } from './batch-modal';
-import { t } from './i18n';
+import { t, setLocaleFromLanguage } from './i18n';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
@@ -40,8 +40,13 @@ export default class H1AlignerPlugin extends Plugin {
     /** Previous active file — the 'leave' trigger renames this one. */
     private lastActiveFile: TFile | null = null;
 
-    async onload(): Promise<void> {
-        const raw = await this.loadData();
+    onload(): void {
+        setLocaleFromLanguage(getLanguage());
+        void this.initialize();
+    }
+
+    private async initialize(): Promise<void> {
+        const raw: unknown = await this.loadData();
         this.settings = normalizeSettings(raw);
         this.renameService = new RenameService(this.app, () => this.settings, this.history);
 
@@ -163,7 +168,7 @@ export default class H1AlignerPlugin extends Plugin {
     }
 
     /** normalizePath, but preserving the '/'-means-vault-root convention. */
-    private static normalizeFolderEntry(f: string): string {
+    private static normalizeFolderEntry(this: void, f: string): string {
         return f === '/' || f === '\\' ? '/' : normalizePath(f);
     }
 
@@ -171,7 +176,12 @@ export default class H1AlignerPlugin extends Plugin {
     private shouldProcess(file: TFile): boolean {
         if (file.extension !== 'md') return false;
         return isInScope(file.path, file.basename, {
-            ignoreFolders: this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
+            // The config folder (user-configurable; Vault#configDir) is
+            // always ignored regardless of settings.
+            ignoreFolders: [
+                this.app.vault.configDir,
+                ...this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
+            ],
             includeFolders: this.settings.includeFolders.map(H1AlignerPlugin.normalizeFolderEntry),
             excludePatterns: this.settings.excludePatterns,
         });
@@ -180,10 +190,10 @@ export default class H1AlignerPlugin extends Plugin {
     /** Manual command: only ignoreFolders applies (explicit action = consent). */
     private manualEligible(file: TFile): boolean {
         if (file.extension !== 'md') return false;
-        return !isIgnoredPath(
-            file.path,
-            this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
-        );
+        return !isIgnoredPath(file.path, [
+            this.app.vault.configDir,
+            ...this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
+        ]);
     }
 
     private async triggerRename(
@@ -241,7 +251,7 @@ export default class H1AlignerPlugin extends Plugin {
             // Cache-hit dry runs resolve on the microtask queue; yield a
             // macrotask periodically so the UI never freezes on big vaults.
             if (++scanned % 200 === 0) {
-                await new Promise((r) => setTimeout(r, 0));
+                await new Promise((r) => window.setTimeout(r, 0));
             }
             const outcome = await this.renameService.renameFromH1(file, { dryRun: true });
             let to = outcome.skipped === 'none' && outcome.newName ? outcome.newName : null;

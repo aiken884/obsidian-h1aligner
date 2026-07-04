@@ -96,7 +96,7 @@ export class RenameService {
 
             // L0: frontmatter lock (per-file opt-out)
             if (settings.skipIfFrontmatterLock) {
-                const fm = cache?.frontmatter as Record<string, unknown> | undefined;
+                const fm: Record<string, unknown> | undefined = cache?.frontmatter;
                 const lock = fm ? fm['h1aligner-lock'] : undefined;
                 // Case-insensitive on strings so quoted YAML ("True") agrees
                 // with the raw-content fallback scan.

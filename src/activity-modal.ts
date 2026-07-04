@@ -22,17 +22,17 @@ export class ActivityModal extends Modal {
             return;
         }
 
-        const list = contentEl.createEl('div');
+        const list = contentEl.createDiv();
         list.classList.add('h1aligner-scroll-list');
         for (const e of entries) {
-            const row = list.createEl('div');
+            const row = list.createDiv();
             row.classList.add('h1aligner-row');
             const time = new Date(e.ts).toLocaleTimeString();
             const result =
                 e.outcome === 'renamed'
                     ? `→ ${e.newName}`
                     : `(${e.outcome}${e.detail ? ': ' + e.detail : ''})`;
-            row.createEl('span', {
+            row.createSpan({
                 text: `${time}  [${e.source}]  ${e.path}  ${result}`,
             });
             if (e.outcome !== 'renamed') row.classList.add('h1aligner-dim');

@@ -36,19 +36,19 @@ export class BatchPreviewModal extends Modal {
         const hint = contentEl.createEl('p', { text: t('batch.hint') });
         hint.classList.add('h1aligner-hint');
 
-        const list = contentEl.createEl('div');
+        const list = contentEl.createDiv();
         list.classList.add('h1aligner-scroll-list');
 
         // Renamable rows first (what Apply acts on), capped so a huge vault
         // does not create tens of thousands of DOM nodes on mobile.
         const MAX_ROWS = 500;
         for (const item of renamable.slice(0, MAX_ROWS)) {
-            const row = list.createEl('div');
+            const row = list.createDiv();
             row.classList.add('h1aligner-row');
-            row.createEl('span', { text: `${item.from} → ${item.to}.md` });
+            row.createSpan({ text: `${item.from} → ${item.to}.md` });
         }
         if (renamable.length > MAX_ROWS) {
-            const more = list.createEl('div', {
+            const more = list.createDiv({
                 text: t('batch.more', { count: renamable.length - MAX_ROWS }),
             });
             more.classList.add('h1aligner-dim');
@@ -60,15 +60,15 @@ export class BatchPreviewModal extends Modal {
         if (skipped.length > 0) {
             const counts = new Map<string, number>();
             for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1);
-            const summary = list.createEl('div');
+            const summary = list.createDiv();
             summary.classList.add('h1aligner-skip-summary');
-            summary.createEl('div', { text: t('batch.skippedHeader', { count: skipped.length }) });
+            summary.createDiv({ text: t('batch.skippedHeader', { count: skipped.length }) });
             for (const [reason, count] of counts) {
-                summary.createEl('div', { text: `  ${count} × ${reason}` });
+                summary.createDiv({ text: `  ${count} × ${reason}` });
             }
         }
 
-        const buttons = contentEl.createEl('div');
+        const buttons = contentEl.createDiv();
         buttons.classList.add('h1aligner-buttons');
 
         const cancel = buttons.createEl('button', { text: t('batch.close') });

@@ -61,7 +61,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             .setDesc(t('set.ignore.desc'))
             .addText((txt) =>
                 txt
-                    .setPlaceholder('.obsidian, .trash')
+                    .setPlaceholder('.trash')
                     .setValue(this.plugin.settings.ignoreFolders.join(', '))
                     .onChange(async (v) => {
                         this.plugin.settings.ignoreFolders = parseIgnoreFolders(v);
@@ -245,7 +245,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     this.updatePreview();
                 }),
             );
-        this.previewEl = containerEl.createEl('div', { text: '' });
+        this.previewEl = containerEl.createDiv();
         this.previewEl.classList.add('h1aligner-preview');
 
         // ---- Notifications ------------------------------------------------

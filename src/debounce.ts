@@ -1,6 +1,7 @@
 /**
- * debounce.ts — per-key debounce scheduler (pure, no obsidian import,
- * vitest-loadable with fake timers). Used by main.ts to coalesce
+ * debounce.ts — per-key debounce scheduler (no obsidian import; uses
+ * window.* timers for popout-window compatibility — the test setup shims
+ * `window` onto globalThis under Node). Used by main.ts to coalesce
  * file-open bursts per file path.
  */
 export class KeyedDebouncer {
@@ -15,10 +16,10 @@ export class KeyedDebouncer {
      */
     schedule(key: string, fn: () => void, delayMs: number = this.delayMs): void {
         const existing = this.timers.get(key);
-        if (existing !== undefined) clearTimeout(existing);
+        if (existing !== undefined) window.clearTimeout(existing);
         this.timers.set(
             key,
-            setTimeout(() => {
+            window.setTimeout(() => {
                 this.timers.delete(key);
                 fn();
             }, delayMs),
@@ -28,13 +29,13 @@ export class KeyedDebouncer {
     cancel(key: string): void {
         const t = this.timers.get(key);
         if (t !== undefined) {
-            clearTimeout(t);
+            window.clearTimeout(t);
             this.timers.delete(key);
         }
     }
 
     cancelAll(): void {
-        for (const t of this.timers.values()) clearTimeout(t);
+        for (const t of this.timers.values()) window.clearTimeout(t);
         this.timers.clear();
     }
 }

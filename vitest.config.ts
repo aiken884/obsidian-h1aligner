@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
+        setupFiles: ['tests/setup.ts'],
         coverage: {
             // main.ts and settings-tab.ts are thin obsidian-coupled shells;
             // their logic lives in the pure modules below and their wiring is

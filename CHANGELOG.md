@@ -2,6 +2,14 @@
 
 專案為個人使用（未上架社群目錄）；版本號依 SemVer。
 
+## 0.9.0 — 2026-07-04
+- 社群目錄掃描報告全數修復（21 warnings + attestations）：window.* timers（popout 相容）、
+  官方 getLanguage() 取代 localStorage（minAppVersion 1.4→1.8）、Vault#configDir 自動忽略
+  （預設 ignoreFolders 改 .trash）、控制字元過濾去 regex、builtin-modules → node:module、
+  createDiv/createSpan、this: void、型別收斂
+- release 資產加入 GitHub build provenance attestation
+- 導入官方 eslint-plugin-obsidianmd（npm run lint、CI 同跑、零殘留）
+
 ## 0.8.3 — 2026-07-04
 - fundingUrl 升級為多平台（Ko-fi + PayPal）；FUNDING.yml 同步
 

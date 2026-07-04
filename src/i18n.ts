@@ -1,6 +1,6 @@
 /**
  * i18n.ts — minimal string-table i18n (pure, no obsidian import).
- * Locale follows Obsidian's own language setting (localStorage 'language');
+ * main.ts injects Obsidian's getLanguage() via setLocaleFromLanguage();
  * en is the fallback everywhere, so Node/vitest environments see English.
  * Placeholders use {name} syntax.
  */
@@ -56,7 +56,7 @@ const en = {
     'set.scope.heading': 'Scope',
     'set.ignore.name': 'Ignore folders',
     'set.ignore.desc':
-        'Comma-separated folder paths to ignore (prefix match; / means the vault root layer). Default: .obsidian, .trash',
+        'Comma-separated folder paths to ignore (prefix match; / means the vault root layer). The Obsidian config folder is always ignored. Default: .trash',
     'set.include.name': 'Include only these folders',
     'set.include.desc':
         'Comma-separated whitelist. When non-empty, ONLY notes inside these folders are renamed. Use / for the vault root layer (root files only). Leave empty to process the whole vault.',
@@ -160,7 +160,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.trigger.manual': '僅手動',
     'set.scope.heading': '套用範圍',
     'set.ignore.name': '忽略資料夾',
-    'set.ignore.desc': '逗號分隔的資料夾路徑（前綴比對；/ 代表 vault 根目錄層）。預設：.obsidian, .trash',
+    'set.ignore.desc': '逗號分隔的資料夾路徑（前綴比對；/ 代表 vault 根目錄層）。設定資料夾一律自動忽略。預設：.trash',
     'set.include.name': '僅套用於這些資料夾',
     'set.include.desc':
         '逗號分隔的白名單。填寫後「只有」這些資料夾內的筆記會被改名；輸入 / 代表 vault 根目錄那一層（不含子資料夾）；留空則套用整個 vault。',
@@ -257,7 +257,7 @@ const ja: Record<LocaleKey, string> = {
     'set.trigger.manual': '手動のみ',
     'set.scope.heading': '適用範囲',
     'set.ignore.name': '除外フォルダ',
-    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致。/ はルート階層）。デフォルト：.obsidian, .trash',
+    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致。/ はルート階層）。設定フォルダは常に無視されます。デフォルト：.trash',
     'set.include.name': '対象をこれらのフォルダに限定',
     'set.include.desc':
         'カンマ区切りのホワイトリスト。指定すると、これらのフォルダ内のノート「のみ」リネームされます。/ は保管庫のルート階層（サブフォルダを除く）を意味します。空欄で保管庫全体が対象になります。',
@@ -313,14 +313,11 @@ const ja: Record<LocaleKey, string> = {
 
 export const LOCALES = { en, 'zh-tw': zhTW, ja };
 
-/** Obsidian stores its UI language in localStorage 'language' ('' = en). */
-export function detectLanguage(): string | null {
-    try {
-        if (typeof localStorage !== 'undefined') {
-            return localStorage.getItem('language');
-        }
-    } catch { /* sandboxed environment */ }
-    return null;
+let activeLocale: 'en' | 'zh-tw' | 'ja' = 'en';
+
+/** Wired from main.ts with Obsidian's getLanguage(); en until set. */
+export function setLocaleFromLanguage(lang: string | null): void {
+    activeLocale = resolveLocale(lang);
 }
 
 export function resolveLocale(lang: string | null): 'en' | 'zh-tw' | 'ja' {
@@ -331,7 +328,7 @@ export function resolveLocale(lang: string | null): 'en' | 'zh-tw' | 'ja' {
 }
 
 export function t(key: LocaleKey, vars?: Record<string, string | number>): string {
-    const table = LOCALES[resolveLocale(detectLanguage())];
+    const table = LOCALES[activeLocale];
     let s: string = table[key] ?? en[key] ?? key;
     if (vars) {
         for (const [k, v] of Object.entries(vars)) {

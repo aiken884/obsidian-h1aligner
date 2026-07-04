@@ -52,7 +52,8 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
     renameTrigger: 'file-open',
     fileOpenDebounceMs: 100,
     editDebounceMs: 2000,
-    ignoreFolders: ['.obsidian', '.trash'],
+    // The config folder (Vault#configDir) is ignored automatically in main.ts.
+    ignoreFolders: ['.trash'],
     includeFolders: [],
     // Daily notes protection: date-named files are never renamed by default.
     excludePatterns: ['^\\d{4}-\\d{2}-\\d{2}$'],

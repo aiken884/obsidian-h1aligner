@@ -2,6 +2,9 @@
 
 專案為個人使用（未上架社群目錄）；版本號依 SemVer。
 
+## 0.8.3 — 2026-07-04
+- fundingUrl 升級為多平台（Ko-fi + PayPal）；FUNDING.yml 同步
+
 ## 0.8.2 — 2026-07-04
 - manifest 加入 fundingUrl（PayPal）；GitHub FUNDING.yml；README Support 段
 

@@ -1,11 +1,14 @@
 {
     "id": "heading-aligner",
     "name": "H1Aligner",
-    "version": "0.8.2",
+    "version": "0.8.3",
     "minAppVersion": "1.4.0",
     "description": "Keep note filenames aligned with the first H1 — automatically and safely.",
     "author": "Aiken Lin",
     "authorUrl": "https://github.com/aiken884",
-    "fundingUrl": "https://paypal.me/aikenlin",
+    "fundingUrl": {
+        "Ko-fi": "https://ko-fi.com/aikenlin",
+        "PayPal": "https://paypal.me/aikenlin"
+    },
     "isDesktopOnly": false
 }

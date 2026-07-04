@@ -189,7 +189,7 @@ All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian
 
 ## Support
 
-If H1Aligner keeps your vault tidy, you can [support its development via PayPal](https://paypal.me/aikenlin). Entirely optional — the plugin is and stays free.
+If H1Aligner keeps your vault tidy, you can support its development on [Ko-fi](https://ko-fi.com/aikenlin) (card or PayPal) or directly via [PayPal](https://paypal.me/aikenlin). Entirely optional — the plugin is and stays free.
 
 ## License
 

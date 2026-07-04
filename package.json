@@ -1,6 +1,6 @@
 {
     "name": "obsidian-h1aligner",
-    "version": "0.8.2",
+    "version": "0.8.3",
     "description": "Keep note filenames aligned with the first H1 — automatically and safely.",
     "main": "main.js",
     "scripts": {

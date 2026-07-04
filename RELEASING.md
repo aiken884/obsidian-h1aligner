@@ -72,29 +72,21 @@ attach `main.js` + `manifest.json` + `styles.css` as individual binary assets
 
 ## Obsidian community plugin submission (first release only)
 
-H1Aligner is submitted to the [obsidian-releases](https://github.com/obsidianmd/obsidian-releases)
-repository **once** — subsequent versions are pulled automatically from this
-repo's GitHub Releases.
+提交流程（2026 現行版 — 經 community.obsidian.md 網站，不再是 fork obsidian-releases 開 PR）：
 
-1. Fork [obsidian-releases](https://github.com/obsidianmd/obsidian-releases).
-2. Add an entry to `community-plugins.json` (at the end of the list):
-   ```json
-   {
-       "id": "h1aligner",
-       "name": "H1Aligner",
-       "author": "Aiken Lin",
-       "description": "Keep note filenames aligned with the first H1 — automatically and safely.",
-       "repo": "aiken884/obsidian-h1aligner"
-   }
-   ```
-3. Open a PR against `obsidian-releases` following the
-   [submission guidelines](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin).
-4. Wait for review — the automated bot and the Obsidian team check for: unique
-   `id`, no `obsidian` substring in the id (✅ ours is `h1aligner`), release tag
-   matching `manifest.json`'s version, `main.js` + `manifest.json` attached to
-   the release, and a working install from a fresh vault.
-5. Address any reviewer feedback. Once merged, the plugin appears in
-   **Community plugins** browser within 24h.
+1. 確認 repo 根目錄有 `README.md`、`LICENSE`、`manifest.json`，且已發佈至少一個
+   GitHub release（tag = manifest version、無 `v` 前綴，附 `main.js` + `manifest.json` + `styles.css`）。
+2. 登入 [community.obsidian.md](https://community.obsidian.md)，連結 GitHub 帳號驗證 repo 所有權。
+3. 側欄 **Plugins → New plugin** → 輸入 repo URL → 同意開發者政策 → **Submit**。
+4. 自動檢查 bot 會即時回饋。常見檢查點：`id` 唯一且不含 "obsidian"（✅ `h1aligner`）、
+   description ≤ 250 字元且以句號結尾、`minAppVersion` 已設、無捐款則不得留 `fundingUrl`（✅ 已移除）、
+   使用 Node/Electron API 者必須 `isDesktopOnly: true`（✅ 本外掛零 Node API、`false` 經驗證）、
+   指令 ID 不含外掛 ID 前綴（✅）。
+5. 需要修正時：改完發新 release（版本遞增）即可重跑檢查。
+6. 通過自動檢查後進入人工審核（時程數週不等）。核准後外掛出現在
+   Community plugins 瀏覽器；**之後的版本更新不需重新送審** — 發新 GitHub release 目錄就會自動抓取。
+
+發佈後推廣（選項）：論壇 Share & Showcase 版、Discord `#updates` 頻道（需 developer 角色）。
 
 ## Post-release verification
 

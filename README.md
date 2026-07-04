@@ -1,39 +1,44 @@
 # H1Aligner
 
-> **Align your note filename with the first H1 on file switch.**
->
-> 「H1 即檔名 — Obsidian 筆記命名自動化外掛」
-
-H1Aligner watches `file-open` events in Obsidian, reads the first H1 (`# Title`) inside the file, and renames the file on disk to match. Quiet by default. No notices. No surprises.
+> **Your first heading is the title. Now it is the filename too.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen.svg)](#development)
+
+H1Aligner is an Obsidian plugin that keeps your note filenames aligned with their first H1 — automatically, quietly, and in one direction only. You write `# A Better Title`, and the file becomes `A Better Title.md`, backlinks intact. No dialogs, no drift, no surprises.
 
 ---
 
-## Why this exists
+### One rule, strictly enforced
 
-If you treat the first H1 as the canonical title of a note and want the **filename** on disk to track it automatically, this plugin closes the loop. You write `# New Title` once, switch back to the file later, and the filename follows along — your backlinks come with it.
+The first H1 is always the source of truth: **H1 → filename, never the reverse.** Rename a file by hand and it snaps back on the next trigger — unless you lock that note with a single line of frontmatter (`h1aligner-lock: true`). One predictable rule beats a dozen half-configured behaviors.
 
-The plugin is intentionally one-way: **H1 → filename**, never filename → H1. The first H1 is always the source of truth. That means a manual filename rename (e.g. via `Ctrl+P → Rename file`) that diverges from the H1 will be **reverted on the next file-open** — the filename snaps back to match the H1. If you want a different name to stick, change the H1, add `h1aligner-lock: true` to that note's frontmatter, or set the Rename trigger to "Manual only".
+### Renames on your terms
 
----
+H1Aligner lets you decide *when* filenames are allowed to move. Edit-triggered renames respond only to local typing: sync writes and programmatic updates never fire a rename. There are five trigger modes:
 
-## What it does (TL;DR)
+- **On file open**
+  Renames as soon as you open a note. Great for cleaning up an existing vault as you work through it, with zero extra keystrokes.
 
-| Trigger | Behaviour |
-|---|---|
-| You switch to a `.md` file (default trigger) | Read first H1 from cache (or scan the file). Rename the file to match — but only when it differs, isn't empty after sanitisation, and won't collide with a sibling. |
-| You pause typing (optional "After editing" trigger) | Same logic, after a generous debounce so it never renames mid-keystroke. |
-| You switch away from a note (optional "On leaving" trigger) | Renames the note you just left — never touches what you are currently viewing. A "Both" mode combines file-open and after-editing. |
-| You run `Cmd/Ctrl+P → Rename active file from first H1` | Same logic, on-demand. Reports the outcome via a Notice. |
-| You run `Preview all renames (dry run)` | Scans the whole vault (within scope), shows what WOULD be renamed and why the rest is skipped, with an optional one-click Apply. Targets are re-checked at apply time; notes whose H1 changed meanwhile are skipped. |
-| You run `Undo last rename` | Reverts the most recent rename this session (up to 20 levels). A failed undo keeps its history entry so you can retry. |
-| You run `Show recent activity` | Session log of every rename decision (trigger source, outcome, skip reason) — answers "why wasn't this file renamed?". In-memory only, no telemetry. |
-| File is out of scope for AUTOMATIC renames (ignored folder, not in the include list, matches an exclude pattern like the built-in daily-notes date pattern, or carries `h1aligner-lock: true`) | Skipped silently. The manual command bypasses include/exclude scope (an explicit action is consent) but still honours ignored folders and the lock. |
-| File has no H1 | Skipped silently. |
+- **After editing**
+  Waits a couple of seconds after you stop typing, then renames. You keep your writing flow; filenames quietly fall back in line once you pause.
 
-Backlinks update automatically because the plugin uses `app.fileManager.renameFile()` (not `vault.rename`).
+- **Both**
+  Combine the two: opening a note and editing its H1 can both trigger a rename. This is the "always in sync" option if you want titles and filenames to match at all times.
+
+- **On leaving a note**
+  Only renames the note you just switched away from. The file you are currently looking at never moves under your cursor, which makes this the gentlest option for people who hate it when tabs jump around.
+
+- **Manual only**
+  Nothing ever renames itself. You drive every change through the command palette or your own hotkeys — perfect if you want H1Aligner's safety features and preview tools, but prefer to pull the trigger yourself.
+
+### Guardrails first
+
+Every rename passes a full protection chain before anything touches disk: frontmatter locks, date-named daily-note protection, folder allowlists and regex excludes, cross-platform filename sanitisation (Windows-reserved names, Obsidian link-breaking characters, the 255-byte filesystem limit), and collision detection that understands case-insensitive filesystems. A vault-wide dry-run preview, a 20-step undo, and a session activity log that answers "why *wasn't* this file renamed?" round out the safety story.
+
+### Engineered like it matters
+
+H1Aligner is built and tested like a serious tool, not a weekend experiment. It ships with **233 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **18 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -43,7 +48,7 @@ Backlinks update automatically because the plugin uses `app.fileManager.renameFi
 trigger: file-open (100ms) | editor-change (local typing only, 2s —
          Sync/programmatic writes never trigger) | both | on-leave
          (renames the note you switched away from) | manual command
-    └─ scope filter: .md + ignoreFolders + includeFolders whitelist
+    └─ scope filter: .md + ignoreFolders + includeFolders allowlist
        + basename exclude patterns (daily-notes date pattern by default)
         └─ RenameService.renameFromH1(file)
             ├─ L0 frontmatter lock (`h1aligner-lock: true`) → skip
@@ -78,110 +83,79 @@ trigger: file-open (100ms) | editor-change (local typing only, 2s —
                 └─ recorded in the session undo history (20 levels)
 ```
 
-Concurrency is handled by a serial chain Promise plus a per-file in-progress Set; rapid file switches don't race.
+Backlinks update automatically because the plugin uses `app.fileManager.renameFile()` (not `vault.rename`). Concurrency is handled by a serial chain Promise plus a per-file in-progress set; rapid file switches don't race.
 
----
+## Commands
+
+| Command | What it does |
+|---|---|
+| **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
+| **Preview all renames (dry run)** | Scans the vault within scope and shows what WOULD be renamed and why the rest is skipped, with one-click Apply. Targets are re-verified at apply time; notes whose H1 changed meanwhile are skipped. |
+| **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
+| **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
 
 ## Settings
 
 | Setting | Default | Notes |
 |---|---|---|
-| Rename trigger | On file open | `On file open` / `After editing (debounced)` / `Both` / `On leaving a note` (renames the note you switched away from — never touches what you are viewing) / `Manual only`. The manual command always works. |
-| Ignore folders | `.obsidian, .trash` | Prefix match. Files at or under these paths are skipped. |
-| Include only these folders | *(empty)* | Whitelist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
-| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored substring match — use `^`/`$` for exact names). Applies to automatic triggers and batch; the manual command bypasses it. The default protects date-named daily notes. |
-| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` in frontmatter are never renamed. |
-| Filename template | `{{h1}}` | Tokens: `{{h1}}` (required — templates without it are treated as plain `{{h1}}`), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. |
+| Rename trigger | On file open | The five modes above. The manual command always works. |
+| Ignore folders | `.obsidian, .trash` | Prefix match. `/` means the vault root layer. |
+| Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
+| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). The default protects date-named daily notes. |
+| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
+| Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
 | When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
 | Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
-| Preserve old name as alias | ❌ off | After a rename, append the previous filename to frontmatter `aliases` so the old name still works in the quick switcher. Not removed on undo. |
+| Preserve old name as alias | ❌ off | Appends the previous filename to frontmatter `aliases` so the old name still works in the quick switcher. |
 | Trim whitespace | ✅ on | Strip leading/trailing whitespace from the H1 text. |
-| Replace illegal characters | ✅ on | Replace `\ / : * ? " < > \|` (Windows) and `# ^ [ ]` (Obsidian links) with the replacement char. Path separators are always replaced. |
-| Replacement character | ` ` (space) | Single character; illegal characters are rejected, leave empty to delete instead. Common alternatives: `_`, `-`. |
-| Maximum filename length | `150` | 1–255; truncates on a code-point boundary (emoji-safe). Names are additionally capped at 255 UTF-8 bytes for filesystem compatibility. |
-| Notice level | Off | For automatic renames: `Off` / `Errors only` / `All renames`. Manual actions always report. |
-| File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous so renames never fire mid-typing. |
+| Replace illegal characters | ✅ on | Windows-invalid and Obsidian link-breaking characters → replacement char. Path separators are always replaced. |
+| Replacement character | ` ` (space) | Single character; illegal characters are rejected; empty deletes instead. |
+| Maximum filename length | `150` | 1–255 code points; additionally capped at 255 UTF-8 bytes for filesystem compatibility. |
+| Notice level | Off | For automatic renames: Off / Errors only / All. Manual actions always report. |
+| File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous — renaming mid-typing is disruptive. |
 
-A live **preview field** at the bottom of the Naming section shows the filename a sample H1 would produce with the current settings.
-
-On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious "Manual only" start. The UI follows Obsidian's language setting (English / 繁體中文 / 日本語).
-
-All settings are stored in `data.json` inside the plugin folder (validated on load — a corrupt or hand-edited `data.json` falls back to safe defaults per field).
-
----
+A live **preview field** shows the filename a sample H1 would produce with your current settings. On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious Manual-only start.
 
 ## Behaviour notes
 
-### Case-only renames are intentional
+**Case-only renames are intentional.** On case-insensitive, case-preserving filesystems (NTFS, APFS), `linker.md` with `# Linker` becomes `Linker.md` on the next trigger. Filename casing is part of the alignment contract; turn it off in settings if you prefer a still file tree.
 
-On case-insensitive but case-preserving filesystems (Windows NTFS, macOS APFS default), a file saved as `linker.md` whose first H1 reads `# Linker` will be renamed to `Linker.md` (capital L) the next time you open it. This is **intentional** — H1Aligner treats filename casing as part of the H1↔filename alignment contract. If you typed the H1 with a capital L, the filename adopts it.
+**Manual commands always notify.** The Notice level setting only controls automatic renames. Manual invocations always report their outcome — including skip reasons like `no-h1`, `locked`, or `collision`.
 
-You'll see a visible case flip in the file tree; this is not a duplicate file and not a bug.
+**Daily notes are protected by default.** Date-named notes (`2026-07-03.md`) are never auto-renamed thanks to the default exclude pattern. Remove it if you actually want that.
 
-### Manual commands always notify
+**Undo is session-scoped.** Up to 20 renames, newest first, this session only. If the H1 still differs from the restored name and an automatic trigger is active, the next trigger renames it again — lock the note or fix the H1 to make the old name stick.
 
-The palette commands (`Rename active file from first H1`, batch Apply, `Undo last rename`) show a Notice toast regardless of the `Notice level` setting. The setting only controls **automatic** renames. Manual invocation always reports its outcome — including skip reasons like `no-h1`, `same-name`, `locked`, or `collision` — so you know what happened.
+## ⚠️ Do not pair with these plugins
 
-### Daily notes are protected by default
-
-The default exclude pattern `^\d{4}-\d{2}-\d{2}$` means date-named notes (`2026-07-03.md`) are never renamed, even though their first H1 usually differs from the filename. Remove the pattern if you actually want that behaviour.
-
-### Undo is session-scoped
-
-`Undo last rename` reverts the plugin's own renames (up to 20, newest first) within the current session. Note that if the note's H1 still differs from the restored filename and an automatic trigger is active, the next file-open/edit will rename it again — lock the note or fix the H1 if you want the old name to stick.
-
-## ⚠️ Compatibility — do NOT pair with these plugins
-
-H1Aligner manages the filename ⇄ H1 relationship one way. Several existing plugins also touch that relationship; running them together is asking for **rename loops, lost edits, or cursor jumps**. Pick **one** and uninstall the others.
+H1Aligner manages the filename ⇄ H1 relationship one way. Running plugins that also touch it invites rename loops and lost edits. Pick one and disable the others:
 
 | Plugin | Why it conflicts |
 |---|---|
-| [dvcrn / Filename Heading Sync](https://github.com/dvcrn/obsidian-filename-heading-sync) | Two-way sync (filename ⇄ first heading). Will fight H1Aligner on every file-open. |
-| [wenlzhang / File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater) | Also renames the file when the title changes; overlapping responsibility. |
-| [platers / Obsidian Linter](https://github.com/platers/obsidian-linter) — *Filename* rules | Linter can be configured to rewrite filenames from headings; either disable that rule or don't use H1Aligner. |
-
-If you're migrating from one of the above, **uninstall it first** before installing H1Aligner. Re-run the manual command (`Rename active file from first H1`) on any files left in inconsistent state.
-
----
+| [Filename Heading Sync](https://github.com/dvcrn/obsidian-filename-heading-sync) | Two-way sync — will fight H1Aligner on every trigger |
+| [File Title Updater](https://github.com/wenlzhang/obsidian-file-title-updater) | Also renames files from titles; overlapping responsibility |
+| [Auto Filename](https://github.com/rcsaquino/obsidian-auto-filename) | Renames files from content; overlapping responsibility |
+| [Linter](https://github.com/platers/obsidian-linter) — *file name* rules only | Disable its filename rules, or don't use H1Aligner |
 
 ## Installation
 
-### From source (Phase 1 — pre-release)
+**From source** (not yet in the community directory):
 
-1. Clone or download this repo.
-2. `npm install`
-3. `npm run build` → produces `main.js` next to `manifest.json`.
-4. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/h1aligner/`.
-5. Enable the plugin in Obsidian → Settings → Community plugins.
+1. Clone this repo, then `npm install && npm run build`
+2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/h1aligner/`
+3. Enable it under Settings → Community plugins
 
-### From Community Plugins (post-release)
-
-Coming once submitted to the [Obsidian community plugin registry](https://github.com/obsidianmd/obsidian-releases).
-
----
-
-## Usage
-
-1. Enable the plugin.
-2. Open any `.md` file in your vault. If its first H1 differs from its filename, it gets renamed.
-3. To rename on demand: `Cmd/Ctrl+P` → search "Rename active file from first H1".
-
-That's it. The plugin is intentionally low-config.
-
----
+Requires Obsidian 1.4.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
 
 ## Development
 
 ```bash
-npm install            # install deps
-npm run dev            # watch-mode build (writes main.js on change)
-npm run build          # one-shot production build
-npm test               # run vitest suites
-npm run test:coverage  # vitest + v8 coverage report
-npm run test:e2e       # drive the built main.js through 18 end-to-end scenarios
+npm run dev            # watch-mode build
+npm run build          # type-check + production build
+npm test               # 233 unit tests (vitest, incl. property-based)
+npm run test:coverage  # + v8 coverage report
+npm run test:e2e       # 18 E2E scenarios against the built bundle
 ```
-
-Project layout:
 
 ```
 src/
@@ -190,45 +164,18 @@ src/
   filename.ts          # sanitisation algorithm
   template.ts          # filename template renderer (pure)
   rename-service.ts    # serial rename queue + guard layers + dry run + aliases
-  settings.ts          # schema + defaults + validation + v1 migration
-  settings-tab.ts      # Obsidian SettingTab UI + live preview
+  settings.ts          # schema + defaults + validation + migration
+  settings-tab.ts      # SettingTab UI + live preview
   batch-modal.ts       # dry-run preview modal
   activity-modal.ts    # session activity viewer
   onboarding-modal.ts  # one-time first-run dialog
-  scope.ts             # ignore/include/exclude-pattern decision (pure)
-  ignore.ts            # ignoreFolders prefix matcher (pure)
-  debounce.ts          # per-key debounce scheduler (pure)
-  notice.ts            # notice-level policy (pure)
-  history.ts           # session rename history for undo (pure)
-  activity-log.ts      # session decision ring buffer (pure)
-  i18n.ts              # en / zh-TW / ja string tables (pure)
+  scope.ts / ignore.ts / debounce.ts / notice.ts / history.ts /
+  activity-log.ts / i18n.ts        # pure, obsidian-free, fully unit-tested
 styles.css             # modal/settings styles
 docs/MOBILE-TESTING.md # real-device checklist (iPhone / Android)
-tests/
-  heading.test.ts        filename.test.ts       rename-service.test.ts
-  settings.test.ts       template.test.ts       scope.test.ts
-  ignore.test.ts         debounce.test.ts       notice.test.ts
-  history.test.ts        activity-log.test.ts   i18n.test.ts
-  filename.property.test.ts
 ```
 
-### Testing
-
-Vitest with 233 unit tests (including 7 fast-check property-based invariants for the sanitiser) covering the H1 extractor (cache + scan paths, frontmatter, BOM, CommonMark code-fence and closing-`#` conformance, Setext via cache, CRLF), the filename sanitiser (Windows + Obsidian illegal chars, replacement-char safety, reserved-name stems, code-point and 255-byte caps, Unicode, surrogate-pair boundary), the template renderer, the rename service (frontmatter lock, guard layers, case-only policy, collision numbering, dry run, undo history, serial chain, error capture, cachedRead fallback), settings validation/v1-migration/parsing, the scope matcher, the debounce scheduler, and the notice policy. CI runs the full suite on every push (`.github/workflows/ci.yml`).
-
-```bash
-npm test
-```
-
----
-
-## Roadmap
-
-- **Phase 1 MVP** (0.1.0) — file-open auto-rename, manual command, 4-layer guard. ✅
-- **Phase 2** (0.4.0) — frontmatter lock, live preview in settings, configurable triggers (`After editing`), scope controls (include folders, exclude patterns). ✅
-- **Phase 3** (0.4.0) — batch rename with dry-run preview, collision numbering, filename templates, undo. ✅
-
----
+All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs build + both suites on every push. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.
 
 ## License
 
@@ -236,6 +183,4 @@ npm test
 
 ---
 
-## Releasing
-
-See [RELEASING.md](./RELEASING.md) for the GitHub release + Obsidian community plugin submission flow.
+*Built by a single developer who got tired of living with `Untitled 27.md` and decided filenames should be as clean and predictable as his notes.*

@@ -21,13 +21,13 @@
     "license": "MIT",
     "devDependencies": {
         "@types/node": "^20.0.0",
-        "@vitest/coverage-v8": "^2.1.9",
-        "builtin-modules": "^3.3.0",
-        "esbuild": "^0.21.0",
+        "@vitest/coverage-v8": "^4.1.9",
+        "builtin-modules": "^5.3.0",
+        "esbuild": "^0.28.1",
         "fast-check": "^4.8.0",
         "obsidian": "~1.4.11",
         "tslib": "^2.6.0",
-        "typescript": "^5.6.0",
-        "vitest": "^2.0.0"
+        "typescript": "^6.0.3",
+        "vitest": "^4.1.9"
     }
 }

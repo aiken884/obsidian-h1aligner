@@ -85,7 +85,7 @@ describe('sanitizeFileName invariants (fast-check)', () => {
             fc.property(anyText, (s) => {
                 const out = sanitizeFileName(s);
                 // A lone surrogate round-trips through UTF-8 as U+FFFD.
-                expect(Buffer.from(out, 'utf8').toString('utf8')).toBe(out);
+                expect(new TextDecoder().decode(new TextEncoder().encode(out))).toBe(out);
             }),
             RUNS,
         );

@@ -187,6 +187,10 @@ docs/MOBILE-TESTING.md # real-device checklist (iPhone / Android)
 
 All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs build + both suites on every push. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.
 
+## Support
+
+If H1Aligner keeps your vault tidy, you can [support its development via PayPal](https://paypal.me/aikenlin). Entirely optional — the plugin is and stays free.
+
 ## License
 
 [MIT](./LICENSE) © 2026 Aiken Lin

@@ -2,6 +2,9 @@
 
 專案為個人使用（未上架社群目錄）；版本號依 SemVer。
 
+## 0.8.2 — 2026-07-04
+- manifest 加入 fundingUrl（PayPal）；GitHub FUNDING.yml；README Support 段
+
 ## 0.8.1 — 2026-07-04
 - 外掛 id 更名 `h1aligner` → `heading-aligner`：社群目錄規則限 id 僅能小寫字母與連字號（不允許數字），送審 bot 打回後修正。name 維持「H1Aligner」、frontmatter 鎖 key `h1aligner-lock` 不變（向後相容）
 

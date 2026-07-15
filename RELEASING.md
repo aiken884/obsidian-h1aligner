@@ -31,15 +31,41 @@ You never edit them by hand: `npm version` keeps all three in sync (see below).
 > `v0.1.0`). The repo's `.npmrc` sets `tag-version-prefix=""` so `npm version`
 > creates the correctly-named tag automatically.
 
+## Release-candidate gate
+
+Run these checks against the exact release-candidate worktree before creating a
+commit or tag:
+
+```bash
+git diff --check
+npm ci
+npm run lint
+npm run build
+npm test
+npm run test:e2e
+```
+
+- Confirm `manifest.json`, `package.json`, `versions.json`, and `CHANGELOG.md`
+  describe the same version.
+- Perform the desktop smoke test in a real vault, including upgrade behavior
+  from the previous release.
+- For UI changes, complete the iPhone and Android scenarios in
+  [`docs/MOBILE-TESTING.md`](docs/MOBILE-TESTING.md) and record the result.
+- Keep dependency-only updates separate from a feature release unless they are
+  required to resolve a release-blocking issue.
+
 ## Release flow
 
 ```bash
 # 1. Clean state
 git status                    # working tree must be clean, on main
 
-# 2. Tests green + production build
-npm test                      # all suites pass
-npm run build                 # main.js written, no TS errors
+# 2. Full release-candidate gate
+npm ci
+npm run lint
+npm run build
+npm test
+npm run test:e2e
 
 # 3. Smoke-test in a real vault
 #    Copy main.js + manifest.json + styles.css into <vault>/.obsidian/plugins/heading-aligner/

@@ -30,6 +30,11 @@ export interface H1AlignerSettings {
     includeFolders: string[];
     /** Regexes tested against the basename; matches are skipped. */
     excludePatterns: string[];
+    /**
+     * Invalid textarea input kept apart from the active rules. It is only
+     * present while the user needs to fix a pattern syntax error.
+     */
+    excludePatternsDraft?: string;
     /** Honour `h1aligner-lock: true` in frontmatter. */
     skipIfFrontmatterLock: boolean;
     // Naming
@@ -128,6 +133,12 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
             .filter((x): x is string => typeof x === 'string')
             .filter((x) => x.trim().length > 0);
     }
+    if (typeof r.excludePatternsDraft === 'string') {
+        const validation = validateExcludePatterns(r.excludePatternsDraft);
+        if (validation.invalidPatterns.length > 0) {
+            out.excludePatternsDraft = r.excludePatternsDraft;
+        }
+    }
     if (typeof r.skipIfFrontmatterLock === 'boolean' && !isV1) {
         out.skipIfFrontmatterLock = r.skipIfFrontmatterLock;
     }
@@ -196,6 +207,53 @@ export function parseExcludePatterns(input: string): string[] {
     return input
         .split(/\r?\n/)
         .filter((s) => s.trim().length > 0);
+}
+
+export interface ExcludePatternValidation {
+    /** All non-blank candidate lines, with regex-significant whitespace kept intact. */
+    patterns: string[];
+    /** Candidate lines that JavaScript cannot compile as regular expressions. */
+    invalidPatterns: string[];
+}
+
+/** Validate the full textarea draft without changing the active settings. */
+export function validateExcludePatterns(input: string): ExcludePatternValidation {
+    const patterns = parseExcludePatterns(input);
+    const invalidPatterns = patterns.filter((pattern) => {
+        try {
+            new RegExp(pattern);
+            return false;
+        } catch {
+            return true;
+        }
+    });
+    return { patterns, invalidPatterns };
+}
+
+/** Return the draft shown in Settings, falling back to the active rules. */
+export function getExcludePatternsDraft(
+    settings: Pick<H1AlignerSettings, 'excludePatterns' | 'excludePatternsDraft'>,
+): string {
+    return settings.excludePatternsDraft ?? settings.excludePatterns.join('\n');
+}
+
+/**
+ * Apply a textarea edit while preserving the last valid active rules. Invalid
+ * input is persisted separately so it can block writes and be fixed later.
+ */
+export function updateExcludePatternsFromDraft(
+    settings: H1AlignerSettings,
+    draft: string,
+): ExcludePatternValidation {
+    const validation = validateExcludePatterns(draft);
+    if (validation.invalidPatterns.length > 0) {
+        settings.excludePatternsDraft = draft;
+        return validation;
+    }
+
+    settings.excludePatterns = validation.patterns;
+    delete settings.excludePatternsDraft;
+    return validation;
 }
 
 /**

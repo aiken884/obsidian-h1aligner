@@ -3,7 +3,7 @@
 > **Your first heading is the title. Now it is the filename too.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen.svg)](#development)
 
 H1Aligner is an Obsidian plugin that keeps your note filenames aligned with their first H1 — automatically, quietly, and in one direction only. You write `# A Better Title`, and the file becomes `A Better Title.md`, backlinks intact. No dialogs, no drift, no surprises.
 
@@ -46,7 +46,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **233 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **18 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **238 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **20 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -57,7 +57,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Command | What it does |
 |---|---|
 | **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
-| **Preview all renames (dry run)** | Scans the vault within scope and shows what WOULD be renamed and why the rest is skipped, with one-click Apply. Targets are re-verified at apply time; notes whose H1 changed meanwhile are skipped. |
+| **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. |
 | **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
 | **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
 
@@ -68,7 +68,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Rename trigger | On file open | The five modes above. The manual command always works. |
 | Ignore folders | `.trash` | Prefix match; `/` means the vault root layer. The Obsidian config folder is always ignored automatically. |
 | Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
-| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). The default protects date-named daily notes. |
+| Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). Invalid drafts are kept separate and pause new renames until fixed. The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
 | When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
@@ -149,11 +149,19 @@ H1Aligner manages the filename ⇄ H1 relationship one way. Running plugins that
 
 ## Installation
 
-**From source** (not yet in the community directory):
+H1Aligner is available in Obsidian's [Community plugins directory](https://community.obsidian.md/plugins/heading-aligner).
 
-1. Clone this repo, then `npm install && npm run build`
-2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/heading-aligner/`
-3. Enable it under Settings → Community plugins
+**From Obsidian** (recommended):
+
+1. Open **Settings → Community plugins → Browse**.
+2. Search for **H1Aligner**.
+3. Select it, then choose **Install** and **Enable**.
+
+**From source** (development or unreleased builds):
+
+1. Clone this repo, then run `npm install && npm run build`.
+2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/heading-aligner/`.
+3. Enable it under Settings → Community plugins.
 
 Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
 
@@ -163,9 +171,9 @@ Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, v
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 233 unit tests (vitest, incl. property-based)
+npm test               # 238 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 18 E2E scenarios against the built bundle
+npm run test:e2e       # 20 E2E scenarios against the built bundle
 ```
 
 ```
@@ -178,6 +186,7 @@ src/
   settings.ts          # schema + defaults + validation + migration
   settings-tab.ts      # SettingTab UI + live preview
   batch-modal.ts       # dry-run preview modal
+  batch-triage.ts      # pure batch status classification
   activity-modal.ts    # session activity viewer
   onboarding-modal.ts  # one-time first-run dialog
   scope.ts / ignore.ts / debounce.ts / notice.ts / history.ts /

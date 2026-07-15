@@ -1,6 +1,12 @@
 import { Notice, Plugin, TFile, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
-import { DEFAULT_SETTINGS, H1AlignerSettings, normalizeSettings } from './settings';
+import {
+    DEFAULT_SETTINGS,
+    getExcludePatternsDraft,
+    H1AlignerSettings,
+    normalizeSettings,
+    validateExcludePatterns,
+} from './settings';
 import { H1AlignerSettingTab } from './settings-tab';
 import { isInScope } from './scope';
 import { isIgnoredPath } from './ignore';
@@ -11,6 +17,7 @@ import { ActivityLog, ActivitySource } from './activity-log';
 import { ActivityModal } from './activity-modal';
 import { OnboardingModal } from './onboarding-modal';
 import { BatchPreviewModal, BatchItem } from './batch-modal';
+import { classifyBatchItem } from './batch-triage';
 import { t, setLocaleFromLanguage } from './i18n';
 
 /**
@@ -37,6 +44,7 @@ export default class H1AlignerPlugin extends Plugin {
     private readonly history = new RenameHistory(20);
     private readonly activity = new ActivityLog(200);
     private readonly debouncer = new KeyedDebouncer(DEFAULT_SETTINGS.fileOpenDebounceMs);
+    private saveQueue: Promise<void> = Promise.resolve();
     /** Previous active file — the 'leave' trigger renames this one. */
     private lastActiveFile: TFile | null = null;
 
@@ -201,6 +209,10 @@ export default class H1AlignerPlugin extends Plugin {
         manual: boolean,
         source: ActivitySource,
     ): Promise<void> {
+        if (this.hasInvalidExcludePatterns()) {
+            if (manual) new Notice(t('notice.invalidPatternsBlocked'));
+            return;
+        }
         const path = file.path;
         const outcome = await this.renameService.renameFromH1(file);
         if (outcome.error) {
@@ -238,6 +250,7 @@ export default class H1AlignerPlugin extends Plugin {
     }
 
     private async runBatchPreview(): Promise<void> {
+        const previewFingerprint = this.batchSettingsFingerprint();
         const files = this.app.vault.getMarkdownFiles().filter((f) => this.shouldProcess(f));
         if (files.length > 200) {
             new Notice(t('notice.scanning', { count: files.length }));
@@ -254,53 +267,82 @@ export default class H1AlignerPlugin extends Plugin {
                 await new Promise((r) => window.setTimeout(r, 0));
             }
             const outcome = await this.renameService.renameFromH1(file, { dryRun: true });
-            let to = outcome.skipped === 'none' && outcome.newName ? outcome.newName : null;
-            let reason = outcome.error ? `error: ${outcome.error.message}` : outcome.skipped;
-            if (to !== null) {
+            let to = outcome.newName;
+            let reason = outcome.error ? 'error' : outcome.skipped;
+            let status = classifyBatchItem(outcome, false);
+            if (status === 'rename' && to !== null) {
                 const dir = file.parent ? file.parent.path : '';
                 const key = dir + '|' + foldName(to + '.' + (file.extension || 'md'));
                 if (claimedTargets.has(key)) {
-                    to = null;
-                    reason = 'collision (duplicate target in this batch)';
+                    status = 'conflict';
+                    reason = 'duplicate-target';
                 } else {
                     claimedTargets.add(key);
                 }
             }
-            items.push({ file, from: file.path, to, reason });
+            items.push({
+                file,
+                from: file.path,
+                to,
+                status,
+                reason,
+                detail: outcome.error?.message,
+            });
         }
-        new BatchPreviewModal(this.app, items, async (renamable) => {
-            let done = 0;
-            let changed = 0;
-            let failed = 0;
-            for (const item of renamable) {
-                // Guard against H1s edited between preview and apply: only
-                // execute when a fresh dry run still matches what was shown.
-                const check = await this.renameService.renameFromH1(item.file, { dryRun: true });
-                if (check.skipped !== 'none' || check.newName !== item.to) {
-                    changed++;
-                    continue;
+        if (!this.isBatchPreviewCurrent(previewFingerprint)) {
+            new Notice(t('notice.batchSettingsChanged'));
+            return;
+        }
+        new BatchPreviewModal(
+            this.app,
+            items,
+            this.canApplyBatchPreview(previewFingerprint),
+            async (renamable) => {
+                if (!this.canApplyBatchPreview(previewFingerprint)) {
+                    new Notice(this.batchPreviewBlockMessage(previewFingerprint));
+                    return;
                 }
-                const outcome = await this.renameService.renameFromH1(item.file);
-                this.activity.record({
-                    ts: Date.now(),
-                    path: item.from,
-                    source: 'batch',
-                    outcome: outcome.error
-                        ? 'error'
-                        : outcome.skipped === 'none'
-                            ? 'renamed'
-                            : outcome.skipped,
-                    newName: outcome.newName ?? undefined,
-                    detail: outcome.error?.message,
-                });
-                if (outcome.skipped === 'none' && !outcome.error) done++;
-                else failed++;
-            }
-            const parts = [t('notice.batchDone', { done })];
-            if (changed) parts.push(t('notice.batchChanged', { count: changed }));
-            if (failed) parts.push(t('notice.batchFailed', { count: failed }));
-            new Notice(parts.join(', '));
-        }).open();
+                let done = 0;
+                let changed = 0;
+                let failed = 0;
+                for (const item of renamable) {
+                    if (!this.canApplyBatchPreview(previewFingerprint)) {
+                        new Notice(this.batchPreviewBlockMessage(previewFingerprint));
+                        return;
+                    }
+                    // Guard against H1s edited between preview and apply: only
+                    // execute when a fresh dry run still matches what was shown.
+                    const check = await this.renameService.renameFromH1(item.file, { dryRun: true });
+                    if (!this.canApplyBatchPreview(previewFingerprint)) {
+                        new Notice(this.batchPreviewBlockMessage(previewFingerprint));
+                        return;
+                    }
+                    if (check.skipped !== 'none' || check.newName !== item.to) {
+                        changed++;
+                        continue;
+                    }
+                    const outcome = await this.renameService.renameFromH1(item.file);
+                    this.activity.record({
+                        ts: Date.now(),
+                        path: item.from,
+                        source: 'batch',
+                        outcome: outcome.error
+                            ? 'error'
+                            : outcome.skipped === 'none'
+                                ? 'renamed'
+                                : outcome.skipped,
+                        newName: outcome.newName ?? undefined,
+                        detail: outcome.error?.message,
+                    });
+                    if (outcome.skipped === 'none' && !outcome.error) done++;
+                    else failed++;
+                }
+                const parts = [t('notice.batchDone', { done })];
+                if (changed) parts.push(t('notice.batchChanged', { count: changed }));
+                if (failed) parts.push(t('notice.batchFailed', { count: failed }));
+                new Notice(parts.join(', '));
+            },
+        ).open();
     }
 
     private async undoLastRename(): Promise<void> {
@@ -355,6 +397,53 @@ export default class H1AlignerPlugin extends Plugin {
     }
 
     async saveSettings(): Promise<void> {
-        await this.saveData(this.settings);
+        const snapshot: H1AlignerSettings = {
+            ...this.settings,
+            ignoreFolders: [...this.settings.ignoreFolders],
+            includeFolders: [...this.settings.includeFolders],
+            excludePatterns: [...this.settings.excludePatterns],
+        };
+        const write = this.saveQueue
+            .catch(() => undefined)
+            .then(() => this.saveData(snapshot));
+        this.saveQueue = write;
+        await write;
+    }
+
+    private hasInvalidExcludePatterns(): boolean {
+        return validateExcludePatterns(getExcludePatternsDraft(this.settings)).invalidPatterns.length > 0;
+    }
+
+    /** Settings that determine a batch preview's candidate set or side effects. */
+    private batchSettingsFingerprint(): string {
+        const settings = this.settings;
+        return JSON.stringify({
+            ignoreFolders: settings.ignoreFolders,
+            includeFolders: settings.includeFolders,
+            excludePatterns: settings.excludePatterns,
+            skipIfFrontmatterLock: settings.skipIfFrontmatterLock,
+            nameTemplate: settings.nameTemplate,
+            collisionStrategy: settings.collisionStrategy,
+            allowCaseOnlyRename: settings.allowCaseOnlyRename,
+            trimWhitespace: settings.trimWhitespace,
+            replaceIllegalCharacters: settings.replaceIllegalCharacters,
+            illegalReplacementChar: settings.illegalReplacementChar,
+            maxFilenameLength: settings.maxFilenameLength,
+            preserveOldNameAsAlias: settings.preserveOldNameAsAlias,
+        });
+    }
+
+    private isBatchPreviewCurrent(previewFingerprint: string): boolean {
+        return this.batchSettingsFingerprint() === previewFingerprint;
+    }
+
+    private canApplyBatchPreview(previewFingerprint: string): boolean {
+        return !this.hasInvalidExcludePatterns() && this.isBatchPreviewCurrent(previewFingerprint);
+    }
+
+    private batchPreviewBlockMessage(previewFingerprint: string): string {
+        return this.hasInvalidExcludePatterns()
+            ? t('notice.invalidPatternsBlocked')
+            : t('notice.batchSettingsChanged');
     }
 }

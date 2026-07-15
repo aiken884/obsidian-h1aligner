@@ -1,7 +1,7 @@
 # Mobile 實機驗證 checklist
 
 `manifest.json` 宣告 `isDesktopOnly: false` — 這份 checklist 是該承諾的實機驗證程序。
-單元測試（218）與 E2E（Node stub）都無法涵蓋真實 WebView 與行動檔案系統的行為，
+單元與 E2E 自動測試都無法涵蓋真實 WebView 與行動檔案系統的行為，
 **每次 minor release 前，在 iPhone 與 Android 各跑一輪**，把結果記錄在最下方的表格。
 
 安裝方式：把 `main.js`、`manifest.json`、`styles.css` 放進
@@ -21,10 +21,10 @@
 | 6b | both / leave 觸發 | 分別切到「兩者皆啟用」與「切離筆記時」重測 2 與 6 | both：開檔與停筆都改名；leave：停留時不動、切走後前一篇改名 |
 | 7 | Obsidian Sync 遠端變更 | 兩台裝置開同一筆記，A 裝置改 H1，B 裝置閒置於該筆記（trigger=編輯後） | B 裝置**不**因同步寫入而改名（editor-change 只回應本地輸入） |
 | 8 | 大小寫衝突（iOS APFS） | vault 有 `Readme.md`；開啟 H1 為 `README` 的另一筆記 | 跳過（collision），不得覆蓋 `Readme.md` |
-| 9 | 批次預覽 | 跑「Preview all renames (dry run)」 | modal 可開啟、可捲動；小螢幕上列表不橫向溢出；skip 摘要正確 |
+| 9 | 批次預覽 | 跑「Preview all renames (dry run)」，盡量包含衝突、跳過與錯誤案例；預覽後再變更會影響改名的設定 | modal 依 Rename、Conflicts、Errors、Skipped 分組且可捲動；小螢幕不橫向溢出；過期預覽被拒絕並要求重新預覽；僅可套用 Rename 項目 |
 | 10 | 批次套用 + undo | Apply 後跑「Undo last rename」 | 最後一筆改名被回退；activity 紀錄兩者皆有 |
 | 11 | 活動紀錄 | 跑「Show recent activity」 | modal 列出本 session 的決策（時間/來源/結果）；小螢幕可讀 |
-| 12 | 設定頁完整走查 | 開啟外掛設定，逐項調整並觀察 live preview | 所有欄位可操作；zh-TW 介面字串正確（Obsidian 語言設為繁中時）；preview 即時更新 |
+| 12 | 設定頁完整走查 | 開啟外掛設定，逐項調整並觀察 live preview；輸入無效排除 regex（如 `[`）後再修正 | 所有欄位可操作；zh-TW 介面字串正確（Obsidian 語言設為繁中時）；preview 即時更新；無效 draft 顯示行內錯誤、不覆蓋 active rule，並暫停自動、手動與批次改名直到修正 |
 | 13 | Android case-sensitive 行為 | （僅 Android）建立 `note.md` 與 `Note.md` 並測改名 | 碰撞掃描視為衝突（保守跳過）— 記錄實際行為 |
 | 14 | aliases 保留 | 開啟「將舊檔名保留為別名」後觸發改名 | frontmatter aliases 出現舊檔名；quick switcher 可用舊名搜到 |
 
@@ -34,3 +34,4 @@
 |------|-----------|---------------|----------|------------------------------|
 | 2026-07-03 | iPhone / iOS | mobile（版本未記） | 0.6.1 | 通過：2 (file-open 改名)、4 (daily 保護)、5 (鎖)、6 (edit 觸發＋軟鍵盤，兩輪打字-停筆皆正確、無中途改名)、9 (批次預覽 modal 繁中/摺疊摘要正常)、10 (undo 復原成功)、11 (活動紀錄完整、來源標籤正確)、12 (設定頁繁中走查、trigger 切換即時生效)。部分：3 (長檔名於手機開啟/顯示/冪等正常，未於手機新建長標題)。未測：1 (onboarding — Sync 已同步已讀標記，桌面端已驗)、7 (雙裝置閒置情境)、8 (大小寫衝突)、14 (aliases)。分發方式：Obsidian Sync。驗證方式：Sync 回流 Mac 端逐項自動比對＋4 張截圖。 |
 | — | Android | — | — | 未執行 |
+| 2026-07-15 | 待測：iPhone 與 Android | — | 0.10.0 | 發布候選新增第 9、12 項 gate；尚未進行實機驗證，不得視為通過。 |

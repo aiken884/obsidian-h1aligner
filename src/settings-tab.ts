@@ -4,18 +4,20 @@
  * Thin shell: parsing/validation lives in settings.ts (parseIgnoreFolders,
  * parseExcludePatterns, parseMaxFilenameLength), filename.ts
  * (cleanReplacementChar) and template.ts (renderNameTemplate), all
- * unit-tested. All UI strings come from src/i18n.ts (en / zh-TW).
+ * unit-tested. All UI strings come from src/i18n.ts (en / zh-TW / ja).
  * Section headings via Setting.setHeading(), sentence case.
  */
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import type H1AlignerPlugin from './main';
 import {
+    getExcludePatternsDraft,
     parseIgnoreFolders,
-    parseExcludePatterns,
     parseMaxFilenameLength,
     RenameTrigger,
     NoticeLevel,
     CollisionStrategy,
+    updateExcludePatternsFromDraft,
+    validateExcludePatterns,
 } from './settings';
 import { cleanReplacementChar, sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
@@ -82,27 +84,69 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     }),
             );
 
-        new Setting(containerEl)
+        const excludeSetting = new Setting(containerEl)
             .setName(t('set.exclude.name'))
-            .setDesc(t('set.exclude.desc'))
-            .addTextArea((txt) => {
+            .setDesc(t('set.exclude.desc'));
+        const validationEl = excludeSetting.settingEl.createDiv();
+        validationEl.classList.add('h1aligner-validation');
+        validationEl.id = 'h1aligner-exclude-pattern-validation';
+        const announcementEl = excludeSetting.settingEl.createDiv();
+        announcementEl.classList.add('h1aligner-screen-reader-only');
+        announcementEl.setAttribute('aria-live', 'polite');
+        let previousInvalidState: boolean | null = null;
+
+        excludeSetting.addTextArea((txt) => {
+            const renderValidation = (invalidPatterns: string[]): void => {
+                const hasInvalidPatterns = invalidPatterns.length > 0;
+                txt.inputEl.setAttribute('aria-invalid', String(hasInvalidPatterns));
+                validationEl.empty();
+                if (hasInvalidPatterns) {
+                    validationEl.createDiv({
+                        text: t('set.exclude.invalid', { patterns: invalidPatterns.join('\n') }),
+                    });
+                    validationEl.createDiv({ text: t('set.exclude.pending') });
+                    const activePatterns = this.plugin.settings.excludePatterns;
+                    if (
+                        validateExcludePatterns(activePatterns.join('\n')).invalidPatterns.length === 0
+                    ) {
+                        const active = validationEl.createDiv({
+                            text:
+                                activePatterns.length > 0
+                                    ? t('set.exclude.active', {
+                                        patterns: activePatterns.join('\n'),
+                                    })
+                                    : t('set.exclude.none'),
+                        });
+                        active.classList.add('h1aligner-validation-active');
+                    }
+                }
+                if (
+                    previousInvalidState !== null &&
+                    previousInvalidState !== hasInvalidPatterns
+                ) {
+                    announcementEl.setText(
+                        t(
+                            hasInvalidPatterns
+                                ? 'set.exclude.announcement.invalid'
+                                : 'set.exclude.announcement.valid',
+                        ),
+                    );
+                }
+                previousInvalidState = hasInvalidPatterns;
+            };
+
                 txt
                     .setPlaceholder('^\\d{4}-\\d{2}-\\d{2}$')
-                    .setValue(this.plugin.settings.excludePatterns.join('\n'))
+                    .setValue(getExcludePatternsDraft(this.plugin.settings))
                     .onChange(async (v) => {
-                        this.plugin.settings.excludePatterns = parseExcludePatterns(v);
+                        const validation = updateExcludePatternsFromDraft(this.plugin.settings, v);
+                        renderValidation(validation.invalidPatterns);
                         await this.plugin.saveSettings();
                     });
-                // Invalid patterns fail OPEN (no protection) — tell the user
-                // on blur instead of failing silently.
-                txt.inputEl.addEventListener('blur', () => {
-                    const bad = this.plugin.settings.excludePatterns.filter((p) => {
-                        try { new RegExp(p); return false; } catch { return true; }
-                    });
-                    if (bad.length) {
-                        new Notice(t('notice.invalidPatterns', { patterns: bad.join('\n') }));
-                    }
-                });
+                txt.inputEl.setAttribute('aria-describedby', validationEl.id);
+                renderValidation(
+                    validateExcludePatterns(getExcludePatternsDraft(this.plugin.settings)).invalidPatterns,
+                );
             });
 
         new Setting(containerEl)

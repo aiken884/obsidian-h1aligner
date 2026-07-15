@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    getExcludePatternsDraft,
     normalizeSettings,
     parseIgnoreFolders,
     parseExcludePatterns,
     parseMaxFilenameLength,
+    updateExcludePatternsFromDraft,
+    validateExcludePatterns,
 } from '../src/settings';
 
 describe('normalizeSettings', () => {
@@ -186,6 +189,44 @@ describe('parseExcludePatterns', () => {
 
     it('returns empty array for empty input', () => {
         expect(parseExcludePatterns('')).toEqual([]);
+    });
+});
+
+describe('exclude pattern drafts', () => {
+    it('reports invalid patterns without losing the complete candidate list', () => {
+        expect(validateExcludePatterns('^tmp$\n[broken\n\n^daily$')).toEqual({
+            patterns: ['^tmp$', '[broken', '^daily$'],
+            invalidPatterns: ['[broken'],
+        });
+    });
+
+    it('keeps the last valid patterns active until the draft is valid', () => {
+        const settings = normalizeSettings({ excludePatterns: ['^stable$'] });
+
+        const invalid = updateExcludePatternsFromDraft(settings, '^next$\n[broken');
+        expect(invalid.invalidPatterns).toEqual(['[broken']);
+        expect(settings.excludePatterns).toEqual(['^stable$']);
+        expect(settings.excludePatternsDraft).toBe('^next$\n[broken');
+        expect(getExcludePatternsDraft(settings)).toBe('^next$\n[broken');
+
+        const valid = updateExcludePatternsFromDraft(settings, '^next$\n^daily$');
+        expect(valid.invalidPatterns).toEqual([]);
+        expect(settings.excludePatterns).toEqual(['^next$', '^daily$']);
+        expect(settings.excludePatternsDraft).toBeUndefined();
+        expect(getExcludePatternsDraft(settings)).toBe('^next$\n^daily$');
+    });
+
+    it('retains an invalid persisted draft without making it active', () => {
+        const settings = normalizeSettings({
+            excludePatterns: ['^stable$'],
+            excludePatternsDraft: '[broken',
+        });
+
+        expect(settings.excludePatterns).toEqual(['^stable$']);
+        expect(settings.excludePatternsDraft).toBe('[broken');
+        expect(validateExcludePatterns(getExcludePatternsDraft(settings)).invalidPatterns).toEqual([
+            '[broken',
+        ]);
     });
 });
 

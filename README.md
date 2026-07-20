@@ -4,7 +4,8 @@
 
 [![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Install-483699?logo=obsidian&logoColor=white)](https://obsidian.md/plugins?id=heading-aligner)
 [![Guides](https://img.shields.io/badge/Guides-Settings-1f6feb?logo=readme&logoColor=white)](#settings)
-[![Support](https://img.shields.io/badge/Support-Ko--fi%20%2F%20PayPal-F16061?logo=kofi&logoColor=white)](#support)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/aikenlin)
+[![PayPal](https://img.shields.io/badge/PayPal-donate-00457C?logo=paypal&logoColor=white)](https://paypal.me/aikenlin)
 
 [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=%24%5B%22heading-aligner%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=heading-aligner)
 [![Latest Release](https://img.shields.io/github/v/release/aiken884/obsidian-h1aligner?color=brightgreen)](https://github.com/aiken884/obsidian-h1aligner/releases)

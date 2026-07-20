@@ -2,8 +2,14 @@
 
 > **Your first heading is the title. Now it is the filename too.**
 
+[![Obsidian Plugin](https://img.shields.io/badge/Obsidian-Install-483699?logo=obsidian&logoColor=white)](https://obsidian.md/plugins?id=heading-aligner)
+[![Guides](https://img.shields.io/badge/Guides-Settings-1f6feb?logo=readme&logoColor=white)](#settings)
+[![Support](https://img.shields.io/badge/Support-Ko--fi%20%2F%20PayPal-F16061?logo=kofi&logoColor=white)](#support)
+
+[![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=483699&label=downloads&query=%24%5B%22heading-aligner%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=heading-aligner)
+[![Latest Release](https://img.shields.io/github/v/release/aiken884/obsidian-h1aligner?color=brightgreen)](https://github.com/aiken884/obsidian-h1aligner/releases)
+[![CI](https://github.com/aiken884/obsidian-h1aligner/actions/workflows/ci.yml/badge.svg)](https://github.com/aiken884/obsidian-h1aligner/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-238%20passing-brightgreen.svg)](#development)
 
 H1Aligner is an Obsidian plugin that keeps your note filenames aligned with their first H1 — automatically, quietly, and in one direction only. You write `# A Better Title`, and the file becomes `A Better Title.md`, backlinks intact. No dialogs, no drift, no surprises.
 

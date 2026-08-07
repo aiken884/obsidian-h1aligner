@@ -1,7 +1,27 @@
 # 實作文件：Move tags to frontmatter（實驗性）
 
-日期：2026-08-07　狀態：待審（pplx review）
-依據：`docs/design-move-tags-to-frontmatter.md`（已審核版）
+日期：2026-08-07　狀態：pplx 二輪審核完畢（設計「無 blocking 異議」）、本文件已依二輪意見修訂
+依據：`docs/design-move-tags-to-frontmatter.md`（共識版）
+
+## pplx 二輪修訂要點
+
+1. **Rollback（採納，二輪 major）**：先刪內文、後寫 frontmatter 的順序不可倒
+   （frontmatter 寫入會位移整個 body 的 offset，使 staleness 驗證全部失效）。
+   但第二步失敗時第一步已刪的 tag 會遺失 → 加 best-effort rollback：
+   保存第一步前原文；processFrontMatter 失敗時 `vault.process` 還原——callback
+   內驗證「當下內容 === 第一步輸出」才還原，不符（外部已編輯）則放棄還原並記 log。
+2. **fm.tag/fm.tags 優先序（採納，二輪 critical）**：`existing = fm.tags !== undefined
+   ? fm.tags : fm.tag`；兩者並存時以 `tags` 為底、`tag` 忽略且原樣保留（Obsidian
+   官方 parseFrontMatterTags 僅認 `/^tags$/i`）。非字串非有限數字項（含巢狀陣列）過濾。
+3. **staleness 失敗語意（採納，二輪 critical）**：驗證失敗 → 該 tag 整筆跳過、
+   不做任何局部修改（實作即如此，明文化）。
+4. **allowTagMove 傳遞（部分採納，二輪 critical）**：預設 true；edit 判斷集中於
+   main.ts `triggerRename` 單一傳遞點（所有自動觸發唯一入口），以測試保證。
+5. **其餘採納**：`%%` heuristic 僅做純文字行切片不做語法解析；comment `type`
+   為現版相容性假設（補 sections 缺失測試）；remove-tag 白名單 [space, tab,
+   U+3000]、NBSP 不刪；batch tagCount 為 dry-run 預估值；i18n `{count}` 為整數；
+   關閉總開關不清空子設定值（僅不渲染）；補混合情境整合測試
+   （inline+frontmatter+ignore+edit 跳過）與 parser 排除區驗證測試。
 
 ## 模組切分
 

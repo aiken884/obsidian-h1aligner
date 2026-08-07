@@ -180,6 +180,11 @@ export default class H1AlignerPlugin extends Plugin {
         return f === '/' || f === '\\' ? '/' : normalizePath(f);
     }
 
+    /** Activity detail for the experimental tag move ('+N tags'). */
+    private static tagMoveDetail(this: void, moved: number | undefined): string | undefined {
+        return moved && moved > 0 ? `+${moved} tags` : undefined;
+    }
+
     /** Full scope filter (automatic triggers + batch). */
     private shouldProcess(file: TFile): boolean {
         if (file.extension !== 'md') return false;
@@ -214,7 +219,11 @@ export default class H1AlignerPlugin extends Plugin {
             return;
         }
         const path = file.path;
-        const outcome = await this.renameService.renameFromH1(file);
+        const outcome = await this.renameService.renameFromH1(file, {
+            // Single automatic-trigger entry point: never collect tags while
+            // the user is typing (a half-typed #tag must not be moved).
+            allowTagMove: source !== 'edit',
+        });
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
         }
@@ -228,7 +237,7 @@ export default class H1AlignerPlugin extends Plugin {
                     ? 'renamed'
                     : outcome.skipped,
             newName: outcome.newName ?? undefined,
-            detail: outcome.error?.message,
+            detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags),
         });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
         if (message) new Notice(message);
@@ -287,6 +296,7 @@ export default class H1AlignerPlugin extends Plugin {
                 status,
                 reason,
                 detail: outcome.error?.message,
+                tagCount: outcome.movedTags,
             });
         }
         if (!this.isBatchPreviewCurrent(previewFingerprint)) {
@@ -297,6 +307,7 @@ export default class H1AlignerPlugin extends Plugin {
             this.app,
             items,
             this.canApplyBatchPreview(previewFingerprint),
+            this.settings.moveTagsToFrontmatter && this.settings.bodyTagHandling !== 'keep',
             async (renamable) => {
                 if (!this.canApplyBatchPreview(previewFingerprint)) {
                     new Notice(this.batchPreviewBlockMessage(previewFingerprint));
@@ -332,7 +343,7 @@ export default class H1AlignerPlugin extends Plugin {
                                 ? 'renamed'
                                 : outcome.skipped,
                         newName: outcome.newName ?? undefined,
-                        detail: outcome.error?.message,
+                        detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags),
                     });
                     if (outcome.skipped === 'none' && !outcome.error) done++;
                     else failed++;
@@ -402,6 +413,7 @@ export default class H1AlignerPlugin extends Plugin {
             ignoreFolders: [...this.settings.ignoreFolders],
             includeFolders: [...this.settings.includeFolders],
             excludePatterns: [...this.settings.excludePatterns],
+            tagsToIgnoreForMove: [...this.settings.tagsToIgnoreForMove],
         };
         const write = this.saveQueue
             .catch(() => undefined)
@@ -430,6 +442,9 @@ export default class H1AlignerPlugin extends Plugin {
             illegalReplacementChar: settings.illegalReplacementChar,
             maxFilenameLength: settings.maxFilenameLength,
             preserveOldNameAsAlias: settings.preserveOldNameAsAlias,
+            moveTagsToFrontmatter: settings.moveTagsToFrontmatter,
+            bodyTagHandling: settings.bodyTagHandling,
+            tagsToIgnoreForMove: settings.tagsToIgnoreForMove,
         });
     }
 

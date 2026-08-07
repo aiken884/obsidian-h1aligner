@@ -16,6 +16,7 @@ import { cleanReplacementChar } from './filename';
 export type RenameTrigger = 'file-open' | 'edit' | 'both' | 'leave' | 'manual';
 export type NoticeLevel = 'off' | 'errors' | 'all';
 export type CollisionStrategy = 'skip' | 'number';
+export type BodyTagHandling = 'keep' | 'remove-hash' | 'remove-tag';
 
 export interface H1AlignerSettings {
     // Trigger
@@ -51,6 +52,13 @@ export interface H1AlignerSettings {
     preserveOldNameAsAlias: boolean;
     /** First-run onboarding modal already shown. */
     onboardingShown: boolean;
+    // Experimental: move inline tags to frontmatter
+    /** Master switch (experimental). Off by default — modifies note content. */
+    moveTagsToFrontmatter: boolean;
+    /** What happens to body tags after collecting them into frontmatter. */
+    bodyTagHandling: BodyTagHandling;
+    /** Tag names (no '#') never moved; compared case-insensitively. */
+    tagsToIgnoreForMove: string[];
 }
 
 export const DEFAULT_SETTINGS: H1AlignerSettings = {
@@ -73,6 +81,9 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
     noticeLevel: 'off',
     preserveOldNameAsAlias: false,
     onboardingShown: false,
+    moveTagsToFrontmatter: false,
+    bodyTagHandling: 'keep',
+    tagsToIgnoreForMove: [],
 };
 
 /** Filename length ceiling: one UTF-8 byte per char is already NAME_MAX. */
@@ -82,6 +93,7 @@ const MAX_DEBOUNCE_MS = 60000;
 const TRIGGERS: readonly RenameTrigger[] = ['file-open', 'edit', 'both', 'leave', 'manual'];
 const LEVELS: readonly NoticeLevel[] = ['off', 'errors', 'all'];
 const COLLISIONS: readonly CollisionStrategy[] = ['skip', 'number'];
+const BODY_TAG_HANDLING: readonly BodyTagHandling[] = ['keep', 'remove-hash', 'remove-tag'];
 
 function cleanStringArray(v: unknown): string[] | null {
     if (!Array.isArray(v)) return null;
@@ -107,6 +119,7 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
         ignoreFolders: [...DEFAULT_SETTINGS.ignoreFolders],
         includeFolders: [...DEFAULT_SETTINGS.includeFolders],
         excludePatterns: [...DEFAULT_SETTINGS.excludePatterns],
+        tagsToIgnoreForMove: [...DEFAULT_SETTINGS.tagsToIgnoreForMove],
     };
     if (typeof raw !== 'object' || raw === null) return out;
     const r = raw as Record<string, unknown>;
@@ -173,6 +186,21 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
         out.preserveOldNameAsAlias = r.preserveOldNameAsAlias;
     }
     if (typeof r.onboardingShown === 'boolean') out.onboardingShown = r.onboardingShown;
+
+    // Experimental: move tags to frontmatter
+    if (typeof r.moveTagsToFrontmatter === 'boolean') {
+        out.moveTagsToFrontmatter = r.moveTagsToFrontmatter;
+    }
+    if (BODY_TAG_HANDLING.includes(r.bodyTagHandling as BodyTagHandling)) {
+        out.bodyTagHandling = r.bodyTagHandling as BodyTagHandling;
+    }
+    const ignoreTags = cleanStringArray(r.tagsToIgnoreForMove);
+    if (ignoreTags !== null) {
+        // Stored without a leading '#' so the ignore match and the UI agree.
+        out.tagsToIgnoreForMove = ignoreTags
+            .map((s) => s.replace(/^#/, '').trim())
+            .filter((s) => s.length > 0);
+    }
 
     // Notifications
     if (LEVELS.includes(r.noticeLevel as NoticeLevel)) {

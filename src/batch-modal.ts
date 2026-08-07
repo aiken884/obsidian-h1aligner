@@ -18,6 +18,8 @@ export interface BatchItem extends BatchTriageItem {
     reason: string;
     /** Technical failure detail, present only for error outcomes. */
     detail?: string;
+    /** Experimental tag move: dry-run estimate of tags that would be moved. */
+    tagCount?: number;
 }
 
 export type ApplicableBatchItem = BatchItem & { status: 'rename'; to: string };
@@ -27,6 +29,7 @@ export class BatchPreviewModal extends Modal {
         app: App,
         private readonly items: BatchItem[],
         private readonly canApply: boolean,
+        private readonly tagsModifyBody: boolean,
         private readonly onApply: (renamable: ApplicableBatchItem[]) => Promise<void>,
     ) {
         super(app);
@@ -124,6 +127,19 @@ export class BatchPreviewModal extends Modal {
             row.createSpan({
                 text: item.to === null ? item.from : `${item.from} → ${item.to}.md`,
             });
+            // Tag-move note only where Apply will actually process the file
+            // (the rename group) — showing it on skipped rows would promise a
+            // move the batch never performs.
+            if (item.status === 'rename' && item.tagCount && item.tagCount > 0) {
+                const note = row.createSpan({
+                    text:
+                        ' ' +
+                        t(this.tagsModifyBody ? 'batch.tagCountBody' : 'batch.tagCount', {
+                            count: item.tagCount,
+                        }),
+                });
+                note.classList.add('h1aligner-dim');
+            }
             if (item.status !== 'rename') {
                 const reason = row.createDiv({ text: this.describeReason(item) });
                 reason.classList.add('h1aligner-batch-reason');

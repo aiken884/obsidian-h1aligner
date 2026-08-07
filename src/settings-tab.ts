@@ -16,6 +16,7 @@ import {
     RenameTrigger,
     NoticeLevel,
     CollisionStrategy,
+    BodyTagHandling,
     updateExcludePatternsFromDraft,
     validateExcludePatterns,
 } from './settings';
@@ -346,6 +347,57 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         }
                     }),
             );
+
+        // ---- Experimental -------------------------------------------------
+        new Setting(containerEl).setName(t('set.exp.heading')).setHeading();
+
+        new Setting(containerEl)
+            .setName(t('set.tagmove.name'))
+            .setDesc(t('set.tagmove.desc'))
+            .addToggle((tg) =>
+                tg
+                    .setValue(this.plugin.settings.moveTagsToFrontmatter)
+                    .onChange(async (v) => {
+                        // Sub-settings keep their stored values when toggled
+                        // off — they are only hidden, never reset.
+                        this.plugin.settings.moveTagsToFrontmatter = v;
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }),
+            );
+
+        if (this.plugin.settings.moveTagsToFrontmatter) {
+            new Setting(containerEl)
+                .setName(t('set.tagmove.body.name'))
+                .setDesc(t('set.tagmove.body.desc'))
+                .addDropdown((d) =>
+                    d
+                        .addOption('keep', t('set.tagmove.body.keep'))
+                        .addOption('remove-hash', t('set.tagmove.body.removeHash'))
+                        .addOption('remove-tag', t('set.tagmove.body.removeTag'))
+                        .setValue(this.plugin.settings.bodyTagHandling)
+                        .onChange(async (v) => {
+                            this.plugin.settings.bodyTagHandling = v as BodyTagHandling;
+                            await this.plugin.saveSettings();
+                        }),
+                );
+
+            new Setting(containerEl)
+                .setName(t('set.tagmove.ignore.name'))
+                .setDesc(t('set.tagmove.ignore.desc'))
+                .addText((txt) =>
+                    txt
+                        .setPlaceholder('Archive, inbox/todo')
+                        .setValue(this.plugin.settings.tagsToIgnoreForMove.join(', '))
+                        .onChange(async (v) => {
+                            this.plugin.settings.tagsToIgnoreForMove = v
+                                .split(',')
+                                .map((s) => s.trim().replace(/^#/, '').trim())
+                                .filter((s) => s.length > 0);
+                            await this.plugin.saveSettings();
+                        }),
+                );
+        }
 
         this.updatePreview();
     }

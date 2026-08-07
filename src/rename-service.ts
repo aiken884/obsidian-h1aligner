@@ -32,6 +32,7 @@ import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
 import type { RenameHistory } from './history';
+import { applyBodyTagRemoval, foldName, mergeTagsIntoList, movableTags } from './tag-mover';
 
 export type RenameSkipReason =
     | 'none'
@@ -47,18 +48,23 @@ export interface RenameOutcome {
     skipped: RenameSkipReason;
     newName: string | null;
     error?: Error;
+    /** Experimental tag move: candidate count (dry run) / moved count (live). */
+    movedTags?: number;
 }
 
 export interface RenameOptions {
     /** Compute the outcome without renaming (batch preview). */
     dryRun?: boolean;
+    /**
+     * Experimental tag move opt-out for this call. Defaults to true; main.ts
+     * passes false for 'edit'-sourced renames (the single automatic-trigger
+     * entry point) so a half-typed tag is never collected mid-writing.
+     */
+    allowTagMove?: boolean;
 }
 
 /** Case-fold + NFC-normalize a file name for collision comparison. */
-export function foldName(name: string): string {
-    try { name = name.normalize('NFC'); } catch { /* no Intl normalize */ }
-    return name.toLowerCase();
-}
+export { foldName };
 
 export class RenameService {
     private readonly processingFiles: Set<string> = new Set();
@@ -75,10 +81,113 @@ export class RenameService {
      * Errors are captured in the outcome (do not throw to the caller).
      */
     async renameFromH1(file: TFile, options?: RenameOptions): Promise<RenameOutcome> {
-        const task = this.chain.then(() => this.runRename(file, options?.dryRun === true));
+        const dryRun = options?.dryRun === true;
+        const allowTagMove = options?.allowTagMove !== false;
+        const task = this.chain.then(async () => {
+            const outcome = await this.runRename(file, dryRun);
+            if (RenameService.tagMoveEligible(outcome)) {
+                const moved = await this.maybeMoveTagsToFrontmatter(file, dryRun, allowTagMove);
+                if (moved > 0) outcome.movedTags = moved;
+            }
+            return outcome;
+        });
         // Don't let one failure break the chain for subsequent tasks.
         this.chain = task.catch(() => undefined);
         return task;
+    }
+
+    /**
+     * Spec table (design doc §5): the tag move runs whenever the rename flow
+     * ran — including alignment skips — but never for locked or already-busy
+     * files, and never when the rename itself errored.
+     */
+    private static tagMoveEligible(this: void, outcome: RenameOutcome): boolean {
+        if (outcome.error) return false;
+        return outcome.skipped !== 'locked' && outcome.skipped !== 'in-progress';
+    }
+
+    /**
+     * Experimental: collect inline tags into frontmatter (design doc §5).
+     * Returns the number of tags involved (candidates on dry run, processed
+     * count live). Never throws; failures never affect the rename outcome.
+     */
+    private async maybeMoveTagsToFrontmatter(
+        file: TFile,
+        dryRun: boolean,
+        allow: boolean,
+    ): Promise<number> {
+        const settings = this.getSettings();
+        if (!settings.moveTagsToFrontmatter || !allow) return 0;
+        try {
+            const cache = this.app.metadataCache.getFileCache(file);
+            // No cache = not indexed yet; skip rather than fall back to regex.
+            if (!cache || !cache.tags || cache.tags.length === 0) return 0;
+            let body: string;
+            try {
+                body = await this.app.vault.cachedRead(file);
+            } catch {
+                return 0;
+            }
+            const candidates = movableTags(cache, body, settings.tagsToIgnoreForMove);
+            if (candidates.length === 0) return 0;
+            if (dryRun) return candidates.length;
+
+            // Step 1 (remove modes only) — body rewrite. Must run BEFORE the
+            // frontmatter write: rewriting frontmatter shifts every body
+            // offset, which would fail all staleness checks.
+            let bodyBefore: string | null = null;
+            let bodyAfter: string | null = null;
+            if (settings.bodyTagHandling !== 'keep') {
+                const mode = settings.bodyTagHandling;
+                let skippedStale = 0;
+                await this.app.vault.process(file, (data: string) => {
+                    bodyBefore = data;
+                    const res = applyBodyTagRemoval(data, candidates, mode);
+                    skippedStale = res.skippedStale;
+                    bodyAfter = res.text;
+                    return res.text;
+                });
+                if (skippedStale > 0) {
+                    console.warn(
+                        `[H1Aligner] tag move: ${skippedStale} tag(s) skipped (stale cache): ${file.path}`,
+                    );
+                }
+            }
+
+            // Step 2 (always) — merge into frontmatter. Uses tag NAMES only
+            // (no positions), atomically against the file's current state, so
+            // the gap between the two writes is provably safe (design §5).
+            try {
+                await this.app.fileManager.processFrontMatter(
+                    file,
+                    (fm: Record<string, unknown>) => {
+                        // 'tags' wins when both keys exist; singular 'tag' is
+                        // read-only input and stays untouched in the file.
+                        const existing = fm.tags !== undefined ? fm.tags : fm.tag;
+                        fm.tags = mergeTagsIntoList(existing, candidates.map((c) => c.tag));
+                    },
+                );
+            } catch (err) {
+                console.error('[H1Aligner] tag move frontmatter write failed:', err);
+                // Best-effort rollback: without it the removed body tags would
+                // exist nowhere. Only restores when the file still matches our
+                // own rewrite; a user edit in between aborts the restore.
+                if (bodyBefore !== null && bodyAfter !== null) {
+                    try {
+                        await this.app.vault.process(file, (data: string) =>
+                            data === bodyAfter ? (bodyBefore as string) : data,
+                        );
+                    } catch (rollbackErr) {
+                        console.error('[H1Aligner] tag move rollback failed:', rollbackErr);
+                    }
+                }
+                return 0;
+            }
+            return candidates.length;
+        } catch (err) {
+            console.error('[H1Aligner] tag move failed:', err);
+            return 0;
+        }
     }
 
     private async runRename(file: TFile, dryRun: boolean): Promise<RenameOutcome> {

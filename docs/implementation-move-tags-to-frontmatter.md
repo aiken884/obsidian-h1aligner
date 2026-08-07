@@ -1,7 +1,19 @@
 # 實作文件：Move tags to frontmatter（實驗性）
 
-日期：2026-08-07　狀態：pplx 二輪審核完畢（設計「無 blocking 異議」）、本文件已依二輪意見修訂
+日期：2026-08-07　狀態：**完成，已部署（未發布）**
 依據：`docs/design-move-tags-to-frontmatter.md`（共識版）
+
+## 完成狀態摘要（2026-08-07）
+
+- 實作＋33-agent 對抗式審查（23 項確認全數修正）＋14 場景實機測試（額外發現並修正
+  2 個真實 bug：外部連結 tag 排除缺口、activity log 遺漏 renamed 時的 tag 摘要）
+- 額外實測：edit 觸發跳過防護（真實鍵盤時序）、batch apply 真實點擊套用（非 dry-run）
+- README／CHANGELOG 已補上 Experimental 段落
+- 293 單元測試、20 E2E 全綠；已 commit + push 到 `origin/main`（`f5d20ad..4a538e3`，
+  10 commits），**未打 version tag、未發布**——功能預設關閉，部署於
+  ObsidianTestVault 與主 ObsidianVault 供本機持續測試
+- 已記錄至 RemaGraph（`mem-20260807-002`，project `obsidian-h1aligner`）
+- 正式發布時走 `RELEASING.md`：`npm version` → push tag → publish draft release
 
 ## pplx 二輪修訂要點
 

@@ -1,6 +1,7 @@
 # 設計文件：Move tags to frontmatter（實驗性）
 
-日期：2026-08-07　狀態：待審（pplx review）
+日期：2026-08-07　狀態：**完成，已部署（未發布）**——共識版，執行狀態見
+`docs/implementation-move-tags-to-frontmatter.md` 開頭摘要
 對象版本：H1Aligner（社群 id `heading-aligner`）v0.9.0 之後
 
 ## 1. 功能定位

@@ -350,6 +350,8 @@ export class H1AlignerSettingTab extends PluginSettingTab {
 
         // ---- Experimental -------------------------------------------------
         new Setting(containerEl).setName(t('set.exp.heading')).setHeading();
+        const expWarning = containerEl.createEl('p', { text: t('set.exp.warning') });
+        expWarning.classList.add('h1aligner-experimental-warning');
 
         new Setting(containerEl)
             .setName(t('set.tagmove.name'))

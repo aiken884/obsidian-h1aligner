@@ -69,6 +69,13 @@
     font-weight: 600;
 }
 
+.h1aligner-experimental-warning {
+    font-weight: 600;
+    color: var(--text-error);
+    margin-top: -0.5em;
+    margin-bottom: 1em;
+}
+
 .h1aligner-screen-reader-only {
     position: absolute;
     width: 1px;

@@ -41,18 +41,29 @@ plugin 第一次超出「檔名 + frontmatter」的變更範圍，屬不可逆�
 4. **cache staleness 防護（官方 pattern）**：在 `process()` callback 內逐
    tag 驗證 `data.slice(start.offset, end.offset) === tag`，不符即跳過該
    tag；由檔尾往檔頭刪，避免 offset 位移。
-5. **三種位置的 tag 在 cache 內但不可搬**：`%%註解%%` 內、heading 內
-   （删 H1 內 tag 會改變 H1 → 下次 rename 檔名又變，自我觸發）、連結文字
-   `[#tag](url)` 內。用 `cache.sections`／`cache.headings`／`cache.links`
-   的 position 交叉比對排除。
+5. **三種位置的 tag 在 cache 內但不可搬**。「不可搬區段」明確定義如下，
+   判斷集中在單一函式 `movableTags()`（pplx 審核採納）：
+   - **heading 行**：tag 的 start.line 等於任一 `cache.headings[].position` 的行
+     （heading 為單行；刪 H1 內 tag 會改變 H1 → 下次 rename 檔名又變，自我觸發）
+   - **連結範圍**：tag 的 offset 區間落在任一 `cache.links[].position` 區間內
+   - **block 註解**：tag 的 offset 區間落在任一 `cache.sections[]` 中
+     `type === 'comment'` 的區間內
+   - **inline `%%…%%`**：同一行內 tag 之前有奇數個 `%%` → 跳過。此為
+     heuristic，方向保守（只會多跳過、不會多搬）；跨行 `%%` 由上一條
+     block 註解涵蓋。
 
 ## 4. 設定（3 項新增，全部進 batch fingerprint 與 normalizeSettings）
 
 | 設定 | 型別 | 預設 | 說明 |
 |------|------|------|------|
-| `moveTagsToFrontmatter` | boolean | `false` | 總開關；UI 標題標「實驗性」，說明文字警告會修改內文、建議確認 File Recovery 已啟用 |
+| `moveTagsToFrontmatter` | boolean | `false` | 總開關；UI 標題標「實驗性」，說明文字警告：(a) 依模式會修改內文；(b) **會重寫 frontmatter 並移除其中的 YAML 註解**；(c) 僅在 rename 流程觸發時整理、不在即時編輯（edit 觸發）時執行；(d) 不會自動清理 tag 名稱中的標點或重新命名 tag；建議確認 File Recovery 已啟用 |
 | `bodyTagHandling` | `'keep' \| 'remove-hash' \| 'remove-tag'` | `'keep'` | 對齊 Linter 三段式；`remove-tag` 說明加註句中 tag 風險 |
-| `tagsToIgnoreForMove` | string[] | `[]` | 忽略名單（不含 `#`；比對 case-insensitive，nested tag 以全名比對） |
+| `tagsToIgnoreForMove` | string[] | `[]` | 忽略名單（不含 `#`；nested tag 以全名比對） |
+
+**Tag 名稱正規化（單一函式，ignore 比對與去重共用）**：
+`normalizeTagName(s) = foldName(去除前導 '#' 後 trim)`——即 NFC 正規化 +
+toLowerCase（沿用既有 `foldName`），保留 `/` 階層分隔。名單儲存時亦先去 `#`。
+測試涵蓋 `#A/B`／`a/b`／`A/B`／`#a`／`#a/b/c` 全組合（pplx 審核採納）。
 
 ## 5. 演算法（核心資料流）
 
@@ -67,11 +78,13 @@ runRename(file) 尾端（rename 執行或 skip 後、locked/scope 排除前已 r
   if (candidates 為空 && frontmatter 無需變更) return
 
   // 第一步（僅 remove-hash / remove-tag 模式）：
+  candidates.sort((a,b) => b.position.start.offset - a.position.start.offset)  // 明確由檔尾往檔頭
   vault.process(file, (data) => {
-    for (tag of candidates 由檔尾往檔頭):
-      if (data.slice(start, end) !== tag.tag) continue   // staleness 驗證
+    for (tag of candidates):
+      if (data.slice(start, end) !== tag.tag) { skippedStale++; continue }  // staleness 驗證＋記錄
       remove-hash → 刪 '#' 一個字元
-      remove-tag  → 刪 [start, end)；若前一字元是空白一併刪（對齊 Linter）
+      remove-tag  → 刪 [start, end)；前一字元屬 [空格、tab、全形空白 U+3000]
+                    時一併刪該一個字元（不吞換行，保行結構；對齊 Linter 並收斂）
     return data'
   })
 
@@ -84,11 +97,37 @@ runRename(file) 尾端（rename 執行或 skip 後、locked/scope 排除前已 r
   })                                               // try/catch，失敗不影響 rename 結果
 ```
 
-順序不可倒：第二步不依賴任何 position，寫入後 cache 失效不影響正確性。
-兩步之間使用者插入編輯的最壞情況 = 使用者的字照常保留（安全方向）。
+**觸發分支明細（pplx 審核採納：逐分支規格化）**：
+
+| runRename 結果 | 執行 tag 搬移？ | 理由 |
+|---|---|---|
+| `none`（實際改名） | ✅ | 核心情境 |
+| `same-name`／`case-only` | ✅ | 檔名已對齊的筆記也要能整理 tag（Aiken 決策 2） |
+| `no-h1`／`empty-after-sanitize`／`collision` | ✅ | tag 整理與 H1 内容、碰撞無關 |
+| `locked` | ❌ | 尊重 per-file opt-out |
+| `in-progress` | ❌ | 同檔已有進行中作業 |
+| source = `edit` | ❌ | Aiken 決策 3（呼叫端以 `allowTagMove: false` 傳入） |
+| `cache === null` | ❌（記 log） | 未索引完成，不 fallback regex（pplx 審核採納） |
+
+**兩步式寫入的間隙失效模式分析（pplx critical #2 之回應——維持兩段式的理由）**：
+第二步（processFrontMatter）的輸入只有 candidates 的「tag 名稱」，不使用任何
+position；它在自己的 atomic callback 內以**當下**檔案的 frontmatter 為準做合併。
+因此兩步之間發生外部編輯時，逐情境分析：
+(a) 外部改了內文 → 第二步不受影響（只動 frontmatter）；
+(b) 外部改了 frontmatter → 第二步以新值為底合併，正確；
+(c) 外部刪了某 tag → 該 tag 仍被加入 frontmatter（等同 keep 模式效果），
+    方向安全、不遺失任何使用者資料；
+(d) 第一步 staleness 驗證失敗的 tag → 內文保留＋frontmatter 有（= keep），安全。
+單一 callback 合併方案（自行序列化整段 YAML）被否決：自擔 YAML 序列化
+正確性的風險大於上述可證明安全的間隙行為。
 
 錯誤處理：兩步各自 try/catch；任何失敗記 console.error + activity log，
 不使 rename outcome 變 error（rename 本體已成功）。
+activity log 記錄 `moved`／`skippedStale` 計數（pplx 審核採納）。
+
+**Frontmatter canonical schema（pplx 審核採納）**：讀入時 `tags`／`tag`
+（單複數）皆正規化為 `string[]`（字串→單元素、數字→String()、非法項過濾）；
+寫回**只寫 `tags: string[]`**；`tag` key 只讀不寫、原樣保留。
 
 ## 6. 整合點
 
@@ -98,7 +137,8 @@ runRename(file) 尾端（rename 執行或 skip 後、locked/scope 排除前已 r
   `triggerRename` 傳遞 source 供 edit 判斷。
 - `rename-service.ts`：新增 tag 搬移私有方法，`runRename` 尾端呼叫；
   dryRun 時回傳將搬移的 tag 數（供 batch preview）。
-- `batch-modal.ts`：列尾加「+N tags」註記（i18n）。
+- `batch-modal.ts`：列尾註記——keep 模式「+N tags」、remove 模式
+  「+N tags（內文將修改）」（i18n；pplx 審核採納：揭露內文副作用）。
 - `settings-tab.ts`：實驗性區段（總開關 + 模式下拉 + 忽略名單 textarea）。
 - `i18n.ts`：全部新字串補齊（en + zh-TW 及現有語系結構）。
 - `activity-log.ts`：記錄搬移 tag 數（沿用既有 record 結構的 detail 欄）。

@@ -28,9 +28,11 @@ export class ActivityModal extends Modal {
             const row = list.createDiv();
             row.classList.add('h1aligner-row');
             const time = new Date(e.ts).toLocaleTimeString();
+            // e.detail also carries the experimental tag-move summary
+            // ('+N tags') on a successful rename — it must not be dropped.
             const result =
                 e.outcome === 'renamed'
-                    ? `→ ${e.newName}`
+                    ? `→ ${e.newName}${e.detail ? ' (' + e.detail + ')' : ''}`
                     : `(${e.outcome}${e.detail ? ': ' + e.detail : ''})`;
             row.createSpan({
                 text: `${time}  [${e.source}]  ${e.path}  ${result}`,

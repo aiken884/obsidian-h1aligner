@@ -56,25 +56,40 @@ export function normalizeTagName(s: string): string {
  * an odd number of '%%' on its own line (inline comment; errs toward
  * skipping, never toward moving). Ignore-list entries are also dropped.
  */
+// Matches inline markdown link syntax '[label](target)' on a single line.
+// cache.links only carries links Obsidian resolves within the vault — an
+// external URL link never appears there (confirmed against a live vault:
+// '[#tag](https://example.com)' produces a tag in cache.tags but no entry
+// in cache.links at all) — so link-text exclusion cannot rely on cache.links
+// alone. This regex only has to find bracket *spans* to exclude, not tags,
+// so it doesn't reintroduce the self-rolled-tag-regex risk this module
+// otherwise avoids.
+const MD_INLINE_LINK = /\[[^\]\n]*\]\([^)\n]*\)/g;
+
 export function movableTags(cache: CacheLike, bodyText: string, ignore: string[]): InlineTag[] {
     const tags = cache.tags ?? [];
     if (tags.length === 0) return [];
     const ignoreSet = new Set(ignore.map(normalizeTagName).filter((s) => s.length > 0));
     const headingLines = new Set((cache.headings ?? []).map((h) => h.position.start.line));
-    const excludedSpans: TagPos[] = [
-        ...(cache.links ?? []).map((l) => l.position),
+    const excludedSpans: Array<{ start: number; end: number }> = [
+        ...(cache.links ?? []).map((l) => ({
+            start: l.position.start.offset,
+            end: l.position.end.offset,
+        })),
         ...(cache.sections ?? [])
             .filter((s) => s.type === 'comment')
-            .map((s) => s.position),
+            .map((s) => ({ start: s.position.start.offset, end: s.position.end.offset })),
+        ...[...bodyText.matchAll(MD_INLINE_LINK)].map((m) => ({
+            start: m.index,
+            end: m.index + m[0].length,
+        })),
     ];
     const lines = bodyText.split('\n');
     return tags.filter((t) => {
         if (headingLines.has(t.position.start.line)) return false;
         if (
             excludedSpans.some(
-                (s) =>
-                    t.position.start.offset >= s.start.offset &&
-                    t.position.end.offset <= s.end.offset,
+                (s) => t.position.start.offset >= s.start && t.position.end.offset <= s.end,
             )
         ) {
             return false;

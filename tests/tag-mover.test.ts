@@ -68,6 +68,20 @@ describe('movableTags', () => {
         expect(out.map((t) => t.tag)).toEqual(['#real']);
     });
 
+    it('excludes tag-like text inside an EXTERNAL markdown link even without a cache.links entry', () => {
+        // Regression: live-vault testing showed cache.links never contains
+        // external URL links (only internal, vault-resolved links) — a
+        // '[#tag](https://...)' produces a tag but no cache.links entry at
+        // all, so exclusion cannot rely on cache.links alone.
+        const body = 'see [#linktag](https://example.com/#frag) and #realtag';
+        const cache: CacheLike = {
+            tags: [tagAt(body, '#linktag'), tagAt(body, '#realtag')],
+            // No `links` key at all — matches real Obsidian behavior.
+        };
+        const out = movableTags(cache, body, []);
+        expect(out.map((t) => t.tag)).toEqual(['#realtag']);
+    });
+
     it('excludes tags inside comment sections', () => {
         const body = '%%\n#hidden\n%%\n#visible';
         const cache: CacheLike = {

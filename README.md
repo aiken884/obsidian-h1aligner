@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **238 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **20 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **293 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **20 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -89,6 +89,19 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous — renaming mid-typing is disruptive. |
 
 A live **preview field** shows the filename a sample H1 would produce with your current settings. On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious Manual-only start.
+
+## Experimental: Move tags to frontmatter
+
+**Off by default.** A separate "Experimental" section at the bottom of settings lets you opt in to collecting inline `#tags` from a note's body into its `tags` frontmatter property, alongside the rename. It ships off, with a visible warning, because — unlike the rest of the plugin — it can modify note content, not just the filename.
+
+- **Runs whenever the rename flow runs** — including alignment-only passes where the filename doesn't change — but never for locked notes, and never while you're still typing (an edit-triggered rename never touches tags, so a half-typed `#tag` is never collected mid-keystroke).
+- **Body tag handling**, three modes: *Keep* (copy only, body untouched — the default), *Remove the #* (keeps the word), or *Remove whole tag* (also removes one leading space; a tag mid-sentence will change the sentence).
+- **Tag detection trusts Obsidian's own `metadataCache`** — never a self-written regex — so it automatically excludes tags inside code blocks, inline code, URLs, math, and frontmatter (the parser never produces a tag there), plus tags inside headings, link text, and Obsidian `%%comments%%` (excluded by this plugin on purpose, so H1 text and link syntax are never touched). Purely numeric tags like `#123` are correctly ignored too — Obsidian itself never treats them as valid tags.
+- **Frontmatter is rewritten** via `processFrontMatter()`, same as the alias feature above — existing `tags` are merged and de-duplicated (case-insensitively), but the whole frontmatter block is re-serialised, which **removes any YAML comments** inside it.
+- Tag names are moved **verbatim** — never auto-cleaned, never renamed, including tags accidentally polluted by trailing CJK punctuation.
+- Batch preview marks affected rows with the tag count (e.g. `+2 tags`), and the session activity log records how many tags moved and how many were skipped as stale.
+
+Recommended: enable **File Recovery** (Obsidian core plugin) before turning this on, and try it on a backup or a small folder first.
 
 ## How it works
 
@@ -178,7 +191,7 @@ Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, v
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 238 unit tests (vitest, incl. property-based)
+npm test               # 293 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
 npm run test:e2e       # 20 E2E scenarios against the built bundle
 ```
@@ -190,6 +203,7 @@ src/
   filename.ts          # sanitisation algorithm
   template.ts          # filename template renderer (pure)
   rename-service.ts    # serial rename queue + guard layers + dry run + aliases
+  tag-mover.ts          # experimental tag→frontmatter: filtering, merge, body rewrite (pure)
   settings.ts          # schema + defaults + validation + migration
   settings-tab.ts      # SettingTab UI + live preview
   batch-modal.ts       # dry-run preview modal

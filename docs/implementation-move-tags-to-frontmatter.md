@@ -118,9 +118,10 @@ private async maybeMoveTagsToFrontmatter(file, dryRun, allow): Promise<number> {
 ### `src/batch-modal.ts`
 
 `BatchItem` 增 `tagCount?: number`；`renderGroup` 列尾註記——keep 模式
-`t('batch.tagCount')`（`+{count} tags`）、remove 模式 `t('batch.tagCountBody')`
-（`+{count} tags（內文將修改）`）（rename 與 skipped 群組都顯示 —
-same-name 也會搬 tag）。skipped 群組維持計數摘要，另加一行合計 tags。
+`t('batch.tagCount')`（`+{count} tags`，{count} 為整數）、remove 模式
+`t('batch.tagCountBody')`（`+{count} tags (body will be modified)`）。
+**僅 rename 群組顯示**（最終拍板，與設計文件 §6 同步）：batch Apply 只處理
+rename 項；skipped 檔案顯示會承諾 batch 不執行的動作，故不顯示。
 
 ### `src/settings-tab.ts` — 「實驗性」區段（heading + 3 控件）
 
@@ -132,9 +133,10 @@ same-name 也會搬 tag）。skipped 群組維持計數摘要，另加一行合�
 
 ### `src/i18n.ts` — 新 key（en／zh-tw／ja 三語系全補）
 
-`settings.experimental`、`settings.moveTags.name/desc`、`settings.bodyTagHandling.name/desc/keep/removeHash/removeTag`、
-`settings.tagsToIgnoreForMove.name/desc`、`batch.tagCount`（`+{count} tags`）、
-`batch.tagCountBody`（`+{count} tags（內文將修改）`）。
+實際命名（與程式一致，對抗式審查 #23 修正）：`set.exp.heading`、
+`set.tagmove.name/desc`、`set.tagmove.body.name/desc/keep/removeHash/removeTag`、
+`set.tagmove.ignore.name/desc`、`batch.tagCount`（`+{count} tags`）、
+`batch.tagCountBody`（`+{count} tags (body will be modified)`）；`{count}` 為整數。
 
 ## 實作順序（TDD；兩條並行線）
 

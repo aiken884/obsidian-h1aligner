@@ -48,8 +48,10 @@ export interface RenameOutcome {
     skipped: RenameSkipReason;
     newName: string | null;
     error?: Error;
-    /** Experimental tag move: candidate count (dry run) / moved count (live). */
+    /** Experimental tag move: tags this run would/did process (honest count). */
     movedTags?: number;
+    /** Experimental tag move: candidates skipped because their cached offsets went stale. */
+    staleTags?: number;
 }
 
 export interface RenameOptions {
@@ -84,10 +86,20 @@ export class RenameService {
         const dryRun = options?.dryRun === true;
         const allowTagMove = options?.allowTagMove !== false;
         const task = this.chain.then(async () => {
+            // Captured before runRename so the alias write (deferred below)
+            // still knows the pre-rename name.
+            const oldBasename = file.basename;
             const outcome = await this.runRename(file, dryRun);
             if (RenameService.tagMoveEligible(outcome)) {
-                const moved = await this.maybeMoveTagsToFrontmatter(file, dryRun, allowTagMove);
-                if (moved > 0) outcome.movedTags = moved;
+                const res = await this.maybeMoveTagsToFrontmatter(file, dryRun, allowTagMove);
+                if (res.moved > 0) outcome.movedTags = res.moved;
+                if (res.stale > 0) outcome.staleTags = res.stale;
+            }
+            // Alias write runs AFTER the tag move on purpose: it rewrites the
+            // frontmatter, which shifts every body offset and would turn all
+            // tag-move candidates stale (silent keep-mode degradation).
+            if (!dryRun && !outcome.error && outcome.skipped === 'none' && outcome.newName) {
+                await this.writeOldNameAlias(file, oldBasename, outcome.newName);
             }
             return outcome;
         });
@@ -107,42 +119,105 @@ export class RenameService {
     }
 
     /**
+     * Optional: keep the pre-rename name findable via frontmatter aliases.
+     * Best-effort — an alias failure never fails the rename.
+     */
+    private async writeOldNameAlias(
+        file: TFile,
+        oldBasename: string,
+        finalBase: string,
+    ): Promise<void> {
+        const settings = this.getSettings();
+        if (!settings.preserveOldNameAsAlias) return;
+        if (foldName(oldBasename) === foldName(finalBase)) return;
+        try {
+            await this.app.fileManager.processFrontMatter(
+                file,
+                (fm: Record<string, unknown>) => {
+                    const existing = fm.aliases;
+                    const list = Array.isArray(existing)
+                        ? existing
+                        : existing == null
+                            ? []
+                            : [existing];
+                    // String(a): YAML may parse an alias like 2025 as a
+                    // number — it must still dedup.
+                    const already = list.some(
+                        (a) => foldName(String(a)) === foldName(oldBasename),
+                    );
+                    if (!already) list.push(oldBasename);
+                    fm.aliases = list;
+                },
+            );
+        } catch (err) {
+            console.error('[H1Aligner] alias write failed:', err);
+        }
+    }
+
+    /**
      * Experimental: collect inline tags into frontmatter (design doc §5).
-     * Returns the number of tags involved (candidates on dry run, processed
-     * count live). Never throws; failures never affect the rename outcome.
+     * Returns honest counts: `moved` is what this run actually processed
+     * (candidates on dry run, applied removals / new frontmatter entries
+     * live) and `stale` the candidates skipped by the staleness guard.
+     * Never throws; failures never affect the rename outcome.
      */
     private async maybeMoveTagsToFrontmatter(
         file: TFile,
         dryRun: boolean,
         allow: boolean,
-    ): Promise<number> {
+    ): Promise<{ moved: number; stale: number }> {
+        const none = { moved: 0, stale: 0 };
         const settings = this.getSettings();
-        if (!settings.moveTagsToFrontmatter || !allow) return 0;
+        if (!settings.moveTagsToFrontmatter || !allow) return none;
         try {
             const cache = this.app.metadataCache.getFileCache(file);
-            // No cache = not indexed yet; skip rather than fall back to regex.
-            if (!cache || !cache.tags || cache.tags.length === 0) return 0;
+            if (!cache) {
+                // Not indexed yet; skip rather than fall back to regex (spec).
+                console.warn('[H1Aligner] tag move skipped, no metadata cache yet:', file.path);
+                return none;
+            }
+            if (!cache.tags || cache.tags.length === 0) return none;
             let body: string;
             try {
                 body = await this.app.vault.cachedRead(file);
             } catch {
-                return 0;
+                return none;
             }
+            // Raw-content lock fallback: the frontmatter lock must hold even
+            // when the cache runRename's L0 consulted lags behind the file.
+            if (settings.skipIfFrontmatterLock && hasFrontmatterLock(body)) return none;
             const candidates = movableTags(cache, body, settings.tagsToIgnoreForMove);
-            if (candidates.length === 0) return 0;
-            if (dryRun) return candidates.length;
+            if (candidates.length === 0) return none;
+
+            // Resolved once so TS narrows the union for applyBodyTagRemoval.
+            const mode = settings.bodyTagHandling === 'keep' ? null : settings.bodyTagHandling;
+            const removing = mode !== null;
+            // Keep-mode no-op check against the cached frontmatter: when every
+            // candidate is already listed there is nothing to write. Stale-safe
+            // (worst case: skip now, catch up next run). Remove modes must
+            // never take this shortcut — a stale "already there" verdict would
+            // delete body tags without their frontmatter counterpart.
+            const fmCache: Record<string, unknown> | undefined = cache.frontmatter;
+            const existingRaw = fmCache?.tags !== undefined ? fmCache.tags : fmCache?.tag;
+            const existingCount = mergeTagsIntoList(existingRaw, []).length;
+            const newCount =
+                mergeTagsIntoList(existingRaw, candidates.map((c) => c.tag)).length -
+                existingCount;
+            if (!removing && newCount === 0) return none;
+            if (dryRun) return { moved: removing ? candidates.length : newCount, stale: 0 };
 
             // Step 1 (remove modes only) — body rewrite. Must run BEFORE the
             // frontmatter write: rewriting frontmatter shifts every body
             // offset, which would fail all staleness checks.
             let bodyBefore: string | null = null;
             let bodyAfter: string | null = null;
-            if (settings.bodyTagHandling !== 'keep') {
-                const mode = settings.bodyTagHandling;
-                let skippedStale = 0;
+            let applied = 0;
+            let skippedStale = 0;
+            if (mode !== null) {
                 await this.app.vault.process(file, (data: string) => {
                     bodyBefore = data;
                     const res = applyBodyTagRemoval(data, candidates, mode);
+                    applied = res.applied;
                     skippedStale = res.skippedStale;
                     bodyAfter = res.text;
                     return res.text;
@@ -154,9 +229,9 @@ export class RenameService {
                 }
             }
 
-            // Step 2 (always) — merge into frontmatter. Uses tag NAMES only
-            // (no positions), atomically against the file's current state, so
-            // the gap between the two writes is provably safe (design §5).
+            // Step 2 — merge into frontmatter. Uses tag NAMES only (no
+            // positions), atomically against the file's current state, so the
+            // gap between the two writes is provably safe (design §5).
             try {
                 await this.app.fileManager.processFrontMatter(
                     file,
@@ -174,25 +249,29 @@ export class RenameService {
                 // own rewrite; a user edit in between aborts the restore.
                 if (bodyBefore !== null && bodyAfter !== null) {
                     try {
-                        await this.app.vault.process(file, (data: string) =>
-                            data === bodyAfter ? (bodyBefore as string) : data,
-                        );
+                        await this.app.vault.process(file, (data: string) => {
+                            if (data === bodyAfter) return bodyBefore as string;
+                            console.warn(
+                                '[H1Aligner] tag move rollback abandoned (file changed since):',
+                                file.path,
+                            );
+                            return data;
+                        });
                     } catch (rollbackErr) {
                         console.error('[H1Aligner] tag move rollback failed:', rollbackErr);
                     }
                 }
-                return 0;
+                return { moved: 0, stale: skippedStale };
             }
-            return candidates.length;
+            return { moved: removing ? applied : newCount, stale: skippedStale };
         } catch (err) {
             console.error('[H1Aligner] tag move failed:', err);
-            return 0;
+            return none;
         }
     }
 
     private async runRename(file: TFile, dryRun: boolean): Promise<RenameOutcome> {
         const path = file.path;
-        const oldBasename = file.basename; // captured before renameFile mutates it
 
         if (this.processingFiles.has(path)) {
             return { skipped: 'in-progress', newName: null };
@@ -317,35 +396,8 @@ export class RenameService {
             // The live TFile goes into the record so undo can verify identity
             // (a path alone could later resolve to an unrelated new file).
             this.history?.push({ from: path, to: newPath, file });
-            // Optional: keep the old name findable via frontmatter aliases.
-            // Best-effort — an alias failure never fails the rename.
-            if (
-                settings.preserveOldNameAsAlias &&
-                foldName(oldBasename) !== foldName(finalBase)
-            ) {
-                try {
-                    await this.app.fileManager.processFrontMatter(
-                        file,
-                        (fm: Record<string, unknown>) => {
-                            const existing = fm.aliases;
-                            const list = Array.isArray(existing)
-                                ? existing
-                                : existing == null
-                                    ? []
-                                    : [existing];
-                            // String(a): YAML may parse an alias like 2025
-                            // as a number — it must still dedup.
-                            const already = list.some(
-                                (a) => foldName(String(a)) === foldName(oldBasename),
-                            );
-                            if (!already) list.push(oldBasename);
-                            fm.aliases = list;
-                        },
-                    );
-                } catch (err) {
-                    console.error('[H1Aligner] alias write failed:', err);
-                }
-            }
+            // NOTE: the optional old-name alias write happens in renameFromH1,
+            // after the tag move, so it cannot shift the tag offsets first.
             return { skipped: 'none', newName: finalBase };
         } catch (err) {
             return {

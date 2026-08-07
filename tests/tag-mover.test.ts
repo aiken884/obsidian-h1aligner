@@ -140,6 +140,15 @@ describe('mergeTagsIntoList', () => {
     it('dedups NFC/NFD variants', () => {
         expect(mergeTagsIntoList(['café'], ['#café'])).toEqual(['café']);
     });
+    it('splits legacy comma/space-separated string frontmatter (adversarial #1)', () => {
+        expect(mergeTagsIntoList('project, work', ['#inline'])).toEqual(['project', 'work', 'inline']);
+        expect(mergeTagsIntoList('project work', ['#project'])).toEqual(['project', 'work']);
+    });
+    it('strips # after trimming leading whitespace (adversarial #2)', () => {
+        expect(normalizeTagName(' #foo')).toBe('foo');
+        expect(mergeTagsIntoList([' #foo'], ['#foo'])).toEqual(['foo']);
+        expect(mergeTagsIntoList(['\t#bar'], ['#bar', '#baz'])).toEqual(['bar', 'baz']);
+    });
 });
 
 describe('applyBodyTagRemoval', () => {
@@ -206,5 +215,36 @@ describe('applyBodyTagRemoval', () => {
         const body = 'note #tag😀 end';
         const res = applyBodyTagRemoval(body, [tagAt(body, '#tag😀')], 'remove-hash');
         expect(res.text).toBe('note tag😀 end');
+    });
+
+    it('rejects a stale offset that now points into a URL (adversarial #8)', () => {
+        const body = 'see http://x.com/#tag now';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 17, offset: 17 }, end: { line: 0, col: 21, offset: 21 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-hash');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a candidate whose tag was extended (#tag → #tagX) instead of leaving a dangling X', () => {
+        const body = 'note #tagX end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('still accepts fresh tags at line start, end of file, and after CJK text', () => {
+        const eof = 'ends with #tail';
+        expect(applyBodyTagRemoval(eof, [tagAt(eof, '#tail')], 'remove-tag').text).toBe('ends with');
+        const bol = '#head starts';
+        expect(applyBodyTagRemoval(bol, [tagAt(bol, '#head')], 'remove-tag').text).toBe(' starts');
+        const cjk = '討論 #重點 之後';
+        expect(applyBodyTagRemoval(cjk, [tagAt(cjk, '#重點')], 'remove-tag').text).toBe('討論 之後');
     });
 });

@@ -256,13 +256,118 @@ describe('tag move integration (rename-service)', () => {
         app.metadataCache.getFileCache.mockReturnValue(cache);
         settings.tagsToIgnoreForMove = ['ignored'];
         const out = await svc(app, settings).renameFromH1(makeFile('x') as never);
-        expect(out.movedTags).toBe(2); // alpha + beta (headline excluded, Ignored ignored)
-        // seeded via processFrontMatter fake: fm starts empty, merge gets cache fm? No —
-        // merge reads the LIVE fm object; simulate pre-existing values:
+        // Honest count: 'Alpha' already sits in the cached frontmatter, so
+        // only 'beta' is genuinely new (headline excluded, Ignored ignored).
+        expect(out.movedTags).toBe(1);
+        // The live merge reads the fm object the fake starts empty:
         expect(getFm().tags).toEqual(['alpha', 'beta']);
+    });
+
+    it('keep mode is a complete no-op when every candidate already exists in frontmatter', async () => {
+        const body = 'Text #alpha only';
+        const cache = {
+            tags: [cacheTag(body, '#alpha')],
+            frontmatter: { tags: ['Alpha'] },
+        };
+        const { app } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue(cache);
+        const out = await svc(app, settings).renameFromH1(makeFile('x') as never);
+        expect(out.movedTags).toBeUndefined();
+        expect(app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+    });
+
+    it('legacy comma-separated string frontmatter merges as multiple tags', async () => {
+        const body = 'Text #inline only';
+        const cache = { tags: [cacheTag(body, '#inline')] };
+        const { app, getFm } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue(cache);
+        app.fileManager.processFrontMatter.mockImplementation(
+            (_f: unknown, cb: (fm: Record<string, unknown>) => void) => {
+                const fm = getFm();
+                fm.tags = 'project, work';
+                cb(fm);
+                return Promise.resolve();
+            },
+        );
+        await svc(app, settings).renameFromH1(makeFile('x') as never);
+        expect(getFm().tags).toEqual(['project', 'work', 'inline']);
+    });
+
+    it('respects a raw-content frontmatter lock the cache missed', async () => {
+        const body = '---\nh1aligner-lock: true\n---\nText #alpha';
+        const cache = { tags: [cacheTag(body, '#alpha')], headings: [{ level: 1, heading: 'x', position: { start: { line: 99, col: 0, offset: 900 }, end: { line: 99, col: 3, offset: 903 } } }] };
+        const { app } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue(cache);
+        const out = await svc(app, settings).renameFromH1(makeFile('x') as never);
+        expect(out.movedTags).toBeUndefined();
+        expect(app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+    });
+
+    it('alias write happens AFTER the tag move so offsets stay valid', async () => {
+        settings.preserveOldNameAsAlias = true;
+        settings.bodyTagHandling = 'remove-tag';
+        const body = '# New Name\n\nText #alpha end';
+        const cache = cacheForBody(body);
+        const { app } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue(cache);
+        const calls: string[] = [];
+        app.vault.process.mockImplementation((_f: unknown, cb: (d: string) => string) => {
+            calls.push('body');
+            return Promise.resolve(cb(body));
+        });
+        app.fileManager.processFrontMatter.mockImplementation(
+            (_f: unknown, cb: (fm: Record<string, unknown>) => void) => {
+                const fm: Record<string, unknown> = {};
+                cb(fm);
+                calls.push(fm.aliases !== undefined ? 'alias' : 'tags');
+                return Promise.resolve();
+            },
+        );
+        const out = await svc(app, settings).renameFromH1(makeFile('Old') as never);
+        expect(out.skipped).toBe('none');
+        expect(calls).toEqual(['body', 'tags', 'alias']);
+    });
+
+    it('decision table: no-h1 and collision skips still move tags', async () => {
+        // no-h1
+        const body1 = 'no heading #alpha here';
+        const { app: app1, getFm: fm1 } = makeApp(body1);
+        app1.metadataCache.getFileCache.mockReturnValue({ tags: [cacheTag(body1, '#alpha')] });
+        app1.vault.cachedRead.mockResolvedValue(body1);
+        const out1 = await svc(app1, settings).renameFromH1(makeFile('x') as never);
+        expect(out1.skipped).toBe('no-h1');
+        expect(out1.movedTags).toBe(1);
+        expect(fm1().tags).toEqual(['alpha']);
+        // collision
+        const body2 = '# Target\n\n#beta here';
+        const { app: app2, getFm: fm2 } = makeApp(body2);
+        app2.metadataCache.getFileCache.mockReturnValue(cacheForBody(body2));
+        app2.vault.getAbstractFileByPath.mockReturnValue({ path: 'Target.md' });
+        const out2 = await svc(app2, settings).renameFromH1(makeFile('other') as never);
+        expect(out2.skipped).toBe('collision');
+        expect(out2.movedTags).toBe(1);
+        expect(fm2().tags).toEqual(['beta']);
     });
 });
 
 function svc(app: FakeApp, settings: H1AlignerSettings): RenameService {
     return new RenameService(app as never, () => settings);
+}
+
+/** cacheFor() variant that derives heading position from the given body. */
+function cacheForBody(body: string) {
+    const heading = body.split('\n')[0];
+    return {
+        headings: [
+            {
+                level: 1,
+                heading: heading.replace(/^#\s*/, ''),
+                position: {
+                    start: { line: 0, col: 0, offset: 0 },
+                    end: { line: 0, col: heading.length, offset: heading.length },
+                },
+            },
+        ],
+        tags: [...body.matchAll(/#[a-z]+/g)].map((m) => cacheTag(body, m[0])),
+    };
 }

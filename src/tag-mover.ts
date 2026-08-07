@@ -39,11 +39,13 @@ export function foldName(name: string): string {
 
 /**
  * Canonical tag-name normalization, shared by the ignore-list match and the
- * frontmatter dedup so the two can never disagree: strip one leading '#',
- * trim, then fold. Nested tags keep their '/' and compare by full name.
+ * frontmatter dedup so the two can never disagree: trim, strip one leading
+ * '#', trim again, then fold. Trim must come first — a leading space would
+ * otherwise defeat the '#' strip and leak '#' into comparisons.
+ * Nested tags keep their '/' and compare by full name.
  */
 export function normalizeTagName(s: string): string {
-    return foldName(s.replace(/^#/, '').trim());
+    return foldName(s.trim().replace(/^#/, '').trim());
 }
 
 /**
@@ -97,14 +99,23 @@ export function mergeTagsIntoList(existing: unknown, incoming: string[]): string
     const out: string[] = [];
     const seen = new Set<string>();
     const push = (raw: string): void => {
-        const cleaned = raw.replace(/^#/, '').trim();
+        const cleaned = raw.trim().replace(/^#/, '').trim();
         if (!cleaned) return;
         const key = normalizeTagName(cleaned);
         if (seen.has(key)) return;
         seen.add(key);
         out.push(cleaned);
     };
-    const existingArr = Array.isArray(existing) ? existing : existing == null ? [] : [existing];
+    // A scalar string is the legacy comma/space-separated form ("a, b") that
+    // Obsidian's parseFrontMatterTags splits into multiple tags — splitting
+    // here preserves that meaning instead of collapsing it into one bad tag.
+    const existingArr = Array.isArray(existing)
+        ? existing
+        : typeof existing === 'string'
+            ? existing.split(/[,\s]+/)
+            : existing == null
+                ? []
+                : [existing];
     for (const e of existingArr) {
         if (typeof e === 'string') push(e);
         else if (typeof e === 'number' && Number.isFinite(e)) push(String(e));
@@ -140,10 +151,22 @@ export function applyBodyTagRemoval(
     let text = data;
     let applied = 0;
     let skippedStale = 0;
+    // Conservative ASCII tag-body characters. A fresh-cache tag can never be
+    // bordered by one of these (the parser would have absorbed it into the
+    // tag), so rejecting them only ever catches stale offsets — e.g. a
+    // candidate that now points into a URL, or '#tag' extended to '#tagX'.
+    const TAG_BODY_CHAR = /[0-9A-Za-z_/-]/;
     for (const c of sorted) {
         const from = c.position.start.offset;
         const to = c.position.end.offset;
-        if (text.slice(from, to) !== c.tag) {
+        const prev = from > 0 ? text.charAt(from - 1) : '';
+        const next = to < text.length ? text.charAt(to) : '';
+        if (
+            text.slice(from, to) !== c.tag ||
+            prev === '#' ||
+            TAG_BODY_CHAR.test(prev) ||
+            TAG_BODY_CHAR.test(next)
+        ) {
             skippedStale++;
             continue;
         }

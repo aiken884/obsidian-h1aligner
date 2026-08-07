@@ -1,6 +1,7 @@
 import { Notice, Plugin, TFile, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
 import {
+    batchSettingsFingerprint,
     DEFAULT_SETTINGS,
     getExcludePatternsDraft,
     H1AlignerSettings,
@@ -47,6 +48,9 @@ export default class H1AlignerPlugin extends Plugin {
     private saveQueue: Promise<void> = Promise.resolve();
     /** Previous active file — the 'leave' trigger renames this one. */
     private lastActiveFile: TFile | null = null;
+
+    /** Last editor-change per path — guards the tag move against firing mid-typing. */
+    private readonly lastEditAt: Map<string, number> = new Map();
 
     onload(): void {
         setLocaleFromLanguage(getLanguage());
@@ -104,10 +108,15 @@ export default class H1AlignerPlugin extends Plugin {
         this.registerEvent(
             this.app.workspace.on('editor-change', (_editor, info) => {
                 if (!this.settings.onboardingShown) return; // consent pending
-                const trigger = this.settings.renameTrigger;
-                if (trigger !== 'edit' && trigger !== 'both') return;
                 const file = (info as { file?: TFile | null } | null)?.file ?? null;
                 if (!(file instanceof TFile)) return;
+                // Tracked for every mode: the tag move must treat a recently
+                // edited note as "typing in progress" even when the rename
+                // that fires is file-open-sourced (both mode can overwrite a
+                // pending edit schedule with a file-open one).
+                this.lastEditAt.set(file.path, Date.now());
+                const trigger = this.settings.renameTrigger;
+                if (trigger !== 'edit' && trigger !== 'both') return;
                 this.scheduleRename(file, this.settings.editDebounceMs, trigger, 'edit');
             }),
         );
@@ -180,9 +189,21 @@ export default class H1AlignerPlugin extends Plugin {
         return f === '/' || f === '\\' ? '/' : normalizePath(f);
     }
 
-    /** Activity detail for the experimental tag move ('+N tags'). */
-    private static tagMoveDetail(this: void, moved: number | undefined): string | undefined {
-        return moved && moved > 0 ? `+${moved} tags` : undefined;
+    /** True when the note saw an editor-change within the edit-debounce window. */
+    private recentlyEdited(path: string): boolean {
+        const at = this.lastEditAt.get(path);
+        return at !== undefined && Date.now() - at < this.settings.editDebounceMs;
+    }
+
+    /** Activity detail for the experimental tag move ('+N tags (M stale)'). */
+    private static tagMoveDetail(
+        this: void,
+        moved: number | undefined,
+        stale: number | undefined,
+    ): string | undefined {
+        if (!moved && !stale) return undefined;
+        const base = `+${moved ?? 0} tags`;
+        return stale && stale > 0 ? `${base} (${stale} stale)` : base;
     }
 
     /** Full scope filter (automatic triggers + batch). */
@@ -221,8 +242,10 @@ export default class H1AlignerPlugin extends Plugin {
         const path = file.path;
         const outcome = await this.renameService.renameFromH1(file, {
             // Single automatic-trigger entry point: never collect tags while
-            // the user is typing (a half-typed #tag must not be moved).
-            allowTagMove: source !== 'edit',
+            // the user is typing (a half-typed #tag must not be moved) —
+            // neither for edit-sourced renames nor for any rename firing
+            // within one edit-debounce window of the last keystroke.
+            allowTagMove: source !== 'edit' && !this.recentlyEdited(path),
         });
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
@@ -237,7 +260,7 @@ export default class H1AlignerPlugin extends Plugin {
                     ? 'renamed'
                     : outcome.skipped,
             newName: outcome.newName ?? undefined,
-            detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags),
+            detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags, outcome.staleTags),
         });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
         if (message) new Notice(message);
@@ -343,7 +366,7 @@ export default class H1AlignerPlugin extends Plugin {
                                 ? 'renamed'
                                 : outcome.skipped,
                         newName: outcome.newName ?? undefined,
-                        detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags),
+                        detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags, outcome.staleTags),
                     });
                     if (outcome.skipped === 'none' && !outcome.error) done++;
                     else failed++;
@@ -428,24 +451,7 @@ export default class H1AlignerPlugin extends Plugin {
 
     /** Settings that determine a batch preview's candidate set or side effects. */
     private batchSettingsFingerprint(): string {
-        const settings = this.settings;
-        return JSON.stringify({
-            ignoreFolders: settings.ignoreFolders,
-            includeFolders: settings.includeFolders,
-            excludePatterns: settings.excludePatterns,
-            skipIfFrontmatterLock: settings.skipIfFrontmatterLock,
-            nameTemplate: settings.nameTemplate,
-            collisionStrategy: settings.collisionStrategy,
-            allowCaseOnlyRename: settings.allowCaseOnlyRename,
-            trimWhitespace: settings.trimWhitespace,
-            replaceIllegalCharacters: settings.replaceIllegalCharacters,
-            illegalReplacementChar: settings.illegalReplacementChar,
-            maxFilenameLength: settings.maxFilenameLength,
-            preserveOldNameAsAlias: settings.preserveOldNameAsAlias,
-            moveTagsToFrontmatter: settings.moveTagsToFrontmatter,
-            bodyTagHandling: settings.bodyTagHandling,
-            tagsToIgnoreForMove: settings.tagsToIgnoreForMove,
-        });
+        return batchSettingsFingerprint(this.settings);
     }
 
     private isBatchPreviewCurrent(previewFingerprint: string): boolean {

@@ -86,6 +86,31 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
     tagsToIgnoreForMove: [],
 };
 
+/**
+ * Settings that determine a batch preview's candidate set or side effects.
+ * Changing any of these invalidates an open batch preview (fingerprint
+ * mismatch). Kept next to the settings type so additions can't be missed.
+ */
+export function batchSettingsFingerprint(settings: H1AlignerSettings): string {
+    return JSON.stringify({
+        ignoreFolders: settings.ignoreFolders,
+        includeFolders: settings.includeFolders,
+        excludePatterns: settings.excludePatterns,
+        skipIfFrontmatterLock: settings.skipIfFrontmatterLock,
+        nameTemplate: settings.nameTemplate,
+        collisionStrategy: settings.collisionStrategy,
+        allowCaseOnlyRename: settings.allowCaseOnlyRename,
+        trimWhitespace: settings.trimWhitespace,
+        replaceIllegalCharacters: settings.replaceIllegalCharacters,
+        illegalReplacementChar: settings.illegalReplacementChar,
+        maxFilenameLength: settings.maxFilenameLength,
+        preserveOldNameAsAlias: settings.preserveOldNameAsAlias,
+        moveTagsToFrontmatter: settings.moveTagsToFrontmatter,
+        bodyTagHandling: settings.bodyTagHandling,
+        tagsToIgnoreForMove: settings.tagsToIgnoreForMove,
+    });
+}
+
 /** Filename length ceiling: one UTF-8 byte per char is already NAME_MAX. */
 const MAX_FILENAME_LENGTH_CEILING = 255;
 const MAX_DEBOUNCE_MS = 60000;

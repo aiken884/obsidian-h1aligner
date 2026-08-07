@@ -125,9 +125,12 @@ position；它在自己的 atomic callback 內以**當下**檔案的 frontmatter
 不使 rename outcome 變 error（rename 本體已成功）。
 activity log 記錄 `moved`／`skippedStale` 計數（pplx 審核採納）。
 
-**Frontmatter canonical schema（pplx 審核採納）**：讀入時 `tags`／`tag`
-（單複數）皆正規化為 `string[]`（字串→單元素、數字→String()、非法項過濾）；
+**Frontmatter canonical schema（pplx 審核採納；對抗式審查修訂）**：讀入時
+`tags`／`tag`（單複數）皆正規化為 `string[]`——**字串依逗號／空白拆分**
+（對齊 Obsidian parseFrontMatterTags 對 legacy `tags: a, b` 的語意，
+對抗式審查 #1 修正）、數字→String()、非法項（含巢狀陣列）過濾；
 寫回**只寫 `tags: string[]`**；`tag` key 只讀不寫、原樣保留。
+兩者並存時以 `tags` 為底、`tag` 值忽略。
 
 ## 6. 整合點
 
@@ -139,9 +142,21 @@ activity log 記錄 `moved`／`skippedStale` 計數（pplx 審核採納）。
   dryRun 時回傳將搬移的 tag 數（供 batch preview）。
 - `batch-modal.ts`：列尾註記——keep 模式「+N tags」、remove 模式
   「+N tags（內文將修改）」（i18n；pplx 審核採納：揭露內文副作用）。
+  **僅 rename 群組顯示**（對抗式審查拍板）：batch 的 Apply 只處理 rename
+  項，skipped 檔案的 tag 搬移由自動觸發（file-open／leave／manual）補做，
+  預覽不顯示 batch 不會執行的動作。
 - `settings-tab.ts`：實驗性區段（總開關 + 模式下拉 + 忽略名單 textarea）。
 - `i18n.ts`：全部新字串補齊（en + zh-TW 及現有語系結構）。
 - `activity-log.ts`：記錄搬移 tag 數（沿用既有 record 結構的 detail 欄）。
+
+## 6.5 已知限制（對抗式審查記錄）
+
+- **畸形 frontmatter**（檔首有 `---` 但無結尾 `---`）：Obsidian 不視其為
+  frontmatter；`processFrontMatter` 會在檔首插入新的 frontmatter 區塊，原
+  孤立 `---` 行殘留於內文。此為官方 API 行為，實驗性功能不另行處理。
+- **自我連結改寫**：`renameFile` 更新筆記內指向自己的連結時會位移 offset，
+  該輪受影響的 tag 由 staleness 防護跳過（計入 stale 並記 log），下一次
+  觸發補做。
 
 ## 7. 明確不做（YAGNI）
 

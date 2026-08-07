@@ -385,7 +385,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             new Setting(containerEl)
                 .setName(t('set.tagmove.ignore.name'))
                 .setDesc(t('set.tagmove.ignore.desc'))
-                .addText((txt) =>
+                .addTextArea((txt) =>
                     txt
                         .setPlaceholder('Archive, inbox/todo')
                         .setValue(this.plugin.settings.tagsToIgnoreForMove.join(', '))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_SETTINGS, normalizeSettings } from '../src/settings';
+import { batchSettingsFingerprint, DEFAULT_SETTINGS, normalizeSettings } from '../src/settings';
 
 describe('tag move settings normalization', () => {
     it('defaults: off, keep, empty ignore list', () => {
@@ -46,5 +46,12 @@ describe('tag move settings normalization', () => {
         a.tagsToIgnoreForMove.push('mutated');
         expect(normalizeSettings(null).tagsToIgnoreForMove).toEqual([]);
         expect(DEFAULT_SETTINGS.tagsToIgnoreForMove).toEqual([]);
+    });
+
+    it('changing any tag-move setting invalidates the batch fingerprint', () => {
+        const base = batchSettingsFingerprint(DEFAULT_SETTINGS);
+        expect(batchSettingsFingerprint({ ...DEFAULT_SETTINGS, moveTagsToFrontmatter: true })).not.toBe(base);
+        expect(batchSettingsFingerprint({ ...DEFAULT_SETTINGS, bodyTagHandling: 'remove-tag' })).not.toBe(base);
+        expect(batchSettingsFingerprint({ ...DEFAULT_SETTINGS, tagsToIgnoreForMove: ['x'] })).not.toBe(base);
     });
 });

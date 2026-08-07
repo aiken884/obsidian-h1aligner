@@ -146,7 +146,7 @@ const en = {
     // Settings — experimental: move tags to frontmatter
     'set.exp.heading': 'Experimental',
     'set.exp.warning':
-        'Still under active development — behavior may change and edge cases may not be fully handled yet. If you are unsure, leave the feature below off, and consider testing on a backup or a small folder first.',
+        'Still under active development; behavior may change, and some edge cases may not be fully handled yet. If you’re unsure, keep the feature below off, and try it first on a backup or a small folder.',
     'set.tagmove.name': 'Move tags to frontmatter (experimental)',
     'set.tagmove.desc':
         'When a rename runs, collect inline #tags from the note body into the "tags" frontmatter property. Warning: depending on the mode below this modifies the note body; the frontmatter block is rewritten (YAML comments inside it are removed); tags are only collected when the rename flow runs, never while you are typing (edit trigger); tag names are moved verbatim and never cleaned up or renamed. Make sure the File Recovery core plugin is enabled before use.',
@@ -289,7 +289,7 @@ const zhTW: Record<LocaleKey, string> = {
         '「編輯後」觸發需要的停止打字時間。建議保持寬鬆 — 打字中改名會干擾書寫。預設：2000。',
     'set.exp.heading': '實驗性功能',
     'set.exp.warning':
-        '仍在持續開發中——行為可能改變，部分邊界情況可能尚未完全處理。不確定的話，下方功能請保持關閉，並建議先在備份或小範圍資料夾測試。',
+        '仍在持續開發中，行為可能變動，部分邊界情況也可能尚未完全處理好。不確定時，請先保持下方功能關閉，並建議先在備份或小範圍資料夾測試。',
     'set.tagmove.name': '將內文 tag 移到 frontmatter（實驗性）',
     'set.tagmove.desc':
         'Rename 執行時，把筆記內文的 #tag 整理進 frontmatter 的 tags 屬性。注意：依下方模式，本功能會修改筆記內文；frontmatter 區塊會被重寫（其中的 YAML 註解會被移除）；只在 rename 流程執行時整理，打字中（編輯觸發）絕不執行；tag 名稱原樣搬移，不會自動清理或改名。使用前請先確認已啟用 File Recovery 核心外掛。',
@@ -430,7 +430,7 @@ const ja: Record<LocaleKey, string> = {
         '「編集後」リネームが実行されるまでに必要な入力停止時間。入力中のリネームは邪魔になるため、余裕を持たせてください。デフォルト：2000。',
     'set.exp.heading': '実験的機能',
     'set.exp.warning':
-        '現在も開発中の機能です — 動作は変更される可能性があり、一部のエッジケースはまだ完全に対応していません。不安な場合は下の機能をオフのままにし、バックアップまたは小規模なフォルダでまず試すことをお勧めします。',
+        '現在も開発中の機能です。動作は変更される可能性があり、一部のエッジケースはまだ完全に対応できていません。不安な場合は下の機能をオフのままにし、まずはバックアップや小規模なフォルダでお試しください。',
     'set.tagmove.name': '本文のタグを frontmatter へ移動（実験的）',
     'set.tagmove.desc':
         'リネーム実行時に、ノート本文の #タグ を frontmatter の tags プロパティへまとめます。注意：下のモードによっては本文が変更されます。frontmatter ブロックは書き直され、その中の YAML コメントは失われます。タグの整理はリネーム処理の実行時のみ行われ、入力中（編集トリガー）には実行されません。タグ名はそのまま移動され、自動整形やリネームは行いません。使用前に File Recovery コアプラグインが有効なことを確認してください。',

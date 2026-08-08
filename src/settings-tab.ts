@@ -2,9 +2,9 @@
  * settings-tab.ts — Obsidian SettingTab UI for H1Aligner.
  *
  * Thin shell: parsing/validation lives in settings.ts (parseIgnoreFolders,
- * parseExcludePatterns, parseMaxFilenameLength), filename.ts
- * (cleanReplacementChar) and template.ts (renderNameTemplate), all
- * unit-tested. All UI strings come from src/i18n.ts (en / zh-TW / ja).
+ * parseExcludePatterns, parseMaxFilenameLength, parseTagsToIgnoreForMove),
+ * filename.ts (cleanReplacementChar) and template.ts (renderNameTemplate),
+ * all unit-tested. All UI strings come from src/i18n.ts (en / zh-TW / ja).
  * Section headings via Setting.setHeading(), sentence case.
  */
 import { App, PluginSettingTab, Setting } from 'obsidian';
@@ -13,6 +13,7 @@ import {
     getExcludePatternsDraft,
     parseIgnoreFolders,
     parseMaxFilenameLength,
+    parseTagsToIgnoreForMove,
     RenameTrigger,
     NoticeLevel,
     CollisionStrategy,
@@ -392,10 +393,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         .setPlaceholder('Archive, inbox/todo')
                         .setValue(this.plugin.settings.tagsToIgnoreForMove.join(', '))
                         .onChange(async (v) => {
-                            this.plugin.settings.tagsToIgnoreForMove = v
-                                .split(',')
-                                .map((s) => s.trim().replace(/^#+/, '').trim())
-                                .filter((s) => s.length > 0);
+                            this.plugin.settings.tagsToIgnoreForMove = parseTagsToIgnoreForMove(v);
                             await this.plugin.saveSettings();
                         }),
                 );

@@ -6,6 +6,7 @@ import {
     parseIgnoreFolders,
     parseExcludePatterns,
     parseMaxFilenameLength,
+    parseTagsToIgnoreForMove,
     updateExcludePatternsFromDraft,
     validateExcludePatterns,
 } from '../src/settings';
@@ -178,6 +179,41 @@ describe('parseIgnoreFolders', () => {
     it('returns empty array for empty input', () => {
         expect(parseIgnoreFolders('')).toEqual([]);
         expect(parseIgnoreFolders('  ,  ')).toEqual([]);
+    });
+});
+
+describe('parseTagsToIgnoreForMove', () => {
+    it('splits on commas (single-line input)', () => {
+        expect(parseTagsToIgnoreForMove('Archive, inbox/todo, private')).toEqual([
+            'Archive',
+            'inbox/todo',
+            'private',
+        ]);
+    });
+
+    it('splits on newlines — the textarea widget is multi-line (adversarial-review regression)', () => {
+        // A comma-only split would collapse this into one unmatchable blob
+        // ("archive\ninbox/todo\nprivate"), silently disabling the entire
+        // ignore list. This is the exact scenario the finding described.
+        expect(parseTagsToIgnoreForMove('Archive\ninbox/todo\nprivate')).toEqual([
+            'Archive',
+            'inbox/todo',
+            'private',
+        ]);
+    });
+
+    it('handles a mix of commas and newlines, and CRLF line endings', () => {
+        expect(parseTagsToIgnoreForMove('a, b\nc\r\nd,,e\n\nf')).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    });
+
+    it('trims whitespace and strips all leading #s', () => {
+        expect(parseTagsToIgnoreForMove(' #foo \n ##bar ')).toEqual(['foo', 'bar']);
+    });
+
+    it('drops empty entries from blank lines / trailing separators', () => {
+        expect(parseTagsToIgnoreForMove('')).toEqual([]);
+        expect(parseTagsToIgnoreForMove('  ,\n \n , ')).toEqual([]);
+        expect(parseTagsToIgnoreForMove('a\n\n\nb')).toEqual(['a', 'b']);
     });
 });
 

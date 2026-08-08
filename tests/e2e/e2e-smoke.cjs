@@ -109,6 +109,12 @@ function makeFakeApp() {
                 if (!e) throw new Error('ENOENT ' + file.path);
                 return e.content;
             },
+            async process(file, cb) {
+                const e = files.get(file.path);
+                if (!e) throw new Error('ENOENT ' + file.path);
+                e.content = cb(e.content);
+                return e.content;
+            },
             getAbstractFileByPath(p) { return files.get(p)?.file ?? null; },
             getMarkdownFiles() { return [...files.values()].map((e) => e.file).filter((f) => f.extension === 'md'); },
         },
@@ -121,11 +127,25 @@ function makeFakeApp() {
             },
             async renameFile(file, newPath) {
                 renameCalls.push({ from: file.path, to: newPath });
+                // Capture BEFORE deleting: content must survive the rename —
+                // reading files.get(newPath) here would always miss (that
+                // path doesn't exist yet) and silently wipe the body.
+                const oldEntry = files.get(file.path);
                 files.delete(file.path);
                 file.path = newPath;
                 file.basename = path.basename(newPath, '.md');
                 file.name = path.basename(newPath);
-                files.set(newPath, { file, content: files.get(newPath)?.content ?? '', cache: null });
+                files.set(newPath, {
+                    file,
+                    content: oldEntry ? oldEntry.content : '',
+                    // The cache carries over, not null: Obsidian's
+                    // metadataCache does not synchronously re-index on
+                    // rename (confirmed during this feature's design
+                    // research — rename does not fire a 'changed' event).
+                    // The last-known cache is still contentually valid
+                    // since a rename changes the path, not the file body.
+                    cache: oldEntry ? oldEntry.cache : null,
+                });
             },
         },
         _ws: wsHandlers,
@@ -156,6 +176,42 @@ function addFile(app, p, content, h1InCache, frontmatter) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Build an InlineTag whose position matches its literal place inside `body`. */
+function tagAt(body, tag) {
+    const offset = body.indexOf(tag);
+    if (offset < 0) throw new Error(`tag ${tag} not found in body`);
+    const before = body.slice(0, offset);
+    const line = (before.match(/\n/g) || []).length;
+    const col = offset - (before.lastIndexOf('\n') + 1);
+    return {
+        tag,
+        position: {
+            start: { line, col, offset },
+            end: { line, col: col + tag.length, offset: offset + tag.length },
+        },
+    };
+}
+
+/** addFile() + a cache carrying both an H1 heading (with position) and inline tags. */
+function addTaggedFile(app, p, h1, body, tagNames) {
+    const content = `# ${h1}\n\n${body}`;
+    const f = addFile(app, p, content, null);
+    const headingLine = `# ${h1}`;
+    const tags = tagNames.map((t) => tagAt(content, t));
+    app._files.get(p).cache = {
+        headings: [{
+            level: 1,
+            heading: h1,
+            position: {
+                start: { line: 0, col: 0, offset: 0 },
+                end: { line: 0, col: headingLine.length, offset: headingLine.length },
+            },
+        }],
+        tags,
+    };
+    return f;
+}
 
 // ---------- run ----------
 (async () => {
@@ -493,5 +549,66 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.equal(app._renameCalls.filter((c) => c.from === 'notes/pending.md').length, 0, 'no rename after unload');
     console.log('✓ 17. onunload 取消未觸發的 debounce → 卸載後不再改名');
 
-    console.log('\nE2E smoke test: 20/20 scenarios passed（真實 production bundle main.js, v0.10.0）');
+    // --- 18: experimental tag move — main.ts wiring (adversarial-review findings) ---
+    plugin.settings.moveTagsToFrontmatter = true;
+    plugin.settings.bodyTagHandling = 'remove-hash';
+
+    // 18a: edit-triggered rename must NEVER move tags, even though the H1
+    // still differs from the basename (so the rename itself does fire).
+    plugin.settings.renameTrigger = 'edit';
+    plugin.settings.editDebounceMs = 60;
+    const ftagEdit = addTaggedFile(app, 'notes/tag-edit-src.md', 'Tag Edit Target', 'text #keepme here', ['#keepme']);
+    app._activeFile = ftagEdit;
+    app._ws['editor-change'](null, { file: ftagEdit });
+    await sleep(140);
+    assert.ok(app._files.has('notes/Tag Edit Target.md'), 'edit trigger still renames by H1');
+    const editedEntry = app._files.get('notes/Tag Edit Target.md');
+    assert.ok(editedEntry.content.includes('#keepme'), 'edit-triggered rename never moves tags — body untouched');
+    assert.ok(!editedEntry.fm || !editedEntry.fm.tags, 'edit-triggered rename writes no frontmatter tags');
+    console.log('✓ 18a. edit 觸發：H1 驅動的改名照常執行，但 tag 搬移的安全閘門擋下（main.ts allowTagMove 接線）');
+
+    // 18b: file-open trigger with no recent edit → tag DOES move, and the
+    // activity log records the formatted detail ('+1 tags').
+    plugin.settings.renameTrigger = 'file-open';
+    const ftagOpen = addTaggedFile(app, 'notes/tag-open-src.md', 'Tag Open Target', 'text #moveme here', ['#moveme']);
+    app._ws['file-open'](ftagOpen);
+    await sleep(180);
+    assert.ok(app._files.has('notes/Tag Open Target.md'), 'file-open trigger renames by H1');
+    const openedEntry = app._files.get('notes/Tag Open Target.md');
+    assert.ok(!openedEntry.content.includes('#moveme') && openedEntry.content.includes('moveme'), 'remove-hash strips # but keeps the word');
+    assert.ok(openedEntry.fm && openedEntry.fm.tags && openedEntry.fm.tags.includes('moveme'), 'tag written into frontmatter');
+    actCmd.callback();
+    await sleep(20);
+    const tagActTexts = [...global.__lastModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(tagActTexts.some((t) => t.includes('Tag Open Target') && t.includes('+1 tags')), 'activity log shows the tagMoveDetail formatted string');
+    console.log('✓ 18b. file-open 觸發（未在打字中）：tag 正確搬移，activity log 顯示 +1 tags');
+
+    // 18c: batch apply must honour the SAME "typing in progress" guard as
+    // every other trigger (adversarial-review finding — this was the actual
+    // bug: batch apply used to call renameFromH1() with no options at all,
+    // so allowTagMove silently defaulted to true regardless of a moments-ago edit).
+    plugin.settings.renameTrigger = 'file-open';
+    // Generous window: the batch scan below walks every file accumulated
+    // across this whole suite before Apply even runs, which on its own can
+    // take longer than a short debounce — a tight window would let the
+    // guard "pass" this test for the wrong reason (elapsed, not enforced).
+    plugin.settings.editDebounceMs = 30_000;
+    const ftagBatch = addTaggedFile(app, 'batch/tag-guard-src.md', 'Tag Guard Renamed', 'text #halftype here', ['#halftype']);
+    app._ws['editor-change'](null, { file: ftagBatch }); // marks it "just edited" — no rename fires from this alone (trigger is file-open)
+    batchCmd.callback();
+    await sleep(120);
+    const guardApply = [...global.__lastModal.contentEl.walk()].find((e) => e.tag === 'button' && e.text.startsWith('Apply'));
+    assert.ok(guardApply, 'batch apply button present for the tag-guard candidate');
+    guardApply.listeners.click[0]();
+    await sleep(150);
+    assert.ok(app._files.has('batch/Tag Guard Renamed.md'), 'batch apply still renames by H1');
+    const batchGuardEntry = app._files.get('batch/Tag Guard Renamed.md');
+    assert.ok(batchGuardEntry.content.includes('#halftype'), 'batch apply honours the typing-in-progress guard — body untouched');
+    assert.ok(!batchGuardEntry.fm || !batchGuardEntry.fm.tags, 'batch apply honours the typing-in-progress guard — no frontmatter tags written');
+    console.log('✓ 18c. batch apply：套用前一刻剛編輯過的候選檔案，tag 搬移比照其他觸發路徑被安全閘門擋下（修正繞過漏洞）');
+
+    plugin.settings.moveTagsToFrontmatter = false;
+    plugin.settings.bodyTagHandling = 'keep';
+
+    console.log('\nE2E smoke test: 25/25 scenarios passed（真實 production bundle main.js, v0.10.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

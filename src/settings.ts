@@ -254,6 +254,22 @@ export function parseIgnoreFolders(input: string): string[] {
 }
 
 /**
+ * Parse the "Tags to ignore" textarea. The widget is multi-line, so — unlike
+ * the single-line folder fields above — both commas AND newlines are treated
+ * as separators (adversarial-review finding: a comma-only split silently
+ * corrupted the whole ignore list into one unmatchable blob when a user
+ * pasted or typed one tag per line, the natural way to fill a textarea).
+ * Strips a leading '#' so the stored form always matches how tag-mover.ts
+ * compares against it.
+ */
+export function parseTagsToIgnoreForMove(input: string): string[] {
+    return input
+        .split(/[,\n]+/)
+        .map((s) => s.trim().replace(/^#+/, '').trim())
+        .filter((s) => s.length > 0);
+}
+
+/**
  * Parse the newline-separated exclude-patterns textarea. Lines are kept
  * verbatim (regex whitespace is significant); whitespace-only lines drop.
  */

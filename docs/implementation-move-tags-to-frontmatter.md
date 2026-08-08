@@ -18,6 +18,14 @@
   `docs/mutation-testing-tag-mover.md`）。過程中額外揪出並修正 2 個真實漏洞：
   去 `#` 正則只去一個會殘留、正則失去錨點會誤刪字串中間的 `#`。單元測試
   293→326，326 測試＋20 E2E 全綠
+- **2026-08-08 CodeGraph 全專案健檢＋對抗式驗證**：找出 5 項真實缺口，全數修復——
+  忽略清單 textarea 換行輸入靜默失效（新增 `parseTagsToIgnoreForMove`，同時支援
+  逗號與換行）、batch apply 繞過 recentlyEdited 打字中防護（比照其他觸發路徑補上）、
+  main.ts 決策層（打字中防護＋activity 格式化）零測試覆蓋（抽成純函式
+  `src/tag-move-policy.ts`＋單元測試＋3 個新 e2e 場景）、`lastEditAt` 改用
+  `WeakMap<TFile, number>` 避免無界成長。過程中順帶修正 e2e 測試工具本身既有的
+  3 個 fake stub 缺陷（改名清空內文、改名誤清 cache、`vault.process` 未 stub）。
+  單元測試 326→340，e2e 20→25 場景，全綠
 - 正式發布時走 `RELEASING.md`：`npm version` → push tag → publish draft release
 
 ## pplx 二輪修訂要點

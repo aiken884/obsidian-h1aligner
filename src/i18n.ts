@@ -158,7 +158,7 @@ const en = {
     'set.tagmove.body.removeTag': 'Remove whole tag',
     'set.tagmove.ignore.name': 'Tags to ignore',
     'set.tagmove.ignore.desc':
-        'Comma-separated tag names (without #) that are never moved. Nested tags match by full name; matching ignores case. Entries are stored without a leading #.',
+        'Tag names (without #) that are never moved — one per line, or comma-separated. Nested tags match by full name; matching ignores case. Entries are stored without a leading #.',
     // {count} is an integer
     'batch.tagCount': '+{count} tags',
     'batch.tagCountBody': '+{count} tags (body will be modified)',
@@ -301,7 +301,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.tagmove.body.removeTag': '整個移除',
     'set.tagmove.ignore.name': '忽略的 tag',
     'set.tagmove.ignore.desc':
-        '逗號分隔的 tag 名稱（不含 #），這些 tag 永不搬移。巢狀 tag 以全名比對；比對不分大小寫。儲存時會去除開頭的 #。',
+        '這些 tag 永不搬移，一行一個或用逗號分隔皆可（不含 #）。巢狀 tag 以全名比對；比對不分大小寫。儲存時會去除開頭的 #。',
     'batch.tagCount': '+{count} 個 tag',
     'batch.tagCountBody': '+{count} 個 tag（內文將被修改）',
 };
@@ -442,7 +442,7 @@ const ja: Record<LocaleKey, string> = {
     'set.tagmove.body.removeTag': 'タグ全体を削除',
     'set.tagmove.ignore.name': '無視するタグ',
     'set.tagmove.ignore.desc':
-        'カンマ区切りのタグ名（# なし）。これらのタグは移動されません。ネストしたタグは完全名で照合し、大文字小文字は区別しません。保存時に先頭の # は除去されます。',
+        'これらのタグは移動されません（# なし、1 行に 1 つ、またはカンマ区切り）。ネストしたタグは完全名で照合し、大文字小文字は区別しません。保存時に先頭の # は除去されます。',
     'batch.tagCount': '+{count} タグ',
     'batch.tagCountBody': '+{count} タグ（本文が変更されます）',
 };

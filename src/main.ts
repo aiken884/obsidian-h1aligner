@@ -20,6 +20,7 @@ import { OnboardingModal } from './onboarding-modal';
 import { BatchPreviewModal, BatchItem } from './batch-modal';
 import { classifyBatchItem } from './batch-triage';
 import { t, setLocaleFromLanguage } from './i18n';
+import { computeAllowTagMove, formatTagMoveDetail } from './tag-move-policy';
 
 /**
  * H1Aligner — Obsidian plugin entry point.
@@ -49,8 +50,15 @@ export default class H1AlignerPlugin extends Plugin {
     /** Previous active file — the 'leave' trigger renames this one. */
     private lastActiveFile: TFile | null = null;
 
-    /** Last editor-change per path — guards the tag move against firing mid-typing. */
-    private readonly lastEditAt: Map<string, number> = new Map();
+    /**
+     * Last editor-change per file — guards the tag move against firing
+     * mid-typing. Keyed by the TFile object itself (Obsidian mutates the
+     * same TFile's .path in place on rename rather than creating a new
+     * object), so entries never go stale across a rename and are reclaimed
+     * automatically once a file is deleted and no longer strongly
+     * referenced elsewhere — no manual cleanup needed.
+     */
+    private readonly lastEditAt: WeakMap<TFile, number> = new WeakMap();
 
     onload(): void {
         setLocaleFromLanguage(getLanguage());
@@ -114,7 +122,7 @@ export default class H1AlignerPlugin extends Plugin {
                 // edited note as "typing in progress" even when the rename
                 // that fires is file-open-sourced (both mode can overwrite a
                 // pending edit schedule with a file-open one).
-                this.lastEditAt.set(file.path, Date.now());
+                this.lastEditAt.set(file, Date.now());
                 const trigger = this.settings.renameTrigger;
                 if (trigger !== 'edit' && trigger !== 'both') return;
                 this.scheduleRename(file, this.settings.editDebounceMs, trigger, 'edit');
@@ -189,21 +197,19 @@ export default class H1AlignerPlugin extends Plugin {
         return f === '/' || f === '\\' ? '/' : normalizePath(f);
     }
 
-    /** True when the note saw an editor-change within the edit-debounce window. */
-    private recentlyEdited(path: string): boolean {
-        const at = this.lastEditAt.get(path);
-        return at !== undefined && Date.now() - at < this.settings.editDebounceMs;
-    }
-
-    /** Activity detail for the experimental tag move ('+N tags (M stale)'). */
-    private static tagMoveDetail(
-        this: void,
-        moved: number | undefined,
-        stale: number | undefined,
-    ): string | undefined {
-        if (!moved && !stale) return undefined;
-        const base = `+${moved ?? 0} tags`;
-        return stale && stale > 0 ? `${base} (${stale} stale)` : base;
+    /**
+     * Whether an automatic rename firing for `file` may collect inline tags
+     * (design doc §5). Applied uniformly across every mutating trigger path
+     * — file-open, leave, manual, and batch — not just 'edit', so a
+     * half-typed tag is never moved regardless of which path fired.
+     */
+    private allowAutoTagMove(source: ActivitySource, file: TFile): boolean {
+        return computeAllowTagMove(
+            source,
+            this.lastEditAt.get(file),
+            this.settings.editDebounceMs,
+            Date.now(),
+        );
     }
 
     /** Full scope filter (automatic triggers + batch). */
@@ -241,11 +247,7 @@ export default class H1AlignerPlugin extends Plugin {
         }
         const path = file.path;
         const outcome = await this.renameService.renameFromH1(file, {
-            // Single automatic-trigger entry point: never collect tags while
-            // the user is typing (a half-typed #tag must not be moved) —
-            // neither for edit-sourced renames nor for any rename firing
-            // within one edit-debounce window of the last keystroke.
-            allowTagMove: source !== 'edit' && !this.recentlyEdited(path),
+            allowTagMove: this.allowAutoTagMove(source, file),
         });
         if (outcome.error) {
             console.error('[H1Aligner] rename failed:', outcome.error);
@@ -260,7 +262,7 @@ export default class H1AlignerPlugin extends Plugin {
                     ? 'renamed'
                     : outcome.skipped,
             newName: outcome.newName ?? undefined,
-            detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags, outcome.staleTags),
+            detail: outcome.error?.message ?? formatTagMoveDetail(outcome.movedTags, outcome.staleTags),
         });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
         if (message) new Notice(message);
@@ -355,7 +357,14 @@ export default class H1AlignerPlugin extends Plugin {
                         changed++;
                         continue;
                     }
-                    const outcome = await this.renameService.renameFromH1(item.file);
+                    const outcome = await this.renameService.renameFromH1(item.file, {
+                        // Same "typing in progress" guard as the automatic
+                        // triggers (adversarial-review finding): without it,
+                        // returning to a stale batch preview and hitting
+                        // Apply moments after editing a candidate note would
+                        // sweep up a half-typed tag.
+                        allowTagMove: this.allowAutoTagMove('batch', item.file),
+                    });
                     this.activity.record({
                         ts: Date.now(),
                         path: item.from,
@@ -366,7 +375,7 @@ export default class H1AlignerPlugin extends Plugin {
                                 ? 'renamed'
                                 : outcome.skipped,
                         newName: outcome.newName ?? undefined,
-                        detail: outcome.error?.message ?? H1AlignerPlugin.tagMoveDetail(outcome.movedTags, outcome.staleTags),
+                        detail: outcome.error?.message ?? formatTagMoveDetail(outcome.movedTags, outcome.staleTags),
                     });
                     if (outcome.skipped === 'none' && !outcome.error) done++;
                     else failed++;

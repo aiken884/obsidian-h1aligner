@@ -3,6 +3,7 @@
 已上架 Obsidian Community Plugins；版本號依 SemVer。
 
 ## Unreleased
+- **修正**：`minAppVersion` 從 1.8.0 更正為 1.8.7 —— 0.9.0 引入的 `getLanguage()`（取代 localStorage）實際上要求 Obsidian 1.8.7，先前寫 1.8.0 會讓 Obsidian 1.8.0–1.8.6 的使用者誤判相容而安裝／更新到會直接壞掉的版本。同步回溯更正 `versions.json` 內 0.9.0／0.10.0 兩筆既有紀錄（此檔由 Obsidian 安裝器即時讀取，不需另外發新版即可生效）；`manifest.json` 一併更新，供下次發版採用（本次不發新版、不動已發布的 0.10.0 release 資產，避免破壞其 build provenance attestation）
 - 設定頁改用 Obsidian 1.13.0+ 官方宣告式 Settings API（`getSettingDefinitions`/`getControlValue`/`setControlValue`）：全部 19 個設定欄位 + 即時預覽區塊完整遷移，`moveTagsToFrontmatter` 開關切換子欄位顯示改用 `refreshDomState()`（不再整頁重繪，保留捲動位置與焦點）。原本的 `display()` 完整保留、原封不動，作為 Obsidian < 1.13.0（本外掛 minAppVersion 仍為 1.8.0）的後備路徑；Obsidian 只會擇一呼叫，兩條路徑不會同時執行。`devDependencies.obsidian` 隨之升級到 `^1.13.1`（僅型別定義，不影響 minAppVersion／實際執行期需求）
 - 新增實驗性功能 **Move tags to frontmatter**（預設關閉）：rename 執行時，選擇性地把筆記內文的 `#tag` 整理進 frontmatter 的 `tags` 屬性。內文處置三選一（保留／移除井號／整個移除），只在 rename 流程實際觸發時整理、打字中（edit 觸發）絕不執行；tag 來源信任 Obsidian 官方 `metadataCache`（不自刻 regex），正確排除 heading／連結／註解內的 tag，並跳過純數字等非法 tag。batch 預覽於可套用列加註搬移數量；activity log 記錄搬移與 stale 跳過統計。設定頁「實驗性功能」區段標題下方有明確風險警示（已依 pplx 潤飾三語系文案）。詳見 README「Experimental」段落
 - 補強測試：新增 `tests/tag-mover.property.test.ts`（fast-check property-based，19 個不變性、每個 300 次隨機輸入）與 Stryker mutation testing（`npm run test:mutation`，scope 限定 `src/tag-mover.ts`，詳見 `docs/mutation-testing-tag-mover.md`）。過程中額外揪出並修正 2 個真實邊界漏洞：`normalizeTagName`／`mergeTagsIntoList` 的去 `#` 正則若只去一個會殘留 `#`（改為去除全部開頭 `#`）、若正則失去開頭錨點會誤刪字串中間的 `#`。單元測試自 293 增至 326

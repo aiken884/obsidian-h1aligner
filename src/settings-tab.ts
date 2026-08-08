@@ -5,9 +5,17 @@
  * parseExcludePatterns, parseMaxFilenameLength, parseTagsToIgnoreForMove),
  * filename.ts (cleanReplacementChar) and template.ts (renderNameTemplate),
  * all unit-tested. All UI strings come from src/i18n.ts (en / zh-TW / ja).
- * Section headings via Setting.setHeading(), sentence case.
+ *
+ * Two rendering paths, same underlying settings:
+ * - getSettingDefinitions()/getControlValue()/setControlValue() — declarative
+ *   API (Obsidian 1.13.0+). Primary path; used whenever available.
+ * - display() — imperative fallback for Obsidian < 1.13.0 (our
+ *   minAppVersion is 1.8.0). Obsidian only calls this when
+ *   getSettingDefinitions() returns an empty array, so it must stay in sync
+ *   with the declarative definitions by hand. Section headings via
+ *   Setting.setHeading(), sentence case.
  */
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, type SettingDefinitionItem, type SettingGroup } from 'obsidian';
 import type H1AlignerPlugin from './main';
 import {
     getExcludePatternsDraft,
@@ -32,6 +40,437 @@ export class H1AlignerSettingTab extends PluginSettingTab {
         super(app, plugin);
         this.plugin = plugin;
     }
+
+    // ==================================================================
+    // Declarative Settings API (Obsidian 1.13.0+) — primary rendering path.
+    // ==================================================================
+
+    getSettingDefinitions(): SettingDefinitionItem[] {
+        return [
+            // ---- Trigger --------------------------------------------------
+            {
+                name: t('set.trigger.name'),
+                desc: t('set.trigger.desc'),
+                control: {
+                    type: 'dropdown',
+                    key: 'renameTrigger',
+                    options: {
+                        'file-open': t('set.trigger.fileOpen'),
+                        edit: t('set.trigger.edit'),
+                        both: t('set.trigger.both'),
+                        leave: t('set.trigger.leave'),
+                        manual: t('set.trigger.manual'),
+                    },
+                },
+            },
+
+            // ---- Scope ------------------------------------------------------
+            {
+                type: 'group',
+                heading: t('set.scope.heading'),
+                items: [
+                    {
+                        name: t('set.ignore.name'),
+                        desc: t('set.ignore.desc'),
+                        control: { type: 'text', key: 'ignoreFolders', placeholder: '.trash' },
+                    },
+                    {
+                        name: t('set.include.name'),
+                        desc: t('set.include.desc'),
+                        control: {
+                            type: 'text',
+                            key: 'includeFolders',
+                            placeholder: '_inbox, projects',
+                        },
+                    },
+                    {
+                        name: t('set.exclude.name'),
+                        desc: t('set.exclude.desc'),
+                        render: (setting) => this.renderExcludePatterns(setting),
+                    },
+                    {
+                        name: t('set.lock.name'),
+                        desc: t('set.lock.desc'),
+                        control: { type: 'toggle', key: 'skipIfFrontmatterLock' },
+                    },
+                ],
+            },
+
+            // ---- Naming -------------------------------------------------------
+            {
+                type: 'group',
+                heading: t('set.naming.heading'),
+                items: [
+                    {
+                        name: t('set.template.name'),
+                        desc: t('set.template.desc'),
+                        control: { type: 'text', key: 'nameTemplate', placeholder: '{{h1}}' },
+                    },
+                    {
+                        name: t('set.collision.name'),
+                        desc: t('set.collision.desc'),
+                        control: {
+                            type: 'dropdown',
+                            key: 'collisionStrategy',
+                            options: {
+                                skip: t('set.collision.skip'),
+                                number: t('set.collision.number'),
+                            },
+                        },
+                    },
+                    {
+                        name: t('set.caseOnly.name'),
+                        desc: t('set.caseOnly.desc'),
+                        control: { type: 'toggle', key: 'allowCaseOnlyRename' },
+                    },
+                    {
+                        name: t('set.alias.name'),
+                        desc: t('set.alias.desc'),
+                        control: { type: 'toggle', key: 'preserveOldNameAsAlias' },
+                    },
+                    {
+                        name: t('set.trim.name'),
+                        desc: t('set.trim.desc'),
+                        control: { type: 'toggle', key: 'trimWhitespace' },
+                    },
+                    {
+                        name: t('set.replace.name'),
+                        desc: t('set.replace.desc'),
+                        control: { type: 'toggle', key: 'replaceIllegalCharacters' },
+                    },
+                    {
+                        name: t('set.replChar.name'),
+                        desc: t('set.replChar.desc'),
+                        control: { type: 'text', key: 'illegalReplacementChar', placeholder: ' ' },
+                    },
+                    {
+                        name: t('set.maxLen.name'),
+                        desc: t('set.maxLen.desc'),
+                        control: {
+                            type: 'number',
+                            key: 'maxFilenameLength',
+                            placeholder: '150',
+                            min: 1,
+                            max: 255,
+                            step: 1,
+                        },
+                    },
+                    {
+                        name: t('set.preview.name'),
+                        desc: t('set.preview.desc'),
+                        render: (setting, group) => this.renderPreview(setting, group),
+                    },
+                ],
+            },
+
+            // ---- Notifications ------------------------------------------------
+            {
+                type: 'group',
+                heading: t('set.notif.heading'),
+                items: [
+                    {
+                        name: t('set.notice.name'),
+                        desc: t('set.notice.desc'),
+                        control: {
+                            type: 'dropdown',
+                            key: 'noticeLevel',
+                            options: {
+                                off: t('set.notice.off'),
+                                errors: t('set.notice.errors'),
+                                all: t('set.notice.all'),
+                            },
+                        },
+                    },
+                ],
+            },
+
+            // ---- Advanced -------------------------------------------------------
+            {
+                type: 'group',
+                heading: t('set.adv.heading'),
+                items: [
+                    {
+                        name: t('set.debounceOpen.name'),
+                        desc: t('set.debounceOpen.desc'),
+                        control: {
+                            type: 'number',
+                            key: 'fileOpenDebounceMs',
+                            placeholder: '100',
+                            min: 0,
+                            max: 60000,
+                            step: 1,
+                        },
+                    },
+                    {
+                        name: t('set.debounceEdit.name'),
+                        desc: t('set.debounceEdit.desc'),
+                        control: {
+                            type: 'number',
+                            key: 'editDebounceMs',
+                            placeholder: '2000',
+                            min: 0,
+                            max: 60000,
+                            step: 1,
+                        },
+                    },
+                ],
+            },
+
+            // ---- Experimental -----------------------------------------------------
+            {
+                type: 'group',
+                heading: t('set.exp.heading'),
+                items: [
+                    {
+                        name: t('set.exp.warning'),
+                        searchable: false,
+                        render: (setting, group) => {
+                            // Plain warning paragraph, not a name/control row —
+                            // discard the framework-created row shell and
+                            // append directly to the group's list instead.
+                            setting.settingEl.remove();
+                            const el = group.listEl.createEl('p', { text: t('set.exp.warning') });
+                            el.classList.add('h1aligner-experimental-warning');
+                        },
+                    },
+                    {
+                        name: t('set.tagmove.name'),
+                        desc: t('set.tagmove.desc'),
+                        control: { type: 'toggle', key: 'moveTagsToFrontmatter' },
+                    },
+                    {
+                        name: t('set.tagmove.body.name'),
+                        desc: t('set.tagmove.body.desc'),
+                        // Sub-settings keep their stored values when toggled
+                        // off — they are only hidden, never reset.
+                        visible: () => this.plugin.settings.moveTagsToFrontmatter,
+                        control: {
+                            type: 'dropdown',
+                            key: 'bodyTagHandling',
+                            options: {
+                                keep: t('set.tagmove.body.keep'),
+                                'remove-hash': t('set.tagmove.body.removeHash'),
+                                'remove-tag': t('set.tagmove.body.removeTag'),
+                            },
+                        },
+                    },
+                    {
+                        name: t('set.tagmove.ignore.name'),
+                        desc: t('set.tagmove.ignore.desc'),
+                        visible: () => this.plugin.settings.moveTagsToFrontmatter,
+                        control: {
+                            type: 'textarea',
+                            key: 'tagsToIgnoreForMove',
+                            placeholder: 'Archive, inbox/todo',
+                        },
+                    },
+                ],
+            },
+        ];
+    }
+
+    getControlValue(key: string): unknown {
+        switch (key) {
+            case 'ignoreFolders':
+                return this.plugin.settings.ignoreFolders.join(', ');
+            case 'includeFolders':
+                return this.plugin.settings.includeFolders.join(', ');
+            case 'tagsToIgnoreForMove':
+                return this.plugin.settings.tagsToIgnoreForMove.join(', ');
+            default:
+                // Every other control's key matches its H1AlignerSettings
+                // property name and value shape 1:1 — the base
+                // PluginSettingTab implementation reads it straight off
+                // this.plugin.settings.
+                return super.getControlValue(key);
+        }
+    }
+
+    async setControlValue(key: string, value: unknown): Promise<void> {
+        const s = this.plugin.settings;
+        switch (key) {
+            case 'renameTrigger':
+                s.renameTrigger = value as RenameTrigger;
+                // Drop timers scheduled under the previous mode.
+                this.plugin.cancelPendingRenames();
+                await this.plugin.saveSettings();
+                return;
+            case 'ignoreFolders':
+                s.ignoreFolders = parseIgnoreFolders(String(value));
+                await this.plugin.saveSettings();
+                return;
+            case 'includeFolders':
+                s.includeFolders = parseIgnoreFolders(String(value));
+                await this.plugin.saveSettings();
+                return;
+            case 'skipIfFrontmatterLock':
+                s.skipIfFrontmatterLock = Boolean(value);
+                await this.plugin.saveSettings();
+                return;
+            case 'nameTemplate':
+                s.nameTemplate = String(value).trim() ? String(value) : '{{h1}}';
+                await this.plugin.saveSettings();
+                this.updatePreview();
+                return;
+            case 'collisionStrategy':
+                s.collisionStrategy = value as CollisionStrategy;
+                await this.plugin.saveSettings();
+                return;
+            case 'allowCaseOnlyRename':
+                s.allowCaseOnlyRename = Boolean(value);
+                await this.plugin.saveSettings();
+                return;
+            case 'preserveOldNameAsAlias':
+                s.preserveOldNameAsAlias = Boolean(value);
+                await this.plugin.saveSettings();
+                return;
+            case 'trimWhitespace':
+                s.trimWhitespace = Boolean(value);
+                await this.plugin.saveSettings();
+                this.updatePreview();
+                return;
+            case 'replaceIllegalCharacters':
+                s.replaceIllegalCharacters = Boolean(value);
+                await this.plugin.saveSettings();
+                this.updatePreview();
+                return;
+            case 'illegalReplacementChar':
+                s.illegalReplacementChar = cleanReplacementChar(value);
+                await this.plugin.saveSettings();
+                this.updatePreview();
+                return;
+            case 'maxFilenameLength': {
+                const n = parseMaxFilenameLength(String(value));
+                if (n !== null) {
+                    s.maxFilenameLength = n;
+                    await this.plugin.saveSettings();
+                    this.updatePreview();
+                }
+                return;
+            }
+            case 'noticeLevel':
+                s.noticeLevel = value as NoticeLevel;
+                await this.plugin.saveSettings();
+                return;
+            case 'fileOpenDebounceMs': {
+                const n = Number(value);
+                if (Number.isFinite(n) && n >= 0 && n <= 60000) {
+                    s.fileOpenDebounceMs = Math.floor(n);
+                    await this.plugin.saveSettings();
+                }
+                return;
+            }
+            case 'editDebounceMs': {
+                const n = Number(value);
+                if (Number.isFinite(n) && n >= 0 && n <= 60000) {
+                    s.editDebounceMs = Math.floor(n);
+                    await this.plugin.saveSettings();
+                }
+                return;
+            }
+            case 'moveTagsToFrontmatter':
+                s.moveTagsToFrontmatter = Boolean(value);
+                await this.plugin.saveSettings();
+                // bodyTagHandling/tagsToIgnoreForMove's `visible` predicates
+                // depend on this — re-evaluate without a full re-render.
+                this.refreshDomState();
+                return;
+            case 'bodyTagHandling':
+                s.bodyTagHandling = value as BodyTagHandling;
+                await this.plugin.saveSettings();
+                return;
+            case 'tagsToIgnoreForMove':
+                s.tagsToIgnoreForMove = parseTagsToIgnoreForMove(String(value));
+                await this.plugin.saveSettings();
+                return;
+            default:
+                return;
+        }
+    }
+
+    /** Exclude-patterns textarea with inline regex validation — same custom UI as display(). */
+    private renderExcludePatterns(setting: Setting): void {
+        const validationEl = setting.settingEl.createDiv();
+        validationEl.classList.add('h1aligner-validation');
+        validationEl.id = 'h1aligner-exclude-pattern-validation';
+        const announcementEl = setting.settingEl.createDiv();
+        announcementEl.classList.add('h1aligner-screen-reader-only');
+        announcementEl.setAttribute('aria-live', 'polite');
+        let previousInvalidState: boolean | null = null;
+
+        setting.addTextArea((txt) => {
+            const renderValidation = (invalidPatterns: string[]): void => {
+                const hasInvalidPatterns = invalidPatterns.length > 0;
+                txt.inputEl.setAttribute('aria-invalid', String(hasInvalidPatterns));
+                validationEl.empty();
+                if (hasInvalidPatterns) {
+                    validationEl.createDiv({
+                        text: t('set.exclude.invalid', { patterns: invalidPatterns.join('\n') }),
+                    });
+                    validationEl.createDiv({ text: t('set.exclude.pending') });
+                    const activePatterns = this.plugin.settings.excludePatterns;
+                    if (
+                        validateExcludePatterns(activePatterns.join('\n')).invalidPatterns.length === 0
+                    ) {
+                        const active = validationEl.createDiv({
+                            text:
+                                activePatterns.length > 0
+                                    ? t('set.exclude.active', {
+                                        patterns: activePatterns.join('\n'),
+                                    })
+                                    : t('set.exclude.none'),
+                        });
+                        active.classList.add('h1aligner-validation-active');
+                    }
+                }
+                if (
+                    previousInvalidState !== null &&
+                    previousInvalidState !== hasInvalidPatterns
+                ) {
+                    announcementEl.setText(
+                        t(
+                            hasInvalidPatterns
+                                ? 'set.exclude.announcement.invalid'
+                                : 'set.exclude.announcement.valid',
+                        ),
+                    );
+                }
+                previousInvalidState = hasInvalidPatterns;
+            };
+
+            txt
+                .setPlaceholder('^\\d{4}-\\d{2}-\\d{2}$')
+                .setValue(getExcludePatternsDraft(this.plugin.settings))
+                .onChange(async (v) => {
+                    const validation = updateExcludePatternsFromDraft(this.plugin.settings, v);
+                    renderValidation(validation.invalidPatterns);
+                    await this.plugin.saveSettings();
+                });
+            txt.inputEl.setAttribute('aria-describedby', validationEl.id);
+            renderValidation(
+                validateExcludePatterns(getExcludePatternsDraft(this.plugin.settings)).invalidPatterns,
+            );
+        });
+    }
+
+    /** Filename-template text input + live rendered preview — not a stored setting. */
+    private renderPreview(setting: Setting, group: SettingGroup): void {
+        setting.addText((txt) =>
+            txt.setPlaceholder('# My note: draft/v2').onChange((v) => {
+                this.previewInput = v;
+                this.updatePreview();
+            }),
+        );
+        this.previewEl = group.listEl.createDiv();
+        this.previewEl.classList.add('h1aligner-preview');
+        this.updatePreview();
+    }
+
+    // ==================================================================
+    // Imperative fallback (Obsidian < 1.13.0). Obsidian only calls
+    // display() when getSettingDefinitions() above returns []; it never
+    // does on 1.13.0+, so this must be kept in sync with it by hand.
+    // ==================================================================
 
     display(): void {
         const { containerEl } = this;

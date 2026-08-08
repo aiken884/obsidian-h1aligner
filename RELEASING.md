@@ -2,13 +2,13 @@
 
 ## Pre-release maintenance cadence
 
-每次 **minor** release 前跑一次：
+Run once before every **minor** release:
 
-1. `npm outdated` — 看 dev dependencies 有無落後（Dependabot 每月也會開 grouped PR）。
-2. 檢查 obsidian typings：目前釘 `~1.8.7` 對齊 `minAppVersion: 1.8.0`（0.9.0 起，getLanguage 門檻）。若程式碼開始使用較新 API，
-   同步提升三者：`devDependencies.obsidian`、`manifest.json` 的 `minAppVersion`、`versions.json` 新條目。
-   （Dependabot 對 `obsidian` 套件設為 ignore — typings 升版是刻意決策，不自動化。）
-3. 跑 `docs/MOBILE-TESTING.md` 的實機 checklist（iPhone + Android），結果記錄在該檔案的驗證紀錄表。
+1. `npm outdated` — check whether dev dependencies have fallen behind (Dependabot also opens a grouped PR every month).
+2. Check the obsidian typings: `devDependencies.obsidian` is currently `^1.13.1` (needed for the declarative Settings API, since 1.13.0), and `manifest.json`'s `minAppVersion` is `1.8.7` (the getLanguage threshold, in effect since 0.9.0 — corrected from an initially-wrong `1.8.0` in the Unreleased section). If the code starts using APIs newer than the current `minAppVersion`,
+   bump all three together: `devDependencies.obsidian`, `manifest.json`'s `minAppVersion`, and a new entry in `versions.json`.
+   (Dependabot is configured to ignore the `obsidian` package — bumping the typings is a deliberate decision, not automated.)
+3. Run the on-device checklist in `docs/MOBILE-TESTING.md` (iPhone + Android), and record the results in that file's verification log table.
 
 ## Versioning
 
@@ -98,21 +98,21 @@ attach `main.js` + `manifest.json` + `styles.css` as individual binary assets
 
 ## Obsidian community plugin submission (first release only)
 
-提交流程（2026 現行版 — 經 community.obsidian.md 網站，不再是 fork obsidian-releases 開 PR）：
+Submission process (current as of 2026 — via the community.obsidian.md website; no longer a fork-and-PR against obsidian-releases):
 
-1. 確認 repo 根目錄有 `README.md`、`LICENSE`、`manifest.json`，且已發佈至少一個
-   GitHub release（tag = manifest version、無 `v` 前綴，附 `main.js` + `manifest.json` + `styles.css`）。
-2. 登入 [community.obsidian.md](https://community.obsidian.md)，連結 GitHub 帳號驗證 repo 所有權。
-3. 側欄 **Plugins → New plugin** → 輸入 repo URL → 同意開發者政策 → **Submit**。
-4. 自動檢查 bot 會即時回饋。常見檢查點：`id` 僅限小寫字母與連字號、不含 "obsidian"、不以 "plugin" 結尾（✅ `heading-aligner` — 注意：數字不允許，`h1aligner` 曾因此被打回）、
-   description ≤ 250 字元且以句號結尾、`minAppVersion` 已設、`fundingUrl` 僅限金融支持服務連結（✅ 已設 PayPal）、
-   使用 Node/Electron API 者必須 `isDesktopOnly: true`（✅ 本外掛零 Node API、`false` 經驗證）、
-   指令 ID 不含外掛 ID 前綴（✅）。
-5. 需要修正時：改完發新 release（版本遞增）即可重跑檢查。
-6. 通過自動檢查後進入人工審核（時程數週不等）。核准後外掛出現在
-   Community plugins 瀏覽器；**之後的版本更新不需重新送審** — 發新 GitHub release 目錄就會自動抓取。
+1. Confirm the repo root contains `README.md`, `LICENSE`, and `manifest.json`, and that at least one
+   GitHub release has been published (tag = manifest version, no `v` prefix, with `main.js` + `manifest.json` + `styles.css` attached).
+2. Log in to [community.obsidian.md](https://community.obsidian.md) and link your GitHub account to verify repo ownership.
+3. Sidebar **Plugins → New plugin** → enter the repo URL → agree to the developer policy → **Submit**.
+4. The automated check bot gives real-time feedback. Common checkpoints: `id` may only contain lowercase letters and hyphens, must not contain "obsidian", and must not end with "plugin" (✅ `heading-aligner` — note: digits are not allowed, `h1aligner` was previously rejected for this reason);
+   description ≤ 250 characters and ending with a period; `minAppVersion` is set; `fundingUrl` restricted to financial-support-service links (✅ PayPal is already set);
+   plugins using Node/Electron APIs must set `isDesktopOnly: true` (✅ this plugin uses zero Node APIs, `false` has been verified);
+   command IDs must not include the plugin ID prefix (✅).
+5. If corrections are needed: after making changes, publish a new release (with an incremented version) to re-trigger the checks.
+6. After passing the automated checks, the submission moves to manual review (timeline varies, on the order of several weeks). Once approved, the plugin appears in the
+   Community plugins browser; **subsequent version updates do not require resubmission** — publishing a new GitHub release is automatically picked up.
 
-發佈後推廣（選項）：論壇 Share & Showcase 版、Discord `#updates` 頻道（需 developer 角色）。
+Post-release promotion (optional): the forum's Share & Showcase section, the Discord `#updates` channel (requires the developer role).
 
 ## Post-release verification
 

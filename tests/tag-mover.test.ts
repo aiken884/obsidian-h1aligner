@@ -41,6 +41,20 @@ describe('normalizeTagName', () => {
         expect(normalizeTagName('###triple')).toBe('triple');
         expect(normalizeTagName('###')).toBe('');
     });
+
+    it('does not touch a # that is not at the very start of the string (anchored strip)', () => {
+        // The '#' strip is anchored (/^#+/) — it must never remove a '#'
+        // elsewhere in the string, only a leading run of them.
+        expect(normalizeTagName('a#b')).toBe('a#b');
+        expect(normalizeTagName('a##b')).toBe('a##b');
+    });
+
+    it('trims whitespace exposed by stripping the leading #, not just the outer edges', () => {
+        // '#  foo'.trim() leaves the string untouched (no OUTER whitespace) — the
+        // leading spaces only become exposed at the string's edge after the '#'
+        // strip, so the trailing .trim() must run again to catch them.
+        expect(normalizeTagName('#  foo')).toBe('foo');
+    });
     it('NFC-normalizes so NFD and NFC forms compare equal', () => {
         expect(normalizeTagName('café')).toBe(normalizeTagName('café'));
     });
@@ -136,6 +150,68 @@ describe('movableTags', () => {
     it('returns empty for cache without tags', () => {
         expect(movableTags({}, '', [])).toEqual([]);
     });
+
+    it('ignore entries that normalize to empty never leak into wrongly excluding a degenerate tag', () => {
+        // The '#' tag itself normalizes to '' — this only matters as a probe for
+        // whether blank/whitespace-only ignore entries are correctly filtered out
+        // of the ignore set (they must not) rather than leaking through as ''.
+        const body = 'weird #';
+        const cache: CacheLike = { tags: [tagAt(body, '#')] };
+        expect(movableTags(cache, body, ['', '   '])).toHaveLength(1);
+    });
+
+    it('excludes via a cache.links span even when the body has no literal [...](...)  bracket syntax', () => {
+        const body = 'see [[note#faketag]] and #real';
+        const fake = tagAt(body, '#faketag');
+        const real = tagAt(body, '#real');
+        const cache: CacheLike = { tags: [fake, real], links: [{ position: fake.position }] };
+        const out = movableTags(cache, body, []);
+        expect(out.map((t) => t.tag)).toEqual(['#real']);
+    });
+
+    it('containment against an excluded span is inclusive at both boundaries', () => {
+        const body = '#tag';
+        const tag = tagAt(body, '#tag');
+        const cache: CacheLike = {
+            tags: [tag],
+            // Span exactly matches the tag's own offsets — boundary-touching, not
+            // strictly interior — must still count as "inside".
+            links: [{ position: tag.position }],
+        };
+        expect(movableTags(cache, body, [])).toHaveLength(0);
+    });
+
+    it('does not exclude tags inside non-comment sections (only type==="comment" excludes)', () => {
+        const body = 'para #tag here';
+        const tag = tagAt(body, '#tag');
+        const cache: CacheLike = {
+            tags: [tag],
+            sections: [
+                {
+                    type: 'paragraph',
+                    position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: body.length, offset: body.length } },
+                },
+            ],
+        };
+        expect(movableTags(cache, body, [])).toHaveLength(1);
+    });
+
+    it('does not throw when a candidate claims an out-of-range line index (stale/malformed cache)', () => {
+        const body = '#tag';
+        const tag: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 99, col: 0, offset: 0 }, end: { line: 99, col: 4, offset: 4 } },
+        };
+        const cache: CacheLike = { tags: [tag] };
+        expect(() => movableTags(cache, body, [])).not.toThrow();
+    });
+
+    it('the %% heuristic only counts %% BEFORE the tag on its line, not after', () => {
+        const body = '#tag stays %% comment-marker-after';
+        const tag = tagAt(body, '#tag');
+        const cache: CacheLike = { tags: [tag] };
+        expect(movableTags(cache, body, [])).toHaveLength(1);
+    });
 });
 
 describe('mergeTagsIntoList', () => {
@@ -173,6 +249,26 @@ describe('mergeTagsIntoList', () => {
         expect(mergeTagsIntoList(['##weird'], [])).toEqual(['weird']);
         expect(mergeTagsIntoList(['###triple', '#normal'], [])).toEqual(['triple', 'normal']);
         expect(mergeTagsIntoList(['##weird'], ['#weird'])).toEqual(['weird']); // dedups against the fixed form
+    });
+
+    it('trims whitespace exposed by stripping # from an existing entry, not just the outer edges', () => {
+        expect(mergeTagsIntoList(['#  weird'], [])).toEqual(['weird']);
+    });
+
+    it('never pushes an empty-after-clean entry into the output', () => {
+        expect(mergeTagsIntoList(['', '   ', '#', '###'], ['real'])).toEqual(['real']);
+    });
+
+    it('does not silently drop a lone non-null scalar existing value (e.g. a bare YAML number)', () => {
+        expect(mergeTagsIntoList(2025, [])).toEqual(['2025']);
+    });
+
+    it('excludes non-finite numbers and non-numeric, non-string junk from existing', () => {
+        expect(mergeTagsIntoList([true, {}, Infinity, -Infinity, NaN], [])).toEqual([]);
+    });
+
+    it('does not touch a # that is not at the very start of an existing entry', () => {
+        expect(mergeTagsIntoList(['a#b'], [])).toEqual(['a#b']);
     });
 });
 
@@ -260,6 +356,19 @@ describe('applyBodyTagRemoval', () => {
             position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
         };
         const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a candidate immediately preceded by another # (accidentally-doubled hash)', () => {
+        const body = '##tag end';
+        // Content still matches at this offset ('#tag'), but the char right before
+        // it is itself '#' — a fresh cache tag could never be bordered like this.
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 1, offset: 1 }, end: { line: 0, col: 5, offset: 5 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-hash');
         expect(res.text).toBe(body);
         expect(res.skippedStale).toBe(1);
     });

@@ -5,5 +5,7 @@ main.js.map
 data.json
 .DS_Store
 coverage/
+reports/
+.stryker-tmp/
 .vscode/
 .idea/

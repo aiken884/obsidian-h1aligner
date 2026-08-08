@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **293 automated tests** (including property-based fuzzing of the sanitiser across thousands of random inputs), **20 end-to-end scenarios** driven against the real production bundle, and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **326 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **20 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -191,9 +191,10 @@ Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, v
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 293 unit tests (vitest, incl. property-based)
+npm test               # 326 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
 npm run test:e2e       # 20 E2E scenarios against the built bundle
+npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 
 ```
@@ -213,7 +214,8 @@ src/
   scope.ts / ignore.ts / debounce.ts / notice.ts / history.ts /
   activity-log.ts / i18n.ts        # pure, obsidian-free, fully unit-tested
 styles.css             # modal/settings styles
-docs/MOBILE-TESTING.md # real-device checklist (iPhone / Android)
+docs/MOBILE-TESTING.md              # real-device checklist (iPhone / Android)
+docs/mutation-testing-tag-mover.md  # Stryker results + ground-truth verification notes
 ```
 
 All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs build + both suites on every push. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.

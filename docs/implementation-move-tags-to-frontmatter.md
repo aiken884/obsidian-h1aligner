@@ -13,6 +13,11 @@
   10 commits），**未打 version tag、未發布**——功能預設關閉，部署於
   ObsidianTestVault 與主 ObsidianVault 供本機持續測試
 - 已記錄至 RemaGraph（`mem-20260807-002`，project `obsidian-h1aligner`）
+- **2026-08-08 加測：** fast-check property-based 測試（`tests/tag-mover.property.test.ts`，
+  19 個不變性）＋ Stryker mutation testing（`src/tag-mover.ts`，詳見
+  `docs/mutation-testing-tag-mover.md`）。過程中額外揪出並修正 2 個真實漏洞：
+  去 `#` 正則只去一個會殘留、正則失去錨點會誤刪字串中間的 `#`。單元測試
+  293→326，326 測試＋20 E2E 全綠
 - 正式發布時走 `RELEASING.md`：`npm version` → push tag → publish draft release
 
 ## pplx 二輪修訂要點

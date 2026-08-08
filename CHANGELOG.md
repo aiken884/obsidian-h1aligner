@@ -3,7 +3,8 @@
 已上架 Obsidian Community Plugins；版本號依 SemVer。
 
 ## Unreleased
-- 新增實驗性功能 **Move tags to frontmatter**（預設關閉）：rename 執行時，選擇性地把筆記內文的 `#tag` 整理進 frontmatter 的 `tags` 屬性。內文處置三選一（保留／移除井號／整個移除），只在 rename 流程實際觸發時整理、打字中（edit 觸發）絕不執行；tag 來源信任 Obsidian 官方 `metadataCache`（不自刻 regex），正確排除 heading／連結／註解內的 tag，並跳過純數字等非法 tag。batch 預覽於可套用列加註搬移數量；activity log 記錄搬移與 stale 跳過統計。設定頁「實驗性功能」區段有明確風險警示。詳見 README「Experimental」段落
+- 新增實驗性功能 **Move tags to frontmatter**（預設關閉）：rename 執行時，選擇性地把筆記內文的 `#tag` 整理進 frontmatter 的 `tags` 屬性。內文處置三選一（保留／移除井號／整個移除），只在 rename 流程實際觸發時整理、打字中（edit 觸發）絕不執行；tag 來源信任 Obsidian 官方 `metadataCache`（不自刻 regex），正確排除 heading／連結／註解內的 tag，並跳過純數字等非法 tag。batch 預覽於可套用列加註搬移數量；activity log 記錄搬移與 stale 跳過統計。設定頁「實驗性功能」區段標題下方有明確風險警示（已依 pplx 潤飾三語系文案）。詳見 README「Experimental」段落
+- 補強測試：新增 `tests/tag-mover.property.test.ts`（fast-check property-based，19 個不變性、每個 300 次隨機輸入）與 Stryker mutation testing（`npm run test:mutation`，scope 限定 `src/tag-mover.ts`，詳見 `docs/mutation-testing-tag-mover.md`）。過程中額外揪出並修正 2 個真實邊界漏洞：`normalizeTagName`／`mergeTagsIntoList` 的去 `#` 正則若只去一個會殘留 `#`（改為去除全部開頭 `#`）、若正則失去開頭錨點會誤刪字串中間的 `#`。單元測試自 293 增至 326
 
 ## 0.10.0 — 2026-07-15
 - 設定頁的排除檔名 pattern 改為即時 inline 驗證：無效草稿不會覆寫最後有效規則，且會暫停新的改名操作直到修正完成

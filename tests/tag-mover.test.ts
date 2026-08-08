@@ -35,6 +35,12 @@ describe('normalizeTagName', () => {
         expect(normalizeTagName('#a')).toBe('a');
         expect(normalizeTagName('#a/b/c')).toBe('a/b/c');
     });
+
+    it('strips ALL leading #s, not just one (hand-typed "##tag")', () => {
+        expect(normalizeTagName('##weird')).toBe('weird');
+        expect(normalizeTagName('###triple')).toBe('triple');
+        expect(normalizeTagName('###')).toBe('');
+    });
     it('NFC-normalizes so NFD and NFC forms compare equal', () => {
         expect(normalizeTagName('café')).toBe(normalizeTagName('café'));
     });
@@ -162,6 +168,11 @@ describe('mergeTagsIntoList', () => {
         expect(normalizeTagName(' #foo')).toBe('foo');
         expect(mergeTagsIntoList([' #foo'], ['#foo'])).toEqual(['foo']);
         expect(mergeTagsIntoList(['\t#bar'], ['#bar', '#baz'])).toEqual(['bar', 'baz']);
+    });
+    it('strips ALL leading #s from a malformed existing entry, never leaves one behind', () => {
+        expect(mergeTagsIntoList(['##weird'], [])).toEqual(['weird']);
+        expect(mergeTagsIntoList(['###triple', '#normal'], [])).toEqual(['triple', 'normal']);
+        expect(mergeTagsIntoList(['##weird'], ['#weird'])).toEqual(['weird']); // dedups against the fixed form
     });
 });
 

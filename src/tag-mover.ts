@@ -39,13 +39,15 @@ export function foldName(name: string): string {
 
 /**
  * Canonical tag-name normalization, shared by the ignore-list match and the
- * frontmatter dedup so the two can never disagree: trim, strip one leading
- * '#', trim again, then fold. Trim must come first — a leading space would
- * otherwise defeat the '#' strip and leak '#' into comparisons.
+ * frontmatter dedup so the two can never disagree: trim, strip all leading
+ * '#'s, trim again, then fold. Trim must come first — a leading space would
+ * otherwise defeat the '#' strip and leak '#' into comparisons; stripping
+ * ALL leading '#'s (not just one) matters for malformed input like a
+ * hand-typed "##tag" in frontmatter — a single strip would leave one behind.
  * Nested tags keep their '/' and compare by full name.
  */
 export function normalizeTagName(s: string): string {
-    return foldName(s.trim().replace(/^#/, '').trim());
+    return foldName(s.trim().replace(/^#+/, '').trim());
 }
 
 /**
@@ -114,7 +116,7 @@ export function mergeTagsIntoList(existing: unknown, incoming: string[]): string
     const out: string[] = [];
     const seen = new Set<string>();
     const push = (raw: string): void => {
-        const cleaned = raw.trim().replace(/^#/, '').trim();
+        const cleaned = raw.trim().replace(/^#+/, '').trim();
         if (!cleaned) return;
         const key = normalizeTagName(cleaned);
         if (seen.has(key)) return;

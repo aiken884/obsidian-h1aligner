@@ -221,9 +221,10 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
     }
     const ignoreTags = cleanStringArray(r.tagsToIgnoreForMove);
     if (ignoreTags !== null) {
-        // Stored without a leading '#' so the ignore match and the UI agree.
+        // Stored without any leading '#' so the ignore match and the UI
+        // agree (strip ALL leading '#'s, not just one — "##tag" input).
         out.tagsToIgnoreForMove = ignoreTags
-            .map((s) => s.replace(/^#/, '').trim())
+            .map((s) => s.replace(/^#+/, '').trim())
             .filter((s) => s.length > 0);
     }
 

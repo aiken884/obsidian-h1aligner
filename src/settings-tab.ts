@@ -394,7 +394,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         .onChange(async (v) => {
                             this.plugin.settings.tagsToIgnoreForMove = v
                                 .split(',')
-                                .map((s) => s.trim().replace(/^#/, '').trim())
+                                .map((s) => s.trim().replace(/^#+/, '').trim())
                                 .filter((s) => s.length > 0);
                             await this.plugin.saveSettings();
                         }),

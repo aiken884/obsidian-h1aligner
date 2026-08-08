@@ -51,6 +51,15 @@ export default class H1AlignerPlugin extends Plugin {
     private lastActiveFile: TFile | null = null;
 
     /**
+     * Source of the currently-pending debounced rename per file path — lets
+     * scheduleRename tell a stale/short reschedule apart from a genuinely
+     * new one. Keyed the same way as the debouncer itself (file.path), and
+     * cleaned up on the same two paths: the timer firing, and
+     * cancelPendingRenames()/onunload() cancelling everything.
+     */
+    private readonly pendingRenameSource: Map<string, ActivitySource> = new Map();
+
+    /**
      * Last editor-change per file — guards the tag move against firing
      * mid-typing. Keyed by the TFile object itself (Obsidian mutates the
      * same TFile's .path in place on rename rather than creating a new
@@ -165,11 +174,13 @@ export default class H1AlignerPlugin extends Plugin {
 
     onunload(): void {
         this.debouncer.cancelAll();
+        this.pendingRenameSource.clear();
     }
 
     /** Called by the settings tab when the trigger mode changes. */
     cancelPendingRenames(): void {
         this.debouncer.cancelAll();
+        this.pendingRenameSource.clear();
     }
 
     private scheduleRename(
@@ -179,13 +190,31 @@ export default class H1AlignerPlugin extends Plugin {
         source: ActivitySource,
     ): void {
         if (!file || !this.shouldProcess(file)) return;
+        // 'both' mode runs file-open and edit debounces off the same shared,
+        // path-keyed debouncer. Without this guard, a file-open event on a
+        // file the user is actively mid-edit in (e.g. refocusing a second
+        // pane showing the same note) would replace the long, deliberately
+        // generous edit-pause window with the much shorter file-open delay,
+        // and could rename off a half-typed H1. The edit debounce already
+        // owns deciding when this file is safe to rename — let it fire on
+        // its own instead of being cut short by a same-file file-open event.
+        if (source === 'file-open' && this.pendingRenameSource.get(file.path) === 'edit') {
+            return;
+        }
+        this.pendingRenameSource.set(file.path, source);
         this.debouncer.schedule(
             file.path,
             () => {
+                this.pendingRenameSource.delete(file.path);
                 // Re-validate at fire time: the user may have switched the
                 // trigger mode or moved the file out of scope meanwhile.
                 if (this.settings.renameTrigger !== expectedTrigger) return;
                 if (!this.shouldProcess(file)) return;
+                // 'leave' mode must never touch the note currently being
+                // looked at — the debounce that renames the note just left
+                // can still be pending when the user switches straight back
+                // to it (a different key, so it doesn't cancel this timer).
+                if (source === 'leave' && this.app.workspace.getActiveFile() === file) return;
                 void this.triggerRename(file, /* manual */ false, source);
             },
             delayMs,

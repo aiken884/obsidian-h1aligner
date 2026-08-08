@@ -164,7 +164,24 @@ function addFile(app, p, content, h1InCache, frontmatter) {
     f.extension = 'md';
     f.stat = { ctime: new Date(2026, 0, 15).getTime() };
     const dir = path.dirname(p);
-    f.parent = { path: dir === '.' ? '/' : dir };
+    const parentPath = dir === '.' ? '/' : dir;
+    f.parent = {
+        path: parentPath,
+        // Live-computed, like real Obsidian's TFolder.children: derived from
+        // the vault's CURRENT file set (not a snapshot taken at addFile()
+        // time), so later addFile()/renameFile()/_files.delete() calls in
+        // the same scenario keep it correct automatically — no separate
+        // bookkeeping to keep in sync, and no stale entries after a test
+        // frees a name via app._files.delete().
+        get children() {
+            return [...app._files.values()]
+                .map((e) => e.file)
+                .filter((sib) => {
+                    const sd = path.dirname(sib.path);
+                    return (sd === '.' ? '/' : sd) === parentPath;
+                });
+        },
+    };
     let cache = null;
     if (h1InCache || frontmatter) {
         cache = {};
@@ -610,5 +627,141 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     plugin.settings.moveTagsToFrontmatter = false;
     plugin.settings.bodyTagHandling = 'keep';
 
-    console.log('\nE2E smoke test: 25/25 scenarios passed（真實 production bundle main.js, v0.10.0）');
+    // --- 19: 'leave' race — switching straight back to the note you just
+    // left, before its debounced rename fires, must NOT rename the note
+    // currently being viewed (bug fix #1 regression). Opening a DIFFERENT
+    // file schedules a 'leave' rename keyed by the PATH being left; switching
+    // back to that file is a file-open event for a DIFFERENT path (whatever
+    // was active in between), so it does not cancel the already-pending
+    // timer — only the fire-time getActiveFile() re-check can still catch it.
+    plugin.settings.renameTrigger = 'leave';
+    plugin.settings.fileOpenDebounceMs = 150;
+    const fLeaveAnchor = addFile(app, 'notes/leave-anchor.md', '# Leave Anchor\n', 'Leave Anchor');
+    app._activeFile = fLeaveAnchor;
+    app._ws['file-open'](fLeaveAnchor); // establish a known "previous" file
+    await sleep(200);
+    const fLeaveRace = addFile(app, 'notes/leave-race.md', '# Leave Race\n', 'Leave Race');
+    app._activeFile = fLeaveRace;
+    app._ws['file-open'](fLeaveRace); // switch to the race file (schedules the anchor's own, unrelated leave-rename)
+    await sleep(200);
+    before = app._renameCalls.length;
+    app._activeFile = fLeaveAnchor;
+    app._ws['file-open'](fLeaveAnchor); // leave the race file → schedules renaming it after 150ms
+    await sleep(50);
+    app._activeFile = fLeaveRace;
+    app._ws['file-open'](fLeaveRace); // switch straight back before that 150ms timer fires
+    await sleep(220); // well past the 150ms — the pending timer has fired by now
+    assert.equal(
+        app._renameCalls.filter((c) => c.from === 'notes/leave-race.md').length,
+        0,
+        "leave: a pending rename of the note just left must be skipped once the user switched straight back to it before the timer fired (bug #1 regression — without the fire-time getActiveFile() re-check this renames the note currently on screen)",
+    );
+    assert.ok(app._files.has('notes/leave-race.md'), 'race file untouched — still at its original path');
+    plugin.settings.fileOpenDebounceMs = 100;
+    plugin.settings.renameTrigger = 'file-open';
+    console.log("✓ 19. leave 模式競態：debounce 尚未觸發前切回原筆記 → 不改名目前正在看的筆記（bug #1 回歸測試）");
+
+    // --- 20: 'both' race — a file-open event on a file that already has a
+    // PENDING edit-sourced schedule for the same path (e.g. refocusing a
+    // second pane on the note you're mid-typing in) must NOT replace the
+    // long edit-pause debounce with the much shorter file-open delay (bug
+    // fix #2 regression — pendingRenameSource lets scheduleRename tell them
+    // apart and drop the file-open reschedule instead of cutting the window
+    // short).
+    plugin.settings.renameTrigger = 'both';
+    plugin.settings.editDebounceMs = 300;
+    plugin.settings.fileOpenDebounceMs = 60;
+    const fBothGuard = addFile(app, 'notes/both-guard.md', '# Both Guard Renamed\n', 'Both Guard Renamed');
+    app._ws['editor-change'](null, { file: fBothGuard }); // mid-edit: schedules a 300ms edit-sourced rename
+    await sleep(40);
+    app._ws['file-open'](fBothGuard); // refocus / second pane on the SAME file, still mid-edit
+    await sleep(100); // > fileOpenDebounceMs (60ms) but well under editDebounceMs (300ms)
+    assert.equal(
+        app._renameCalls.filter((c) => c.from === 'notes/both-guard.md').length,
+        0,
+        'both: a same-file file-open event must not cut the pending edit debounce short with the shorter file-open delay (bug #2 regression)',
+    );
+    await sleep(250); // now past the original 300ms edit debounce
+    assert.deepEqual(
+        app._renameCalls.at(-1),
+        { from: 'notes/both-guard.md', to: 'notes/Both Guard Renamed.md' },
+        'the original edit-sourced debounce still fires undisturbed on its own schedule',
+    );
+    plugin.settings.fileOpenDebounceMs = 100;
+    plugin.settings.editDebounceMs = 2000;
+    plugin.settings.renameTrigger = 'file-open';
+    console.log("✓ 20. both 模式競態：同檔案 file-open 不會截斷正在等待的 edit debounce（bug #2 回歸測試）");
+
+    // --- 21: batch-apply race guards — an H1 edited between preview
+    // generation and clicking Apply must abort that one item (counted as
+    // "changed"), never rename it onto the stale preview target, and leave
+    // an unaffected sibling in the same batch to apply normally; a real
+    // write failure on another item is counted as "failed", not silently
+    // swallowed. Both notices are asserted on the SAME apply.
+    const fStaleA = addFile(app, 'batch/stale-a.md', '# Stale Original\n', 'Stale Original');
+    const fStaleB = addFile(app, 'batch/stale-b.md', '# Stale Sibling\n', 'Stale Sibling');
+    const fFailC = addFile(app, 'batch/fail-c.md', '# Fail C Renamed\n', 'Fail C Renamed');
+    batchCmd.callback();
+    await sleep(150);
+    const staleModal = global.__lastModal;
+    const staleTexts = [...staleModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(staleTexts.some((t) => t.includes('batch/stale-a.md → Stale Original.md')), 'preview captured the H1 as it was at scan time');
+    // The user edits stale-a's H1 AFTER the preview was generated but
+    // BEFORE clicking Apply — the fresh per-item dry run inside Apply must
+    // notice the target no longer matches and abort just this item.
+    app._files.get('batch/stale-a.md').cache.headings[0].heading = 'Stale Edited';
+    app._files.get('batch/stale-a.md').content = '# Stale Edited\n';
+    // A real filesystem write failure on fail-c — undetectable by the dry-run
+    // pre-check (dryRun never calls renameFile), so it must surface as the
+    // separate "failed" counter, not as "changed".
+    const originalRenameFile = app.fileManager.renameFile;
+    app.fileManager.renameFile = async (file, newPath) => {
+        if (file.path === 'batch/fail-c.md') throw new Error('simulated filesystem write failure');
+        return originalRenameFile(file, newPath);
+    };
+    const staleApply = [...staleModal.contentEl.walk()].find((e) => e.tag === 'button' && e.text.startsWith('Apply'));
+    assert.ok(staleApply, 'apply button present for the stale/fail batch');
+    const noticesBeforeStaleApply = notices.length;
+    staleApply.listeners.click[0]();
+    await sleep(200);
+    app.fileManager.renameFile = originalRenameFile;
+    assert.ok(!app._files.has('batch/Stale Original.md'), 'the edited candidate is NOT renamed onto the stale preview target');
+    assert.ok(app._files.has('batch/stale-a.md'), 'the edited candidate stays at its original path — Apply aborted it rather than overwriting with a stale name');
+    assert.ok(app._files.has('batch/Stale Sibling.md'), 'an unaffected sibling in the same batch still applies normally');
+    assert.ok(app._files.has('batch/fail-c.md'), 'the write-failure candidate stays at its original path — the failed rename never took effect');
+    const staleNotices = notices.slice(noticesBeforeStaleApply);
+    assert.ok(staleNotices.some((n) => n.includes('changed since preview')), 'apply notice reports the H1-changed-since-preview count');
+    assert.ok(staleNotices.some((n) => n.includes('skipped/failed')), 'apply notice reports the real write-failure count separately (failed-item counter)');
+    console.log("✓ 21. batch apply 競態閘門：預覽後 H1 被編輯的項目中止且不誤改名、同批次其他項目照常套用；真實寫入失敗計入 failed 並個別通知");
+
+    // --- 22: undo's occupancy check is case- and NFC-insensitive via a
+    // file.parent.children sibling scan (exercised now that addFile()
+    // populates .children like real Obsidian's TFolder does). An
+    // NFD-encoded sibling name folds to the same key as the NFC original —
+    // an exact-path lookup misses it, but the sibling scan must not.
+    plugin.settings.renameTrigger = 'file-open';
+    const NFC_E = 'é'; // 'é', precomposed
+    const NFD_E = 'é'; // 'e' + combining acute accent — same glyph, different code units
+    const origBase = 'caf' + NFC_E; // "café" (NFC)
+    const foldedSiblingBase = 'caf' + NFD_E; // visually "café" too, but NFD-encoded
+    assert.notEqual(origBase, foldedSiblingBase, 'sanity: the NFC and NFD forms are literally different strings');
+    const fFold = addFile(app, `notes/${origBase}.md`, '# Folded Target\n', 'Folded Target');
+    app._ws['file-open'](fFold);
+    await sleep(180);
+    assert.ok(app._files.has('notes/Folded Target.md'), 'setup: café.md renamed to Folded Target.md');
+    // A sibling appears at an NFD-encoded name — a different literal path,
+    // so the exact getAbstractFileByPath lookup on the original path misses it.
+    addFile(app, `notes/${foldedSiblingBase}.md`, 'occupier\n', null);
+    assert.equal(app.vault.getAbstractFileByPath(`notes/${origBase}.md`), null, 'sanity: exact-path index misses the NFD sibling (different code units)');
+    const noticesBeforeFoldUndo = notices.length;
+    undoCmd.callback();
+    await sleep(50);
+    assert.ok(
+        notices.slice(noticesBeforeFoldUndo).some((n) => n.includes('occupied')),
+        'undo refuses: an NFC/case-folded sibling occupies the target name (undoLastRename sibling scan)',
+    );
+    assert.ok(app._files.has('notes/Folded Target.md'), 'undo aborted — file stays at its renamed path, not moved back onto the occupied name');
+    console.log("✓ 22. undo NFC/大小寫不敏感佔用檢查：file.parent.children 掃描擋下回退（folded 同名 sibling 存在）");
+
+    console.log('\nE2E smoke test: 29/29 scenarios passed（真實 production bundle main.js, v0.10.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

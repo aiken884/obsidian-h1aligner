@@ -94,6 +94,21 @@ describe('sanitizeFileName', () => {
         it('strips DEL (0x7F)', () => {
             expect(sanitizeFileName('a\x7Fb')).toBe('ab');
         });
+
+        it('strips C1 control chars (U+0080-U+009F) — Bug B regression', () => {
+            // U+0085 NEXT LINE (NEL) — a real-world C1 control that shows up
+            // in text pasted from some Windows/mainframe sources.
+            expect(sanitizeFileName('a\u0085b')).toBe('ab');
+            // U+009F APPLICATION PROGRAM COMMAND — top of the C1 block.
+            expect(sanitizeFileName('a\u009fb')).toBe('ab');
+            // U+0080 — bottom of the C1 block.
+            expect(sanitizeFileName('a\u0080b')).toBe('ab');
+            // Whole C1 block at once.
+            const c1Block = Array.from({ length: 0x9f - 0x80 + 1 }, (_, i) =>
+                String.fromCharCode(0x80 + i),
+            ).join('');
+            expect(sanitizeFileName(`x${c1Block}y`)).toBe('xy');
+        });
     });
 
     describe('leading/trailing dots and spaces (cross-platform)', () => {
@@ -254,6 +269,36 @@ describe('sanitizeFileName', () => {
         it('preserves accented characters via NFC', () => {
             // NFC composed 'é' should pass through
             expect(sanitizeFileName('café')).toBe('café');
+        });
+    });
+
+    describe('NFC idempotency with a combining illegalReplacementChar — Bug A regression', () => {
+        // A combining character (e.g. COMBINING RING ABOVE) spliced in during
+        // step 3 (illegal-char replacement) can canonically compose with the
+        // base character right before it — but step 1's NFC pass already ran
+        // BEFORE that splice, so without a second normalize pass the output
+        // is left un-composed and NOT guaranteed NFC.
+        const ringAbove = { ...DEFAULT_SANITIZE_OPTS, illegalReplacementChar: '\u030a' }; // COMBINING RING ABOVE
+        const acuteAccent = { ...DEFAULT_SANITIZE_OPTS, illegalReplacementChar: '\u0301' }; // COMBINING ACUTE ACCENT
+
+        it('composes the replacement char with its preceding base char (a + ring -> å)', () => {
+            // 'a' + illegal ':' + 'b', replacement char is a combining ring.
+            const r = sanitizeFileName('a:b', ringAbove);
+            expect(r).toBe('åb'); // 'å' + 'b', NFC-composed, not 'a' + U+030A + 'b'
+            expect(r).toBe(r.normalize('NFC'));
+        });
+
+        it('is idempotent: calling it twice produces the same result the second time', () => {
+            const once = sanitizeFileName('a:b', ringAbove);
+            const twice = sanitizeFileName(once, ringAbove);
+            expect(twice).toBe(once);
+        });
+
+        it('is idempotent with a different combining char (acute accent)', () => {
+            const once = sanitizeFileName('a:b', acuteAccent);
+            const twice = sanitizeFileName(once, acuteAccent);
+            expect(twice).toBe(once);
+            expect(once).toBe('áb'); // 'á' + 'b'
         });
     });
 

@@ -141,19 +141,20 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     {
                         name: t('set.replChar.name'),
                         desc: t('set.replChar.desc'),
-                        control: { type: 'text', key: 'illegalReplacementChar', placeholder: ' ' },
+                        // render, not a plain `control`: cleanReplacementChar can
+                        // silently shorten/clean what the user typed, and the
+                        // field must keep showing what will actually be used —
+                        // the generic control-key binding has no hook to echo a
+                        // transformed value back into the displayed input.
+                        render: (setting) => this.renderIllegalReplacementChar(setting),
                     },
                     {
                         name: t('set.maxLen.name'),
                         desc: t('set.maxLen.desc'),
-                        control: {
-                            type: 'number',
-                            key: 'maxFilenameLength',
-                            placeholder: '150',
-                            min: 1,
-                            max: 255,
-                            step: 1,
-                        },
+                        // render, not a plain `control`, for the same reason —
+                        // parseMaxFilenameLength clamps out-of-range input
+                        // (e.g. 300 -> 255) and the field must reflect that.
+                        render: (setting) => this.renderMaxFilenameLength(setting),
                     },
                     {
                         name: t('set.preview.name'),
@@ -334,25 +335,12 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
                 this.updatePreview();
                 return;
-            case 'illegalReplacementChar':
-                s.illegalReplacementChar = cleanReplacementChar(value);
-                await this.plugin.saveSettings();
-                this.updatePreview();
-                return;
-            case 'maxFilenameLength': {
-                const n = parseMaxFilenameLength(String(value));
-                if (n !== null) {
-                    s.maxFilenameLength = n;
-                    await this.plugin.saveSettings();
-                    this.updatePreview();
-                }
-                return;
-            }
             case 'noticeLevel':
                 s.noticeLevel = value as NoticeLevel;
                 await this.plugin.saveSettings();
                 return;
             case 'fileOpenDebounceMs': {
+                if (typeof value === 'string' && value.trim() === '') return; // Number('') is 0 — don't save mid-edit
                 const n = Number(value);
                 if (Number.isFinite(n) && n >= 0 && n <= 60000) {
                     s.fileOpenDebounceMs = Math.floor(n);
@@ -361,6 +349,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 return;
             }
             case 'editDebounceMs': {
+                if (typeof value === 'string' && value.trim() === '') return; // Number('') is 0 — don't save mid-edit
                 const n = Number(value);
                 if (Number.isFinite(n) && n >= 0 && n <= 60000) {
                     s.editDebounceMs = Math.floor(n);
@@ -451,6 +440,43 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 validateExcludePatterns(getExcludePatternsDraft(this.plugin.settings)).invalidPatterns,
             );
         });
+    }
+
+    /** Replacement-character text input, echoing back cleanReplacementChar's output. */
+    private renderIllegalReplacementChar(setting: Setting): void {
+        setting.addText((txt) =>
+            txt
+                .setPlaceholder(' ')
+                .setValue(this.plugin.settings.illegalReplacementChar)
+                .onChange(async (v) => {
+                    const cleaned = cleanReplacementChar(v);
+                    // Keep the field showing what will actually be used
+                    // (setValue does not re-fire onChange).
+                    if (cleaned !== v) txt.setValue(cleaned);
+                    this.plugin.settings.illegalReplacementChar = cleaned;
+                    await this.plugin.saveSettings();
+                    this.updatePreview();
+                }),
+        );
+    }
+
+    /** Max-filename-length text input, echoing back parseMaxFilenameLength's clamp. */
+    private renderMaxFilenameLength(setting: Setting): void {
+        setting.addText((txt) =>
+            txt
+                .setPlaceholder('150')
+                .setValue(String(this.plugin.settings.maxFilenameLength))
+                .onChange(async (v) => {
+                    const n = parseMaxFilenameLength(v);
+                    if (n !== null) {
+                        // Reflect clamping (e.g. 300 -> 255) in the field.
+                        if (String(n) !== v.trim()) txt.setValue(String(n));
+                        this.plugin.settings.maxFilenameLength = n;
+                        await this.plugin.saveSettings();
+                        this.updatePreview();
+                    }
+                }),
+        );
     }
 
     /** Filename-template text input + live rendered preview — not a stored setting. */

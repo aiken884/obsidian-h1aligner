@@ -168,11 +168,25 @@ export function applyBodyTagRemoval(
     let text = data;
     let applied = 0;
     let skippedStale = 0;
-    // Conservative ASCII tag-body characters. A fresh-cache tag can never be
-    // bordered by one of these (the parser would have absorbed it into the
-    // tag), so rejecting them only ever catches stale offsets — e.g. a
-    // candidate that now points into a URL, or '#tag' extended to '#tagX'.
-    const TAG_BODY_CHAR = /[0-9A-Za-z_/-]/;
+    // Conservative tag-body characters: ASCII alnum/_/- / plus CJK letter
+    // ranges (Han ideographs incl. Ext-A, Hiragana, Katakana, Hangul
+    // syllables). A fresh-cache tag can never be bordered by one of these
+    // (the parser would have absorbed it into the tag), so rejecting them
+    // only ever catches stale offsets — e.g. a candidate that now points
+    // into a URL, '#tag' extended to '#tagX', or (this feature's own CJK
+    // tag support, see movableTags' doc comment and README's "Experimental"
+    // section) '#tag' extended to '#tag中文'. CJK support here is not
+    // optional: this module treats CJK as first-class tag content
+    // (mergeTagsIntoList/applyBodyTagRemoval both round-trip tags like
+    // '#重點' verbatim), so a guard that only recognizes ASCII extensions
+    // would silently accept a CJK-extended candidate as still fresh.
+    // Deliberately EXCLUDES CJK punctuation (e.g. '。', '，', fullwidth
+    // marks) — README documents those as tolerated "pollution" inside an
+    // already-matched tag, never as boundary-extending characters, so a
+    // punctuation mark right after a cached offset must still correctly
+    // signal "not extended, safe to act on".
+    const TAG_BODY_CHAR =
+        /[0-9A-Za-z_/\-぀-ヿ㐀-䶿一-鿿가-힣]/;
     for (const c of sorted) {
         const from = c.position.start.offset;
         const to = c.position.end.offset;

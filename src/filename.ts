@@ -4,23 +4,30 @@
  * Algorithm (per Aiken Q3 拍板 + PPLX Q4 cross-platform research):
  *
  *   1. NFC normalisation                            (preserve Chinese / emoji)
- *   2. Strip C0/DEL control chars EXCEPT tab/LF/CR  (let those be collapsed)
+ *   2. Strip C0/C1/DEL control chars EXCEPT tab/LF/CR (let those be collapsed)
  *   3. Replace illegal chars `\ / : * ? " < > |` (Windows) plus `# ^ [ ]`
  *      (break Obsidian links) with the configured replacement char.
  *      The replacement char itself is cleaned first (never illegal, max one
  *      code point) and applied via the function form of String.replace so
  *      `$&`-style templates are never expanded.
- *   4. trim leading/trailing whitespace             (Q3.1 = true)
- *   5. Collapse repeated whitespace -> single space (covers tab/LF/CR)
- *   6. Strip leading dots & trailing dots/spaces
+ *   4. Re-apply NFC normalisation. Step 3 may have spliced in a combining
+ *      replacement char (e.g. a combining ring/acute) right after a base
+ *      character; step 1's NFC pass ran before that splice, so it cannot
+ *      have composed the two. Re-normalising here guarantees the result is
+ *      NFC (and stays NFC under a second call, i.e. sanitizeFileName is
+ *      idempotent) and makes the code-point counts used by steps 9-10 match
+ *      the final normalised form.
+ *   5. trim leading/trailing whitespace             (Q3.1 = true)
+ *   6. Collapse repeated whitespace -> single space (covers tab/LF/CR)
+ *   7. Strip leading dots & trailing dots/spaces
  *      (Windows refuses both; macOS strips trailing too)
- *   7. Append `_` to a Windows reserved-name stem (CON, PRN, AUX, NUL,
+ *   8. Append `_` to a Windows reserved-name stem (CON, PRN, AUX, NUL,
  *      COM1-9, LPT1-9 — case-insensitive, also when followed by a dot,
  *      e.g. `AUX.notes` -> `AUX_.notes`)
- *   8. Truncate to maxLength code points            (Q3.4 = 150)
- *   9. Truncate to maxBytes UTF-8 bytes (default 251 so base + '.md' fits the
+ *   9. Truncate to maxLength code points            (Q3.4 = 150)
+ *  10. Truncate to maxBytes UTF-8 bytes (default 251 so base + '.md' fits the
  *      255-byte NAME_MAX shared by APFS, ext4/f2fs and NTFS; 0 disables)
- *  10. Re-guard the reserved-name stem in case truncation recreated one
+ *  11. Re-guard the reserved-name stem in case truncation recreated one
  */
 export interface SanitizeOpts {
     trimWhitespace: boolean;
@@ -46,15 +53,23 @@ export const DEFAULT_SANITIZE_OPTS: SanitizeOpts = {
 const ILLEGAL_CHARS = /[\\/:*?"<>|#^[\]]/g;
 // Separators alone — replaced unconditionally (they would change the path).
 const PATH_SEPARATORS = /[\\/]/g;
-// Strip C0 control chars + DEL, but KEEP tab (0x09), LF (0x0A), CR (0x0D)
-// so they can be collapsed as whitespace in step 5. Implemented as a
+// Strip C0 control chars + DEL + C1 control chars, but KEEP tab (0x09),
+// LF (0x0A), CR (0x0D) so they can be collapsed as whitespace in step 6.
+// C1 (U+0080-U+009F) is a second block of non-printable control characters
+// (e.g. U+0085 NEL) that JS's `\s` whitespace class does NOT match, so
+// nothing downstream would otherwise catch them. Implemented as a
 // per-code-unit filter (a control-character regex trips linters).
 function stripControlChars(s: string): string {
     let out = '';
     for (const ch of s) {
         const c = ch.charCodeAt(0);
         const isControl =
-            c <= 0x08 || c === 0x0b || c === 0x0c || (c >= 0x0e && c <= 0x1f) || c === 0x7f;
+            c <= 0x08 ||
+            c === 0x0b ||
+            c === 0x0c ||
+            (c >= 0x0e && c <= 0x1f) ||
+            c === 0x7f ||
+            (c >= 0x80 && c <= 0x9f);
         if (!isControl) out += ch;
     }
     return out;
@@ -92,7 +107,7 @@ export function sanitizeFileName(
     // 1. NFC
     try { s = s.normalize('NFC'); } catch { /* runtime without Intl normalize */ }
 
-    // 2. Strip control chars (except tab/LF/CR — those become spaces in step 5)
+    // 2. Strip control chars (except tab/LF/CR — those become spaces in step 6)
     s = stripControlChars(s);
 
     // 3. Replace illegal chars (function form: no $-template expansion).
@@ -105,15 +120,26 @@ export function sanitizeFileName(
         s = s.replace(PATH_SEPARATORS, () => repl);
     }
 
-    // 4. trim
+    // 4. Re-apply NFC. Step 3 may have spliced `repl` in right after an
+    //    arbitrary base character; if `repl` is a combining code point
+    //    (e.g. a combining ring/acute the user configured as
+    //    illegalReplacementChar), that pair can canonically compose (e.g.
+    //    'a' + combining-ring -> 'å') but the step-1 NFC pass ran BEFORE
+    //    the splice, so it never saw the pair. Re-normalising now — before
+    //    the code-point-counting caps in steps 9-10 — guarantees the
+    //    output is NFC and that sanitizeFileName is idempotent (calling it
+    //    again on its own output cannot compose anything further).
+    try { s = s.normalize('NFC'); } catch { /* runtime without Intl normalize */ }
+
+    // 5. trim
     if (opts.trimWhitespace) {
         s = s.trim();
     }
 
-    // 5. Collapse repeated whitespace
+    // 6. Collapse repeated whitespace
     s = s.replace(MULTI_WHITESPACE, ' ');
 
-    // 6. Strip leading dots (re-trimming whitespace they may have hidden)
+    // 7. Strip leading dots (re-trimming whitespace they may have hidden)
     //    and trailing dots/spaces
     let prev;
     do {
@@ -123,21 +149,21 @@ export function sanitizeFileName(
     } while (s !== prev);
     s = s.replace(TRAILING_DOT_OR_SPACE, '');
 
-    // 7. Windows reserved name guard (stem-aware: AUX and AUX.notes)
+    // 8. Windows reserved name guard (stem-aware: AUX and AUX.notes)
     s = guardReservedStem(s);
 
-    // 8. Length cap on code-point boundary
+    // 9. Length cap on code-point boundary
     if (opts.maxLength > 0) {
         const cps = Array.from(s);
         if (cps.length > opts.maxLength) {
             s = cps.slice(0, opts.maxLength).join('');
             // Trailing dots/spaces are invalid on Windows regardless of the
-            // trimWhitespace setting — same unconditional rule as step 6.
+            // trimWhitespace setting — same unconditional rule as step 7.
             s = s.replace(TRAILING_DOT_OR_SPACE, '');
         }
     }
 
-    // 9. Byte cap on code-point boundary (255-byte NAME_MAX on APFS/ext4/NTFS)
+    // 10. Byte cap on code-point boundary (255-byte NAME_MAX on APFS/ext4/NTFS)
     const maxBytes = opts.maxBytes ?? 251;
     if (maxBytes > 0) {
         const enc = new TextEncoder();
@@ -151,7 +177,7 @@ export function sanitizeFileName(
         }
     }
 
-    // 10. Truncation may have recreated a reserved stem (e.g. 'AUXy' -> 'AUX').
+    // 11. Truncation may have recreated a reserved stem (e.g. 'AUXy' -> 'AUX').
     //     Appending '_' must not bust the caps — drop a code point instead
     //     (the shortened stem is no longer reserved: 'AUX' -> 'AU').
     if (WINDOWS_RESERVED_STEM.test(s)) {

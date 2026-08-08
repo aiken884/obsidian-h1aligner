@@ -360,6 +360,53 @@ describe('applyBodyTagRemoval', () => {
         expect(res.skippedStale).toBe(1);
     });
 
+    it('rejects a candidate whose tag was extended with CJK (#tag → #tag中文), mirroring the ASCII case', () => {
+        // Same scenario as the ASCII '#tag → #tagX' test above, but the
+        // extension is CJK — regression for the staleness guard's
+        // TAG_BODY_CHAR class, which must recognize CJK letters as tag-body
+        // characters, not just ASCII, since this feature treats CJK as
+        // first-class tag content (see '#重點' tests elsewhere in this file).
+        const body = 'note #tag中文 end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a CJK candidate extended further in CJK (#重點 → #重點中文)', () => {
+        const body = '討論 #重點中文 之後';
+        const stale: InlineTag = {
+            tag: '#重點',
+            position: {
+                start: { line: 0, col: 3, offset: 3 },
+                end: { line: 0, col: 6, offset: 6 },
+            },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-hash');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a candidate immediately preceded by CJK text with no separator (#tag was really 中文#tag)', () => {
+        // Mirrors the ASCII "doubled hash" prev-char test below, but for a
+        // CJK character sitting directly before the cached start offset —
+        // a fresh Obsidian tag can never be preceded by a CJK letter with no
+        // separator (Obsidian's own parser would still start the tag at the
+        // '#', so this specifically probes the prev-char branch, not the
+        // content-match branch: text.slice(from,to) still equals c.tag).
+        const body = '中文#tag end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 2, offset: 2 }, end: { line: 0, col: 6, offset: 6 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-hash');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
     it('rejects a candidate immediately preceded by another # (accidentally-doubled hash)', () => {
         const body = '##tag end';
         // Content still matches at this offset ('#tag'), but the char right before
@@ -380,5 +427,25 @@ describe('applyBodyTagRemoval', () => {
         expect(applyBodyTagRemoval(bol, [tagAt(bol, '#head')], 'remove-tag').text).toBe(' starts');
         const cjk = '討論 #重點 之後';
         expect(applyBodyTagRemoval(cjk, [tagAt(cjk, '#重點')], 'remove-tag').text).toBe('討論 之後');
+    });
+
+    it('still accepts a fresh, non-extended CJK tag bordered by CJK punctuation on both sides', () => {
+        // Regression guard for the fix above: CJK punctuation must NOT be
+        // misread as a tag-body character. If it were, this genuinely fresh
+        // (non-extended) '#重點' would be wrongly flagged stale by the prev
+        // AND next checks, even though nothing actually extended it.
+        const body = '。#重點。';
+        const res = applyBodyTagRemoval(body, [tagAt(body, '#重點')], 'remove-hash');
+        expect(res.text).toBe('。重點。');
+        expect(res.applied).toBe(1);
+        expect(res.skippedStale).toBe(0);
+    });
+
+    it('still accepts a fresh, non-extended ASCII tag exactly as before the CJK fix', () => {
+        const body = 'talk about #topic today';
+        const res = applyBodyTagRemoval(body, [tagAt(body, '#topic')], 'remove-hash');
+        expect(res.text).toBe('talk about topic today');
+        expect(res.applied).toBe(1);
+        expect(res.skippedStale).toBe(0);
     });
 });

@@ -34,10 +34,10 @@ describe('noticeFor', () => {
     describe('manual command (always reports, regardless of level)', () => {
         it('reports success, skip reasons, and errors at every level', () => {
             expect(noticeFor(renamed, true, 'off')).toBe('H1Aligner: renamed → New Title');
-            expect(noticeFor(noH1, true, 'off')).toBe('H1Aligner: skipped (no-h1)');
+            expect(noticeFor(noH1, true, 'off')).toBe('H1Aligner: skipped (No first H1)');
             expect(noticeFor(failed, true, 'off')).toBe('H1Aligner error: disk full');
             const locked: RenameOutcome = { skipped: 'locked', newName: null };
-            expect(noticeFor(locked, true, 'off')).toBe('H1Aligner: skipped (locked)');
+            expect(noticeFor(locked, true, 'off')).toBe('H1Aligner: skipped (Frontmatter lock)');
         });
     });
 });

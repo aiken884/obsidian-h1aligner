@@ -318,6 +318,24 @@ describe('applyBodyTagRemoval', () => {
         expect(res.skippedStale).toBe(1);
     });
 
+    it('appliedTags reports only the actually-removed candidates, in input order', () => {
+        // Regression: callers (rename-service's frontmatter merge) must be
+        // able to tell which candidates were really removed from the body,
+        // not just how many — a stale-skipped candidate must be excluded by
+        // name/identity, not just undercounted.
+        const body = '#one stale #three';
+        const stale: InlineTag = {
+            tag: '#two',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const one = tagAt(body, '#one');
+        const three = tagAt(body, '#three');
+        const res = applyBodyTagRemoval(body, [one, stale, three], 'remove-hash');
+        expect(res.applied).toBe(2);
+        expect(res.skippedStale).toBe(1);
+        expect(res.appliedTags.map((t) => t.tag)).toEqual(['#one', '#three']);
+    });
+
     it('handles multiple identical tags at distinct offsets', () => {
         const body = '#dup and #dup';
         const tags = [tagAt(body, '#dup', 0), tagAt(body, '#dup', 1)];
@@ -390,6 +408,44 @@ describe('applyBodyTagRemoval', () => {
         expect(res.skippedStale).toBe(1);
     });
 
+    it('rejects a candidate extended by accented Latin (#tag → #tagé), not just plain ASCII', () => {
+        // Regression for the exclusion-based rewrite of TAG_BODY_CHAR: a
+        // prior narrow ASCII+CJK inclusion whitelist did not recognize
+        // accented Latin (outside U+2000-U+206F / U+2E00-U+2E7F and the
+        // excluded ASCII punctuation set) as tag-body content, so an
+        // extension like '#tag' → '#tagé' would have been misjudged fresh.
+        const body = 'note #tagé end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a candidate extended by Cyrillic (#tag → #tagд)', () => {
+        const body = 'note #tagд end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
+    it('rejects a candidate extended by Greek (#tag → #tagα)', () => {
+        const body = 'note #tagα end';
+        const stale: InlineTag = {
+            tag: '#tag',
+            position: { start: { line: 0, col: 5, offset: 5 }, end: { line: 0, col: 9, offset: 9 } },
+        };
+        const res = applyBodyTagRemoval(body, [stale], 'remove-tag');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+    });
+
     it('rejects a candidate immediately preceded by CJK text with no separator (#tag was really 中文#tag)', () => {
         // Mirrors the ASCII "doubled hash" prev-char test below, but for a
         // CJK character sitting directly before the cached start offset —
@@ -429,14 +485,35 @@ describe('applyBodyTagRemoval', () => {
         expect(applyBodyTagRemoval(cjk, [tagAt(cjk, '#重點')], 'remove-tag').text).toBe('討論 之後');
     });
 
-    it('still accepts a fresh, non-extended CJK tag bordered by CJK punctuation on both sides', () => {
-        // Regression guard for the fix above: CJK punctuation must NOT be
-        // misread as a tag-body character. If it were, this genuinely fresh
-        // (non-extended) '#重點' would be wrongly flagged stale by the prev
-        // AND next checks, even though nothing actually extended it.
-        const body = '。#重點。';
+    it('rejects a candidate followed by CJK punctuation, since Obsidian treats it as tag-body content (#重點 → #重點。)', () => {
+        // Corrects a prior version of this test, which wrongly assumed CJK
+        // punctuation ('。', '，', etc.) is never tag-body content and so
+        // must always be a safe boundary. Obsidian's real tag-matching rule
+        // is EXCLUSION-based (see TAG_BODY_CHAR's doc comment) and does NOT
+        // exclude CJK punctuation — only U+2000-U+206F, U+2E00-U+2E7F and a
+        // specific ASCII punctuation/whitespace set. So a live '#重點。' in
+        // the body is parsed by Obsidian as the single tag '#重點。'
+        // (punctuation folded in), not as '#重點' plus a separator — exactly
+        // the "trailing CJK punctuation pollution" the README documents
+        // elsewhere ('CJK polluted tag removes verbatim including
+        // punctuation', above). A cached '#重點' candidate ending right
+        // before that '。' therefore points at a stale offset and must be
+        // rejected, not silently accepted.
+        const body = '討論 #重點。接著';
         const res = applyBodyTagRemoval(body, [tagAt(body, '#重點')], 'remove-hash');
-        expect(res.text).toBe('。重點。');
+        expect(res.text).toBe(body);
+        expect(res.skippedStale).toBe(1);
+        expect(res.applied).toBe(0);
+    });
+
+    it('still accepts a fresh, non-extended CJK tag bordered by genuine separators (spaces) on both sides', () => {
+        // Same shape as the corrected test above, but with real boundary
+        // characters (plain spaces, which ARE excluded by TAG_BODY_CHAR) —
+        // confirms the guard still accepts a genuinely fresh CJK tag and
+        // isn't just rejecting everything CJK-adjacent.
+        const body = ' #重點 ';
+        const res = applyBodyTagRemoval(body, [tagAt(body, '#重點')], 'remove-hash');
+        expect(res.text).toBe(' 重點 ');
         expect(res.applied).toBe(1);
         expect(res.skippedStale).toBe(0);
     });

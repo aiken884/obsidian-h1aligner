@@ -8,6 +8,8 @@
 import { App, Modal, TFile } from 'obsidian';
 import { BatchItemStatus, BatchTriageItem, groupBatchItems } from './batch-triage';
 import { t } from './i18n';
+import type { RenameSkipReason } from './rename-service';
+import { describeSkipReason } from './skip-reason';
 
 export interface BatchItem extends BatchTriageItem {
     file: TFile;
@@ -176,28 +178,22 @@ export class BatchPreviewModal extends Modal {
         }
     }
 
+    /**
+     * item.reason is a RenameSkipReason for every 'skipped'-group row; the
+     * two extra values below ('duplicate-target', 'error') are batch-only
+     * outcomes that RenameSkipReason has no member for (see main.ts where
+     * items are built). Everything else defers to the shared mapping in
+     * skip-reason.ts, which notice.ts's manual-command skip Notice also
+     * uses, so both surfaces describe the same reason identically.
+     */
     private describeReason(item: Pick<BatchItem, 'reason' | 'detail'>): string {
         switch (item.reason) {
-            case 'locked':
-                return t('batch.reason.locked');
-            case 'no-h1':
-                return t('batch.reason.noH1');
-            case 'empty-after-sanitize':
-                return t('batch.reason.emptyAfterSanitize');
-            case 'same-name':
-                return t('batch.reason.sameName');
-            case 'case-only':
-                return t('batch.reason.caseOnly');
-            case 'collision':
-                return t('batch.reason.collision');
             case 'duplicate-target':
                 return t('batch.reason.duplicateTarget');
-            case 'in-progress':
-                return t('batch.reason.inProgress');
             case 'error':
                 return t('batch.reason.error', { message: item.detail ?? t('batch.reason.unknown') });
             default:
-                return item.reason;
+                return describeSkipReason(item.reason as RenameSkipReason);
         }
     }
 }

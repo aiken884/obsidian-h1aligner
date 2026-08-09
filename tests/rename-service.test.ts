@@ -108,7 +108,13 @@ describe('RenameService', () => {
             expect(out.newName).toBe('Real Title');
         });
 
-        it('does not read content when the cache has a usable H1 after an empty one', async () => {
+        it('does not read content for H1 extraction when the cache already has a usable H1 (lock check off)', async () => {
+            // skipIfFrontmatterLock is off here so the only reason left to
+            // read raw content would be H1-extraction fallback — which a
+            // usable cached H1 (after an empty one) makes unnecessary. With
+            // the lock check on, a read is required regardless (see the
+            // 'frontmatter lock' describe block) — that is intentional, not
+            // a regression of this test's H1-extraction-fallback intent.
             const file = makeFile({ basename: 'doc' });
             app.metadataCache.getFileCache.mockReturnValue({
                 headings: [
@@ -116,7 +122,8 @@ describe('RenameService', () => {
                     { level: 1, heading: 'Usable' },
                 ],
             });
-            const svc = new RenameService(app as any, () => settings);
+            const custom = { ...settings, skipIfFrontmatterLock: false };
+            const svc = new RenameService(app as any, () => custom);
             const out = await svc.renameFromH1(file as any);
             expect(app.vault.cachedRead).not.toHaveBeenCalled();
             expect(out.newName).toBe('Usable');
@@ -351,6 +358,27 @@ describe('RenameService', () => {
             );
             const svc = new RenameService(app as any, () => settings);
             const out = await svc.renameFromH1(file as any);
+            expect(out.skipped).toBe('locked');
+            expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+        });
+
+        it('blocks the rename when the cache has a usable H1 but stale frontmatter lags a just-added lock (race)', async () => {
+            // Regression for the "cacheHasUsableH1 used as a freshness proxy"
+            // bug: cached headings are unaffected by a frontmatter-only edit,
+            // so a note can have BOTH a perfectly usable cached H1 AND a
+            // stale cache.frontmatter that hasn't caught up to a lock the
+            // user just added. The raw-content re-check must still catch it.
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+                frontmatter: {}, // stale snapshot: no lock key indexed yet
+            });
+            app.vault.cachedRead.mockResolvedValue(
+                '---\nh1aligner-lock: true\n---\n# New\n',
+            );
+            const svc = new RenameService(app as any, () => settings);
+            const out = await svc.renameFromH1(file as any);
+            expect(app.vault.cachedRead).toHaveBeenCalled();
             expect(out.skipped).toBe('locked');
             expect(app.fileManager.renameFile).not.toHaveBeenCalled();
         });

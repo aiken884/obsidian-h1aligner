@@ -368,6 +368,18 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     console.log('✓ 8b. manual 指令可對 daily note 執行（bypass exclude）；undo 失敗保留紀錄、可重試');
 
     // --- 8c: undo verifies file identity, not just the path ---
+    // Drain the one still-valid, older entry left on the stack after 8b
+    // first: Fix A makes an invalidated TOP entry fall through to the next
+    // valid entry beneath it instead of stopping (see scenario 23), so this
+    // scenario — which tests the identity-rejection notice in isolation —
+    // needs a stack containing ONLY the one entry it is about to corrupt.
+    undoCmd.callback();
+    await sleep(50);
+    assert.deepEqual(
+        app._renameCalls.at(-1),
+        { from: 'notes/New Title.md', to: 'notes/old-name.md' },
+        'setup: drain the older valid history entry so 8c starts from an empty stack',
+    );
     app._activeFile = addFile(app, 'notes/idcheck.md', '# ID Check\n', 'ID Check');
     cmd.checkCallback(false);
     await sleep(80);
@@ -763,5 +775,131 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(app._files.has('notes/Folded Target.md'), 'undo aborted — file stays at its renamed path, not moved back onto the occupied name');
     console.log("✓ 22. undo NFC/大小寫不敏感佔用檢查：file.parent.children 掃描擋下回退（folded 同名 sibling 存在）");
 
-    console.log('\nE2E smoke test: 29/29 scenarios passed（真實 production bundle main.js, v0.10.0）');
+    // --- 23: undo skips an invalidated TOP history entry and falls through
+    // to the next, still-valid, OLDER entry instead of getting permanently
+    // stuck (Fix A regression — previously a single invalidated top entry
+    // stayed on top of the stack forever, blocking undo from ever reaching
+    // anything beneath it). Isolated fresh app/plugin so the history stack
+    // contains ONLY the two entries this scenario builds.
+    const app4 = makeFakeApp();
+    const plugin4 = new PluginClass(app4, { id: 'heading-aligner' });
+    plugin4._data = { onboardingShown: true };
+    plugin4.onload();
+    await sleep(80);
+    const undoCmd4 = plugin4._commands.find((c) => c.id === 'undo-last-rename');
+
+    const fUndoA = addFile(app4, 'notes/undo-a.md', '# Undo A Renamed\n', 'Undo A Renamed');
+    app4._ws['file-open'](fUndoA);
+    await sleep(180);
+    assert.ok(app4._files.has('notes/Undo A Renamed.md'), 'setup: undo-a renamed — the OLDER history entry');
+
+    const fUndoB = addFile(app4, 'notes/undo-b.md', '# Undo B Renamed\n', 'Undo B Renamed');
+    app4._ws['file-open'](fUndoB);
+    await sleep(180);
+    assert.ok(app4._files.has('notes/Undo B Renamed.md'), 'setup: undo-b renamed — the TOP (newer) history entry');
+
+    // Invalidate the TOP entry's identity: remove the TFile the rename
+    // service captured, and put an UNRELATED new TFile at the exact same
+    // path — path resolution still succeeds but now returns a different
+    // TFile object, so undo's identity check must reject it.
+    app4._files.delete('notes/Undo B Renamed.md');
+    const impostor = addFile(app4, 'notes/Undo B Renamed.md', 'impostor body\n', null);
+    assert.notEqual(
+        app4._files.get('notes/Undo B Renamed.md').file,
+        fUndoB,
+        'sanity: the impostor is a different TFile object than the one originally renamed',
+    );
+
+    const noticesBeforeFirstUndo4 = notices.length;
+    undoCmd4.callback();
+    await sleep(50);
+    assert.ok(
+        !notices.slice(noticesBeforeFirstUndo4).some((n) => n.includes('moved or deleted')),
+        'undo does not report "moved" for the invalid top entry — it fell through to the older valid entry instead of getting stuck',
+    );
+    assert.deepEqual(
+        app4._renameCalls.at(-1),
+        { from: 'notes/Undo A Renamed.md', to: 'notes/undo-a.md' },
+        'undo skipped the invalid TOP entry and undid the next, still-valid entry beneath it',
+    );
+    assert.ok(app4._files.has('notes/undo-a.md'), 'the older, still-valid entry was successfully undone');
+    assert.equal(
+        app4._files.get('notes/Undo B Renamed.md').file,
+        impostor,
+        'the impostor sitting at the invalidated path is left completely untouched',
+    );
+
+    // The invalid entry must be gone for good — a second undo call must not
+    // retry it (the stack now holds nothing else, so nothing should happen).
+    const renameCallCountAfterFirstUndo4 = app4._renameCalls.length;
+    undoCmd4.callback();
+    await sleep(50);
+    assert.equal(
+        app4._renameCalls.length,
+        renameCallCountAfterFirstUndo4,
+        'second undo call touches nothing — the invalidated entry is gone from the stack for good, not retried',
+    );
+    console.log('✓ 23. undo 遇到堆疊頂端身分驗證失敗的紀錄時，跳過並改復原下一筆較舊但仍有效的紀錄，而非卡死（Fix A 回歸測試）');
+
+    // --- 24: scheduleRename's debounce bookkeeping must stay keyed by the
+    // path CAPTURED at schedule time, even if the file is renamed (by this
+    // plugin's own manual command, batch apply, or externally) before the
+    // debounce timer fires — otherwise the fire-time cleanup deletes the
+    // wrong map key, permanently orphaning a stale pendingRenameSource entry
+    // under the OLD path (Fix B regression). Isolated fresh app/plugin.
+    const app5 = makeFakeApp();
+    const plugin5 = new PluginClass(app5, { id: 'heading-aligner' });
+    plugin5._data = { onboardingShown: true };
+    plugin5.onload();
+    await sleep(80);
+    plugin5.settings.renameTrigger = 'edit';
+    plugin5.settings.editDebounceMs = 150;
+    const cmd5 = plugin5._commands.find((c) => c.id === 'rename-active-file-from-h1');
+
+    const fOrphan = addFile(app5, 'notes/orphan-src.md', '# Orphan Target\n', 'Orphan Target');
+    app5._ws['editor-change'](null, { file: fOrphan }); // schedules a 150ms edit-sourced rename keyed by 'notes/orphan-src.md'
+    await sleep(50); // well before the 150ms debounce fires
+
+    // Simulate the file being renamed out from under the pending debounce —
+    // here via this plugin's OWN manual command, the exact case named in the
+    // fix's rationale (batch apply / external rename are the same shape).
+    app5._activeFile = fOrphan;
+    assert.equal(cmd5.checkCallback(true), true, 'manual command available on the file with a pending debounce');
+    cmd5.checkCallback(false);
+    await sleep(80);
+    assert.deepEqual(
+        app5._renameCalls.at(-1),
+        { from: 'notes/orphan-src.md', to: 'notes/Orphan Target.md' },
+        'manual command renamed the file while the automatic edit-debounce was still pending',
+    );
+    const renameCallCountBeforeFire5 = app5._renameCalls.length;
+
+    // Let the original 150ms edit-debounce fire now (well past 150ms total
+    // elapsed since it was scheduled). The file is already correctly named,
+    // so this must be a harmless no-op — never a crash, never a wrong rename.
+    await sleep(150);
+    assert.equal(
+        app5._renameCalls.length,
+        renameCallCountBeforeFire5,
+        'the stale debounce firing after the manual rename is a no-op — the file already matches its H1, so no crash and no incorrect extra rename',
+    );
+
+    // The critical proof: a BRAND NEW file reusing the exact OLD path string
+    // must get a completely normal schedule+fire cycle. Without the fix, the
+    // fire-time cleanup above deleted the wrong map key, so the
+    // pendingRenameSource entry set at 'notes/orphan-src.md' → 'edit' was
+    // NEVER removed — a later file-open-sourced schedule for that same path
+    // hits the file-open/edit conflict guard and is silently dropped forever.
+    plugin5.settings.renameTrigger = 'file-open';
+    plugin5.settings.fileOpenDebounceMs = 100;
+    const fReused = addFile(app5, 'notes/orphan-src.md', '# Reused Path Renamed\n', 'Reused Path Renamed');
+    app5._ws['file-open'](fReused);
+    await sleep(180);
+    assert.ok(
+        app5._files.has('notes/Reused Path Renamed.md'),
+        'a new file reusing the OLD path string still gets a normal schedule+fire cycle — no permanently-orphaned pendingRenameSource entry silently blocks it (Fix B regression)',
+    );
+    console.log('✓ 24. 檔案在 debounce 尚未觸發前被改名（手動指令/外部）→ fire-time 清理仍對齊排程時的路徑，不留下永久孤兒項目擋住之後重用該路徑字串的正常改名（Fix B 回歸測試）');
+
+    console.log('\nE2E smoke test: 31/31 scenarios passed（真實 production bundle main.js, v0.10.0）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

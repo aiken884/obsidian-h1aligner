@@ -328,6 +328,34 @@ describe('tag move integration (rename-service)', () => {
         expect(calls).toEqual(['body', 'tags', 'alias']);
     });
 
+    it('excludes stale-skipped candidates from the frontmatter merge (race: concurrent edit before vault.process)', async () => {
+        // Regression for "Step 2 unconditionally maps over the ORIGINAL
+        // candidate list": candidates are built from a cachedRead() snapshot,
+        // but vault.process() re-verifies each candidate against the file's
+        // CURRENT live content, which can differ if a concurrent edit landed
+        // in between. Here '#alpha' gets extended (still-valid text at its
+        // cached offset, but now bordered by another word char) so it must
+        // be skipped as stale; '#beta' is untouched and still applies.
+        settings.bodyTagHandling = 'remove-tag';
+        const body = 'Text #alpha and #beta here';
+        const cache = { tags: [cacheTag(body, '#alpha'), cacheTag(body, '#beta')] };
+        const { app, getFm } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue(cache);
+        // Same length as `body` so '#beta's offset stays valid in the raced
+        // text — only '#alpha' is affected (extended by one word char).
+        const racedBody = 'Text #alphb and #beta here';
+        app.vault.process.mockImplementation((_f: unknown, cb: (d: string) => string) => {
+            const next = cb(racedBody);
+            return Promise.resolve(next);
+        });
+        const out = await svc(app, settings).renameFromH1(makeFile('x') as never);
+        expect(out.staleTags).toBe(1); // alpha skipped as stale
+        expect(out.movedTags).toBe(1); // only beta actually removed
+        // BUG 2 fix: the stale-skipped 'alpha' must NOT land in frontmatter
+        // even though it was in the original candidate list.
+        expect(getFm().tags).toEqual(['beta']);
+    });
+
     it('decision table: no-h1 and collision skips still move tags', async () => {
         // no-h1
         const body1 = 'no heading #alpha here';

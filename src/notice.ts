@@ -12,6 +12,7 @@
 import type { RenameOutcome } from './rename-service';
 import type { NoticeLevel } from './settings';
 import { t } from './i18n';
+import { describeSkipReason } from './skip-reason';
 
 export function noticeFor(
     outcome: RenameOutcome,
@@ -28,5 +29,5 @@ export function noticeFor(
             ? t('notice.renamed', { name: outcome.newName })
             : null;
     }
-    return manual ? t('notice.skipped', { reason: outcome.skipped }) : null;
+    return manual ? t('notice.skipped', { reason: describeSkipReason(outcome.skipped) }) : null;
 }

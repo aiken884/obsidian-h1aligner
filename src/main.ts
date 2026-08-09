@@ -190,6 +190,13 @@ export default class H1AlignerPlugin extends Plugin {
         source: ActivitySource,
     ): void {
         if (!file || !this.shouldProcess(file)) return;
+        // Capture the path once: file.path can mutate in place (Obsidian
+        // renames the same TFile object rather than issuing a new one), and
+        // the debouncer/pendingRenameSource bookkeeping below must stay keyed
+        // by the path this specific schedule() call was made under — reading
+        // file.path again at fire time would use whatever the path happens to
+        // be *then*, orphaning the entry this call is about to set.
+        const path = file.path;
         // 'both' mode runs file-open and edit debounces off the same shared,
         // path-keyed debouncer. Without this guard, a file-open event on a
         // file the user is actively mid-edit in (e.g. refocusing a second
@@ -198,14 +205,14 @@ export default class H1AlignerPlugin extends Plugin {
         // and could rename off a half-typed H1. The edit debounce already
         // owns deciding when this file is safe to rename — let it fire on
         // its own instead of being cut short by a same-file file-open event.
-        if (source === 'file-open' && this.pendingRenameSource.get(file.path) === 'edit') {
+        if (source === 'file-open' && this.pendingRenameSource.get(path) === 'edit') {
             return;
         }
-        this.pendingRenameSource.set(file.path, source);
+        this.pendingRenameSource.set(path, source);
         this.debouncer.schedule(
-            file.path,
+            path,
             () => {
-                this.pendingRenameSource.delete(file.path);
+                this.pendingRenameSource.delete(path);
                 // Re-validate at fire time: the user may have switched the
                 // trigger mode or moved the file out of scope meanwhile.
                 if (this.settings.renameTrigger !== expectedTrigger) return;
@@ -418,18 +425,29 @@ export default class H1AlignerPlugin extends Plugin {
     }
 
     private async undoLastRename(): Promise<void> {
-        const record = this.history.peek();
+        let record = this.history.peek();
         if (!record) {
             new Notice(t('notice.nothingToUndo'));
             return;
         }
-        const file = this.app.vault.getAbstractFileByPath(record.to);
         // Identity check, not just path resolution: if the renamed file was
         // moved away and an unrelated note now sits at record.to, undoing
-        // would rename the stranger.
-        if (!(file instanceof TFile) || (record.file !== undefined && record.file !== file)) {
-            new Notice(t('notice.undoMoved'));
-            return;
+        // would rename the stranger. Unlike the occupied-name and write-
+        // failure cases below (both potentially transient — retrying later
+        // may succeed, so those records stay on the stack), an identity
+        // mismatch can never resolve itself: that specific rename is
+        // permanently un-undoable. Discard it and fall through to the next
+        // record instead of leaving a single stuck entry that blocks undo
+        // from ever reaching older, still-valid history beneath it.
+        let file = this.app.vault.getAbstractFileByPath(record.to);
+        while (!(file instanceof TFile) || (record.file !== undefined && record.file !== file)) {
+            this.history.pop();
+            record = this.history.peek();
+            if (!record) {
+                new Notice(t('notice.undoMoved'));
+                return;
+            }
+            file = this.app.vault.getAbstractFileByPath(record.to);
         }
         // Occupancy check must be case- and NFC-insensitive (NTFS/APFS
         // resolve names that way; an index miss ≠ a free name).

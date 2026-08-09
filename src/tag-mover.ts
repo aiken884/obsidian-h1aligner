@@ -146,6 +146,13 @@ export interface BodyRemovalResult {
     applied: number;
     /** Tags whose cached offsets no longer matched the file (stale cache). */
     skippedStale: number;
+    /**
+     * Candidates that were actually removed from the body, in the same
+     * (ascending-offset) order as the input `candidates`. Callers must merge
+     * only these into frontmatter — a stale-skipped candidate was left
+     * untouched in the body and must not be reported as moved.
+     */
+    appliedTags: InlineTag[];
 }
 
 /**
@@ -168,25 +175,43 @@ export function applyBodyTagRemoval(
     let text = data;
     let applied = 0;
     let skippedStale = 0;
-    // Conservative tag-body characters: ASCII alnum/_/- / plus CJK letter
-    // ranges (Han ideographs incl. Ext-A, Hiragana, Katakana, Hangul
-    // syllables). A fresh-cache tag can never be bordered by one of these
-    // (the parser would have absorbed it into the tag), so rejecting them
-    // only ever catches stale offsets — e.g. a candidate that now points
-    // into a URL, '#tag' extended to '#tagX', or (this feature's own CJK
-    // tag support, see movableTags' doc comment and README's "Experimental"
-    // section) '#tag' extended to '#tag中文'. CJK support here is not
-    // optional: this module treats CJK as first-class tag content
-    // (mergeTagsIntoList/applyBodyTagRemoval both round-trip tags like
-    // '#重點' verbatim), so a guard that only recognizes ASCII extensions
-    // would silently accept a CJK-extended candidate as still fresh.
-    // Deliberately EXCLUDES CJK punctuation (e.g. '。', '，', fullwidth
-    // marks) — README documents those as tolerated "pollution" inside an
-    // already-matched tag, never as boundary-extending characters, so a
-    // punctuation mark right after a cached offset must still correctly
-    // signal "not extended, safe to act on".
+    // Collected in `sorted`'s descending-offset iteration order; reversed
+    // before returning to restore the input's ascending-offset order.
+    const appliedTagsDesc: InlineTag[] = [];
+    // Tag-body characters, per Obsidian's OWN tag-matching rule -- which is
+    // EXCLUSION-based, not an inclusion whitelist. Obsidian treats virtually
+    // everything after '#' as tag content except a specific punctuation/
+    // whitespace set. This is not a guess: it is the exact character class
+    // extracted from Obsidian's shipped app bundle (app.js, v1.13.4; see the
+    // FT/jR/Y9 tag regexes), reproduced here negated so `.test()` answers
+    // "is this a tag-body character":
+    //   excluded  = U+2000-U+206F (General Punctuation) + U+2E00-U+2E7F
+    //               (Supplemental Punctuation) + ' ! " # $ % & ( ) * + , . :
+    //               ; < = > ? @ ^ ` { | } ~ [ ] \ + any whitespace (\s,
+    //               which also covers U+3000 IDEOGRAPHIC SPACE)
+    //   tag-body  = everything else
+    // A fresh-cache tag can never be bordered by a tag-body character (the
+    // parser would have absorbed it into the tag), so rejecting them only
+    // ever catches stale offsets -- e.g. a candidate that now points into a
+    // URL, '#tag' extended to '#tagX', or (this feature's own CJK tag
+    // support, see movableTags' doc comment and README's "Experimental"
+    // section) '#tag' extended to '#tag中文'.
+    //
+    // A prior version of this guard used a narrow, hand-picked ASCII +
+    // selected-CJK-letter-block INCLUSION whitelist. That was wrong in
+    // approach, not just incomplete: it silently treated accented Latin
+    // (e.g. é, ñ), Cyrillic, Greek, fullwidth forms, and CJK
+    // punctuation (e.g. the ideographic full stop '。' U+3002, fullwidth
+    // comma '，' U+FF0C) as non-tag-body, so a boundary genuinely
+    // extended by any of those characters was misjudged as still fresh. Per
+    // Obsidian's real rule none of those are excluded -- they ARE valid
+    // tag-body content -- which the README already documents for CJK
+    // punctuation specifically ("tags accidentally polluted by trailing CJK
+    // punctuation" are moved verbatim, i.e. Obsidian's own parser folded
+    // that punctuation into the tag). This exclusion-based class matches
+    // that documented behaviour instead of contradicting it.
     const TAG_BODY_CHAR =
-        /[0-9A-Za-z_/\-぀-ヿ㐀-䶿一-鿿가-힣]/;
+        /[^\u2000-\u206F\u2E00-\u2E7F'!"#$%&()*+,.:;<=>?@^`{|}~[\]\\\s]/;
     for (const c of sorted) {
         const from = c.position.start.offset;
         const to = c.position.end.offset;
@@ -212,6 +237,7 @@ export function applyBodyTagRemoval(
             text = text.slice(0, cut) + text.slice(to);
         }
         applied++;
+        appliedTagsDesc.push(c);
     }
-    return { text, applied, skippedStale };
+    return { text, applied, skippedStale, appliedTags: appliedTagsDesc.slice().reverse() };
 }

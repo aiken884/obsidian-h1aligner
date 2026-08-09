@@ -32,7 +32,13 @@ import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
 import type { RenameHistory } from './history';
-import { applyBodyTagRemoval, foldName, mergeTagsIntoList, movableTags } from './tag-mover';
+import {
+    applyBodyTagRemoval,
+    foldName,
+    mergeTagsIntoList,
+    movableTags,
+    type InlineTag,
+} from './tag-mover';
 
 export type RenameSkipReason =
     | 'none'
@@ -213,12 +219,21 @@ export class RenameService {
             let bodyAfter: string | null = null;
             let applied = 0;
             let skippedStale = 0;
+            // Keep mode never runs Step 1 (no body removal happens at all),
+            // so the full candidate list is exactly what should land in
+            // frontmatter. Remove modes narrow this down below to only the
+            // candidates actually removed from the body — a stale-skipped
+            // candidate (offset no longer matched the live content at
+            // vault.process() time) was left untouched in the body and must
+            // not be reported/merged as moved.
+            let tagsForFrontmatter: InlineTag[] = candidates;
             if (mode !== null) {
                 await this.app.vault.process(file, (data: string) => {
                     bodyBefore = data;
                     const res = applyBodyTagRemoval(data, candidates, mode);
                     applied = res.applied;
                     skippedStale = res.skippedStale;
+                    tagsForFrontmatter = res.appliedTags;
                     bodyAfter = res.text;
                     return res.text;
                 });
@@ -239,7 +254,10 @@ export class RenameService {
                         // 'tags' wins when both keys exist; singular 'tag' is
                         // read-only input and stays untouched in the file.
                         const existing = fm.tags !== undefined ? fm.tags : fm.tag;
-                        fm.tags = mergeTagsIntoList(existing, candidates.map((c) => c.tag));
+                        fm.tags = mergeTagsIntoList(
+                            existing,
+                            tagsForFrontmatter.map((c) => c.tag),
+                        );
                     },
                 );
             } catch (err) {
@@ -308,14 +326,21 @@ export class RenameService {
                         h.heading.trim().length > 0,
                 ),
             );
-            if (!cacheHasUsableH1) {
+            // Raw content must be read whenever the lock re-check needs it —
+            // metadataCache.frontmatter can lag a just-added lock even while
+            // cached headings (and thus cacheHasUsableH1) are still fine, so
+            // "cache has a usable H1" is NOT a valid proxy for "frontmatter
+            // is fresh" — OR whenever the cache lacks a usable H1 (Strategy B
+            // fallback). One read serves both needs.
+            if (settings.skipIfFrontmatterLock || !cacheHasUsableH1) {
                 try {
                     content = await this.app.vault.cachedRead(file);
                 } catch {
                     content = undefined;
                 }
-                // L0 again on raw content: with an unpopulated cache the
-                // frontmatter lock must still hold (sync/new-file window).
+                // L0 again on raw content: catches a lock just added to
+                // frontmatter that metadataCache hasn't re-indexed yet, as
+                // well as the unpopulated-cache (sync/new-file) window.
                 if (
                     settings.skipIfFrontmatterLock &&
                     typeof content === 'string' &&

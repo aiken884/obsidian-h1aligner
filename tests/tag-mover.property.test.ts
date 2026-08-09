@@ -179,8 +179,13 @@ const tagNameGen = fc
 // Separator characters guaranteed to satisfy neither the boundary guard's
 // TAG_BODY_CHAR class nor the literal '#' check — keeps synthetic tags
 // reliably "fresh" so the well-formed generator's core promise holds.
+// Fullwidth/CJK punctuation (。，、！？（）) is deliberately excluded here:
+// per Obsidian's real tag-matching rule (extracted from the shipped app
+// bundle — see the TAG_BODY_CHAR fix in src/tag-mover.ts), none of it is a
+// tag boundary — it's valid tag-body content, same as CJK letters. Only
+// ASCII '.', ',', '!', '?' and whitespace are genuine separators.
 const SEP_CHARS = [
-    ' ', '\t', '\n', '　', '。', '，', '、', '！', '？', '（', '）', '.', ',', '!', '?',
+    ' ', '\t', '\n', '　', '.', ',', '!', '?',
 ];
 const sepGen = fc
     .array(fc.constantFrom(...SEP_CHARS), { minLength: 1, maxLength: 4 })

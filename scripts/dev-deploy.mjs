@@ -1,11 +1,21 @@
 /**
  * dev-deploy.mjs — build the plugin and deploy it to local test vaults with
- * a version string that's visibly different from the last published
- * release, so Obsidian's plugin list makes it obvious at a glance whether
- * a vault is running local, unreleased work or the real published version.
+ * a marker that's visibly different from the last published release, so
+ * it's obvious at a glance whether a vault is running local, unreleased
+ * work or the real published version.
+ *
+ * IMPORTANT: this only ever touches manifest.json's `description` field,
+ * never `version`. Obsidian's community-plugin update check flags any
+ * installed version string that differs from what it has on record as "an
+ * update is available" — an earlier version of this script changed
+ * `version` instead, which made Obsidian repeatedly offer to "update" a
+ * dev build back down to the last real release. One accidental tap on that
+ * button silently overwrites all local unreleased work. `description` is
+ * pure display text Obsidian never uses for version comparison, so this
+ * can't happen.
  *
  * Never touches package.json/manifest.json/versions.json in the repo — the
- * dev version string only exists in the copies written to each vault.
+ * marker only exists in the copies written to each vault.
  * `npm run version` (the real release flow, see RELEASING.md) is completely
  * unaffected by this.
  *
@@ -24,15 +34,13 @@ const VAULTS = [
 console.log("Building...");
 execFileSync("npm", ["run", "build"], { stdio: "inherit" });
 
-const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-const [major, minor] = pkg.version.split(".").map(Number);
-const nextVersion = `${major}.${minor + 1}.0`;
 const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"]).toString().trim();
 const dirty = execFileSync("git", ["status", "--porcelain"]).toString().trim().length > 0;
-const devVersion = `${nextVersion}-dev+${commit}${dirty ? ".dirty" : ""}`;
+const marker = `[dev build ${commit}${dirty ? ".dirty" : ""}]`;
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
-manifest.version = devVersion;
+// manifest.json's own `version` is left untouched — see the file header.
+manifest.description = `${manifest.description} ${marker}`;
 const devManifest = JSON.stringify(manifest, null, 4) + "\n";
 
 for (const vault of VAULTS) {
@@ -41,9 +49,9 @@ for (const vault of VAULTS) {
     copyFileSync("main.js", join(dest, "main.js"));
     writeFileSync(join(dest, "manifest.json"), devManifest);
     copyFileSync("styles.css", join(dest, "styles.css"));
-    console.log(`Deployed ${devVersion} -> ${vault}`);
+    console.log(`Deployed ${marker} -> ${vault}`);
 }
 
 console.log(
-    "\nReload the plugin (or restart Obsidian) in each vault to pick up the new version.",
+    "\nReload the plugin (or restart Obsidian) in each vault to pick up the change.",
 );

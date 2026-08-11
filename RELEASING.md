@@ -5,10 +5,11 @@
 Run once before every **minor** release:
 
 1. `npm outdated` — check whether dev dependencies have fallen behind (Dependabot also opens a grouped PR every month).
-2. Check the obsidian typings: `devDependencies.obsidian` is currently `^1.13.1` (needed for the declarative Settings API, since 1.13.0), and `manifest.json`'s `minAppVersion` is `1.8.7` (the getLanguage threshold, in effect since 0.9.0 — corrected from an initially-wrong `1.8.0` in the Unreleased section). If the code starts using APIs newer than the current `minAppVersion`,
+2. Check the obsidian typings: `devDependencies.obsidian` is currently `^1.13.1`, and `manifest.json`'s `minAppVersion` is `1.13.0` (raised from `1.8.7` in 0.11.1 — the declarative Settings API forced this; see the note below). If the code starts using APIs newer than the current `minAppVersion`,
    bump all three together: `devDependencies.obsidian`, `manifest.json`'s `minAppVersion`, and a new entry in `versions.json`.
    (Dependabot is configured to ignore the `obsidian` package — bumping the typings is a deliberate decision, not automated.)
 3. Run the on-device checklist in `docs/MOBILE-TESTING.md` (iPhone + Android), and record the results in that file's verification log table.
+4. **`minAppVersion` must be true, not just true-enough for local lint.** `npm run lint` (`eslint-plugin-obsidianmd`'s `no-unsupported-api` rule) checks every API call against `manifest.json`'s declared `minAppVersion` — if it flags something, that's real: either the code needs a version-gated fallback, or `minAppVersion` needs to go up. **Never suppress this with a local ESLint override** (file-scoped rule config, inline disable, etc.) to make a "this call is only reachable at runtime on versions that support it" argument — the Obsidian community-plugin review runs the same kind of check against the *real* `minAppVersion`, has no visibility into this repo's ESLint config, and will reject the release for exactly what the override hid locally. (0.11.0 shipped this way and was pulled from the directory for it — see CHANGELOG.md's 0.11.1 entry.) If `npm run lint` is clean with zero overrides, that's meaningful signal that review will pass too; if it's only clean *because of* an override, it isn't.
 
 ## Versioning
 

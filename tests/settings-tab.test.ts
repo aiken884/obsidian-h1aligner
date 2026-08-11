@@ -1,9 +1,9 @@
 /**
  * settings-tab.test.ts — unit coverage for the declarative Settings API
- * (Obsidian 1.13.0+): getSettingDefinitions() / getControlValue() /
- * setControlValue() / refreshDomState(). This is the path real Obsidian
- * 1.13.0+ actually renders from; the e2e suite only ever drives the
- * imperative display() fallback, so this file is the only coverage for it.
+ * (Obsidian 1.13.0+, the plugin's minAppVersion since 0.11.1 — the only
+ * rendering path this file has, the imperative display() fallback was
+ * removed): getSettingDefinitions() / getControlValue() / setControlValue()
+ * / refreshDomState().
  *
  * The installed 'obsidian' package (node_modules/obsidian) ships type
  * declarations only — `main: ""`, no runtime JS — so PluginSettingTab and

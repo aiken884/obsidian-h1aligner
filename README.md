@@ -183,7 +183,7 @@ H1Aligner is available in Obsidian's [Community plugins directory](https://commu
 2. Copy `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/heading-aligner/`.
 3. Enable it under Settings → Community plugins.
 
-Requires Obsidian 1.8.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
+Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, verified on macOS and iOS).
 
 ## Development
 

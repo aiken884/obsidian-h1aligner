@@ -22,6 +22,7 @@ class FakeEl {
     createDiv(opts) { return this.createEl('div', opts); }
     createSpan(opts) { return this.createEl('span', opts); }
     empty() { this.children = []; }
+    remove() { this.children = []; this.removed = true; }
     setText(t) { this.text = t; }
     setAttribute(name, value) { this.attributes[name] = String(value); }
     addEventListener(evt, cb) { (this.listeners[evt] = this.listeners[evt] || []).push(cb); }
@@ -43,6 +44,14 @@ class PluginSettingTab {
         this.plugin = plugin;
         this.containerEl = new FakeEl('div');
     }
+    // Real PluginSettingTab defaults (per obsidian.d.ts): read/write
+    // this.plugin.settings directly. H1AlignerSettingTab.getControlValue's
+    // default branch calls super.getControlValue(key) for every key it
+    // doesn't special-case, so this must exist for that path to work.
+    getControlValue(key) { return this.plugin.settings[key]; }
+    setControlValue(key, value) { this.plugin.settings[key] = value; }
+    refreshDomState() {}
+    update() {}
 }
 class TextAreaComponent {
     constructor(settingEl) {
@@ -192,6 +201,66 @@ function addFile(app, p, content, h1InCache, frontmatter) {
     return f;
 }
 
+/**
+ * Minimal declarative-Settings-API render engine for the fake obsidian
+ * module: walks tab.getSettingDefinitions() and materializes it into
+ * tab.containerEl via the same Setting/FakeEl stubs display() used to use,
+ * so the same containerEl.walk() assertions still work. NOT a faithful
+ * reproduction of Obsidian's real renderer (no search indexing, no
+ * disabled-predicate handling) — only what this test suite's scenarios
+ * actually need: control.key get/set wiring and `render` callbacks
+ * (renderExcludePatterns is the one scenario 4b actually exercises).
+ */
+function renderDeclarativeSettings(tab) {
+    tab.containerEl.empty();
+    const renderItems = (items, containerEl) => {
+        for (const item of items) {
+            if (item.visible === false) continue;
+            if (typeof item.visible === 'function' && !item.visible()) continue;
+            if (item.type === 'group' || item.type === 'list') {
+                if (item.heading) new Setting(containerEl).setName(item.heading).setHeading();
+                if (item.items) renderItems(item.items, containerEl);
+                continue;
+            }
+            const setting = new Setting(containerEl);
+            if (item.name) setting.setName(item.name);
+            if (item.desc) setting.setDesc(item.desc);
+            if (item.render) {
+                item.render(setting, { listEl: containerEl });
+                continue;
+            }
+            const c = item.control;
+            if (!c) continue;
+            const currentValue = tab.getControlValue(c.key);
+            if (c.type === 'toggle') {
+                setting.addToggle((tg) => {
+                    tg.setValue(currentValue);
+                    tg.onChange((v) => tab.setControlValue(c.key, v));
+                });
+            } else if (c.type === 'dropdown') {
+                setting.addDropdown((d) => {
+                    for (const [k, label] of Object.entries(c.options || {})) d.addOption(k, label);
+                    d.setValue(currentValue);
+                    d.onChange((v) => tab.setControlValue(c.key, v));
+                });
+            } else if (c.type === 'textarea') {
+                setting.addTextArea((txt) => {
+                    txt.setPlaceholder(c.placeholder || '');
+                    txt.setValue(String(currentValue ?? ''));
+                    txt.onChange((v) => tab.setControlValue(c.key, v));
+                });
+            } else {
+                setting.addText((txt) => {
+                    txt.setPlaceholder(c.placeholder || '');
+                    txt.setValue(String(currentValue ?? ''));
+                    txt.onChange((v) => tab.setControlValue(c.key, v));
+                });
+            }
+        }
+    };
+    renderItems(tab.getSettingDefinitions(), tab.containerEl);
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Build an InlineTag whose position matches its literal place inside `body`. */
@@ -285,7 +354,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     console.log('✓ 4. 預設排除 pattern 保護 daily note（2026-07-03.md 不被改名）');
 
     // --- 4b: Settings validate exclude-pattern drafts inline ---
-    plugin._settingTab.display();
+    renderDeclarativeSettings(plugin._settingTab);
     const excludeInput = [...plugin._settingTab.containerEl.walk()].find(
         (e) => e.tag === 'textarea' && e.placeholder === '^\\d{4}-\\d{2}-\\d{2}$',
     );
@@ -901,5 +970,5 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 24. 檔案在 debounce 尚未觸發前被改名（手動指令/外部）→ fire-time 清理仍對齊排程時的路徑，不留下永久孤兒項目擋住之後重用該路徑字串的正常改名（Fix B 回歸測試）');
 
-    console.log('\nE2E smoke test: 31/31 scenarios passed（真實 production bundle main.js, v0.10.0）');
+    console.log('\nE2E smoke test: 31/31 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

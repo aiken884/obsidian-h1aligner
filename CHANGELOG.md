@@ -2,7 +2,7 @@
 
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
-## Unreleased
+## 0.11.0 — 2026-08-11
 - **Fix**: toggling "Move tags to frontmatter" in the settings page (both mobile and desktop — reported via real-device testing, with a screen recording) reset the settings panel's scroll position to the very top, which is jarring on a page this long. The declarative Settings API's `refreshDomState()` is documented as "cheap: toggles CSS state in place, no re-render," but that evidently doesn't guarantee the scroll position survives in practice; the `display()` fallback for Obsidian < 1.13.0 has the same problem for the more obvious reason that it fully empties and rebuilds the settings container. Both paths now record the scroll offset before the change and restore it afterward, regardless of which re-render path ran or why it moved
 - **Fix** (found via a third full-project CodeGraph health check plus adversarial verification, targeting previously-unaudited modules — rename-service.ts's core guard layers, batch-modal.ts/history.ts, i18n/scope/notice.ts — plus a skeptical re-check of every fix from the second round; 6 confirmed findings, all fixed):
   - **High severity**: the `h1aligner-lock: true` frontmatter lock could be silently ignored right after being added. The raw-content re-check that exists specifically to catch a stale metadataCache was gated on "does the cache have a usable H1," which is not a valid proxy for "is the cache's frontmatter fresh" — a note whose H1 didn't change but whose frontmatter was just edited to add the lock kept `cacheHasUsableH1 === true`, skipping the re-check entirely. The raw-content lock re-check now runs whenever the lock setting is on, independent of H1 cache freshness

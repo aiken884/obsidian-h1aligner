@@ -344,6 +344,43 @@ describe("setControlValue('moveTagsToFrontmatter', ...)", () => {
             refreshSpy.mock.invocationCallOrder[0],
         );
     });
+
+    // Regression: a real-device report (both mobile and desktop) found the
+    // settings panel jumping to the very top whenever this toggle fired —
+    // refreshDomState() is documented as scroll-preserving, but evidently
+    // isn't in practice. withPreservedScroll() must restore the scroll
+    // offset regardless of what refreshDomState() itself does to it.
+    it('restores the scroll position even if refreshDomState() resets it', async () => {
+        const plugin = makeFakePlugin({ moveTagsToFrontmatter: false });
+        const tab = makeTab(plugin);
+        const scroller = {
+            scrollHeight: 2000,
+            clientHeight: 600,
+            scrollTop: 480,
+            parentElement: null as unknown,
+        };
+        (tab as unknown as { containerEl: unknown }).containerEl = scroller;
+        // Simulate the real-world symptom: refreshDomState() itself (or
+        // whatever it triggers) resets the scroll offset to 0.
+        vi.spyOn(tab, 'refreshDomState').mockImplementation(() => {
+            scroller.scrollTop = 0;
+        });
+
+        await tab.setControlValue('moveTagsToFrontmatter', true);
+
+        // No window.requestAnimationFrame under Node/vitest — the
+        // implementation falls back to a synchronous restore, so this can
+        // be asserted immediately with no extra wait.
+        expect(scroller.scrollTop).toBe(480);
+    });
+
+    it('is a no-op when there is nothing actually scrollable (no jump to begin with)', async () => {
+        const plugin = makeFakePlugin({ moveTagsToFrontmatter: false });
+        const tab = makeTab(plugin);
+        // Default mock containerEl ({}) has no scrollHeight/clientHeight —
+        // findScrollContainer() must return null and this must not throw.
+        await expect(tab.setControlValue('moveTagsToFrontmatter', true)).resolves.toBeUndefined();
+    });
 });
 
 // ---------------------------------------------------------------------------

@@ -362,7 +362,8 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
                 // bodyTagHandling/tagsToIgnoreForMove's `visible` predicates
                 // depend on this — re-evaluate without a full re-render.
-                this.refreshDomState();
+                // Wrapped for scroll preservation — see withPreservedScroll.
+                this.withPreservedScroll(() => this.refreshDomState());
                 return;
             case 'bodyTagHandling':
                 s.bodyTagHandling = value as BodyTagHandling;
@@ -830,7 +831,8 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         // off — they are only hidden, never reset.
                         this.plugin.settings.moveTagsToFrontmatter = v;
                         await this.plugin.saveSettings();
-                        this.display();
+                        // Wrapped for scroll preservation — see withPreservedScroll.
+                        this.withPreservedScroll(() => this.display());
                     }),
             );
 
@@ -888,5 +890,47 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             maxBytes: 255 - ('md'.length + 1),
         });
         this.previewEl.setText(base ? `→ ${base}.md` : t('set.preview.empty'));
+    }
+
+    /**
+     * Toggling moveTagsToFrontmatter re-renders part (declarative path,
+     * refreshDomState) or all (< 1.13.0 display() fallback) of this page —
+     * on real devices (both mobile and desktop; not WebView-specific) this
+     * was observed to reset the settings panel's scroll position to the
+     * top, which is jarring on a page this long. refreshDomState() is
+     * documented as "cheap: toggles CSS state in place, no re-render," but
+     * that evidently doesn't guarantee the scroll position survives in
+     * practice. Record the scroll offset before the change and restore it
+     * once the DOM settles, regardless of which re-render path ran or why
+     * it moved — this doesn't depend on either path's behaviour actually
+     * matching its documentation.
+     */
+    private withPreservedScroll(fn: () => void): void {
+        const scroller = this.findScrollContainer();
+        const scrollTop = scroller?.scrollTop ?? 0;
+        fn();
+        if (!scroller) return;
+        const restore = (): void => {
+            scroller.scrollTop = scrollTop;
+        };
+        // requestAnimationFrame: a same-tick assignment can be clobbered by
+        // whatever caused the jump in the first place, which hasn't
+        // necessarily run yet. Not available under Node (unit tests) —
+        // fall back to a synchronous restore there.
+        if (typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(restore);
+        } else {
+            restore();
+        }
+    }
+
+    /** Walk up from containerEl to the nearest actually-scrollable ancestor. */
+    private findScrollContainer(): HTMLElement | null {
+        let el: HTMLElement | null = this.containerEl;
+        while (el) {
+            if (el.scrollHeight > el.clientHeight) return el;
+            el = el.parentElement;
+        }
+        return null;
     }
 }

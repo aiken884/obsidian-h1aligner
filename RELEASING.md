@@ -111,7 +111,14 @@ Submission process (current as of 2026 — via the community.obsidian.md website
    command IDs must not include the plugin ID prefix (✅).
 5. If corrections are needed: after making changes, publish a new release (with an incremented version) to re-trigger the checks.
 6. After passing the automated checks, the submission moves to manual review (timeline varies, on the order of several weeks). Once approved, the plugin appears in the
-   Community plugins browser; **subsequent version updates do not require resubmission** — publishing a new GitHub release is automatically picked up.
+   Community plugins browser.
+
+### Subsequent version updates and re-review
+
+Publishing a new GitHub release is picked up automatically for the version number and release assets — but **every release is also re-scanned by the automated Scorecard review**, and a failure pulls the plugin from the public listing (this happened to 0.11.0 over a `minAppVersion` mismatch; see CHANGELOG.md's 0.11.1 entry). Two things learned the hard way from that incident:
+
+- **Getting re-listed after a failed review is not automatic.** The public Scorecard page (`community.obsidian.md/plugins/<id>`) and the `community-plugins.json` mirror only reflect the result *after* a review has actually run — they give no sign that one is waiting to be triggered. Log in to `community.obsidian.md/developer/plugins/<id>` (developer dashboard, requires the account that owns the listing) and check the **Reviews** section: if it shows `Pending` or looks stalled, click **Review branch** to actually trigger that review. It will not run on its own on any useful timeline.
+- After releasing a fix for a failed review, verify via the developer dashboard (not the public page) that the Reviews section shows `Completed` / `Passed` for the new commit before considering the incident closed.
 
 Post-release promotion (optional): the forum's Share & Showcase section, the Discord `#updates` channel (requires the developer role).
 
@@ -121,3 +128,4 @@ Post-release promotion (optional): the forum's Share & Showcase section, the Dis
 - [ ] Existing vault: ensure no breakage on update.
 - [ ] Check the GitHub Release page shows `main.js` + `manifest.json` + `styles.css` as assets.
 - [ ] Update README badge counts if the test suite grew.
+- [ ] Check the developer dashboard (`community.obsidian.md/developer/plugins/heading-aligner`) Reviews section for the new commit; if it's stuck on `Pending`, click **Review branch** (see "Subsequent version updates and re-review" above).

@@ -2,6 +2,9 @@
 
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
+## 0.11.2 — 2026-08-12
+- **Maintenance only, no user-visible changes.** Bumped dev-only tooling (`eslint` 9.39.4 → 10.8.1, `typescript-eslint`, `fast-check`, `@vitest/coverage-v8`, `@types/node`, GitHub Actions), and corrected documentation (README test counts, RELEASING.md's description of the post-review-failure relisting process, `docs/MOBILE-TESTING.md` verification log). None of this touches the published bundle's runtime code.
+
 ## 0.11.1 — 2026-08-12
 - **Fix**: 0.11.0 failed the Obsidian community-plugin directory's automated review and was pulled from the listing ("Uses Obsidian APIs newer than the declared minAppVersion", flagging `SettingGroup#listEl`/`PluginSettingTab#getControlValue`/`SettingTab#refreshDomState` calls in `settings-tab.ts`). Those calls are only ever reached at runtime on Obsidian 1.13.0+ (the version Obsidian itself must be running to call `getSettingDefinitions()` in the first place), so they were safe in practice — but `manifest.json`'s `minAppVersion` still declared `1.8.7`, and the review's static check doesn't reason about runtime reachability, only about what APIs the source references versus what version is declared. (A local ESLint override had been silencing the equivalent warning in this repo's own `npm run lint` for the same reason — masking exactly the mismatch the official review caught. Removed; this repo's policy going forward is that no rule mirroring an external/official check gets locally overridden — see RELEASING.md.)
 

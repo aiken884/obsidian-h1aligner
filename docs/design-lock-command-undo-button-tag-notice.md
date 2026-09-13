@@ -366,3 +366,47 @@ shorter `lockDisabled` copy, manual-column note in the policy table, cancel-befo
 internally consistent, invariants clearly mapped, implementation boundary clean, scope contained. Four
 non-blocking reminders were folded in (early return in the catch branch; no `hide()` on eviction so 26e
 tests the flag; the real-clock tech-debt note; explicit `record: undefined` fixture).
+
+## 11. Execution plan for this batch (agreed with Aiken, 2026-09-13)
+
+The design above is finalized (§10). This section records how implementation of *this batch* will actually
+run — process, not design — agreed with Aiken after the design was presented. It was not put through
+external review; it can change without reopening §5–§7.
+
+- **Branch:** `feature/0.12.0-batch1`, cut from `main` at the commit that adds this document. Batch 2 and
+  batch 3 (the remaining five features on the roadmap in §1) will each get their own branch and their own
+  design document later — this plan covers batch 1 only.
+- **Delivery cadence inside the batch:** Features A (tag-move notice) → B (lock/unlock) → C (undo button)
+  are implemented **in one continuous pass on the branch**, in that order, each as its own commit with its
+  own tests (TDD: failing test first), each commit green on
+  `npm run lint && npm run build && npm test && npm run test:e2e`. There is no stop-and-check between A, B,
+  and C — the whole branch (three commits) is handed to Aiken as a single batch for review once all three
+  are done and green.
+- **Merging:** the branch is merged into `main` only after Aiken has reviewed the three commits and the
+  on-device checklist below has passed. No automated step merges it. `manifest.json`'s `version` is not
+  touched by this batch (unchanged from `main`'s current `0.11.2`); the actual `0.12.0` version bump and
+  release stay a separate, later step Aiken runs per `RELEASING.md`, same as every prior release.
+- **On-device verification is out of scope for the implementing agent.** `scripts/dev-deploy.mjs`'s two
+  target vaults are hardcoded Mac paths (`/Users/aikenlin/Obsidian/...`); this batch is implemented on a
+  machine with no real Obsidian install, so §7's "verify via `obsidian-cli` in a real Obsidian" step and §9's
+  definition-of-done item 2 cannot be executed there. Once the branch is ready, the implementing agent hands
+  Aiken a short checklist covering only what's new in this batch (existing regressions stay covered by the
+  automated suite):
+  1. File menu on a `.md` note shows **Lock this note**; click it, reopen the menu → shows **Unlock this
+     note**; click it again → back to **Lock this note**, and the note's frontmatter has no `h1aligner-lock`
+     key left behind.
+  2. Right-click a note, choose Lock, then *immediately* right-click the same note again before Obsidian
+     re-indexes — the menu must not show anything that would unlock it by accident (clicking whatever it
+     shows must leave the note locked).
+  3. With **Move tags to frontmatter** enabled and a note whose filename already matches its H1 but whose
+     body still has tags, opening it produces a "moved N tag(s) to frontmatter" toast (previously: silence).
+  4. Trigger a rename, click **Undo** on the toast within a few seconds → filename reverts, the toast closes,
+     and doing it again (or clicking an old toast after a newer rename happened) shows the "no longer the
+     latest" message instead of undoing twice.
+  Aiken runs this himself on the Mac via the existing `node scripts/dev-deploy.mjs` flow into
+  `ObsidianTestVault`, at his own pace, and decides whether/how to log the result (e.g. a new row in
+  `docs/MOBILE-TESTING.md`, or nothing formal — this batch doesn't touch mobile-specific code paths, so it's
+  not required to go through that checklist's iPhone/Android gate before merging, only before the eventual
+  `0.12.0` release itself does).
+- **Gate:** none of the above starts until Aiken explicitly says to begin implementation. Reaching agreement
+  on this execution plan is not that signal.

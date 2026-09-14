@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **408 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **31 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **414 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **31 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -85,7 +85,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Replace illegal characters | ✅ on | Windows-invalid and Obsidian link-breaking characters → replacement char. Path separators are always replaced. |
 | Replacement character | ` ` (space) | Single character; illegal characters are rejected; empty deletes instead. |
 | Maximum filename length | `150` | 1–255 code points; additionally capped at 255 UTF-8 bytes for filesystem compatibility. |
-| Notice level | Off | For automatic renames: Off / Errors only / All. Manual actions always report. |
+| Notice level | Off | For automatic renames: Off / Errors only / All. Manual actions always report. When "Move tags to frontmatter" is enabled, a note that only had tags moved (no filename change) also gets a notice at "All", and skip notices from manual actions and "All" note when tags were moved alongside the skip. |
 | File-open / edit debounce | `100` / `2000` ms | Advanced. The edit debounce is deliberately generous — renaming mid-typing is disruptive. |
 
 A live **preview field** shows the filename a sample H1 would produce with your current settings. On first run a one-time **onboarding dialog** explains the one-way contract and offers a cautious Manual-only start.
@@ -191,7 +191,7 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 408 unit tests (vitest, incl. property-based)
+npm test               # 414 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
 npm run test:e2e       # 31 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md

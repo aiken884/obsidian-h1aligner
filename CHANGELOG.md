@@ -2,6 +2,9 @@
 
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
+## Unreleased
+- **Fix**: with the experimental "Move tags to frontmatter" feature on, an alignment-only pass that only moved body tags into frontmatter (filename unchanged, or the note was skipped for an unrelated reason such as `no-h1`/`collision`/`case-only`) produced no notice at all at any notice level — the note body changed and the user was never told. `noticeFor()` now factors in `outcome.movedTags`: a successful rename that also moved tags appends the tag count; a skip that still moved tags now reports (at "All" automatically, and always for manual commands) instead of staying silent. Notes that never move tags (`movedTags` undefined or `0`) are unaffected — every existing notice string is unchanged. Unit tests: 408 → 414
+
 ## 0.11.2 — 2026-08-12
 - **Maintenance only, no user-visible changes.** Bumped dev-only tooling (`eslint` 9.39.4 → 10.8.1, `typescript-eslint`, `fast-check`, `@vitest/coverage-v8`, `@types/node`, GitHub Actions), and corrected documentation (README test counts, RELEASING.md's description of the post-review-failure relisting process, `docs/MOBILE-TESTING.md` verification log). None of this touches the published bundle's runtime code.
 

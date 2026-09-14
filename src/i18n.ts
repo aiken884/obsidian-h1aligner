@@ -7,7 +7,10 @@
 const en = {
     // Notices
     'notice.renamed': 'H1Aligner: renamed → {name}',
+    'notice.renamedTags': 'H1Aligner: renamed → {name} (+{count} tags)',
     'notice.skipped': 'H1Aligner: skipped ({reason})',
+    'notice.skippedTags': 'H1Aligner: skipped ({reason}) — moved {count} tag(s) to frontmatter',
+    'notice.tagsMoved': 'H1Aligner: moved {count} tag(s) to frontmatter',
     'notice.error': 'H1Aligner error: {message}',
     'notice.nothingToUndo': 'H1Aligner: nothing to undo',
     'notice.undoMoved': 'H1Aligner: cannot undo — file was moved or deleted',
@@ -132,7 +135,7 @@ const en = {
     'set.notif.heading': 'Notifications',
     'set.notice.name': 'Notice level',
     'set.notice.desc':
-        'For automatic renames. Off: silent. Errors only: report failures. All: also announce successful renames. The manual command and batch apply always report.',
+        'For automatic renames. Off: silent. Errors only: report failures. All: also announce successful renames — and, when tag moving is enabled, tag writes to frontmatter. The manual command and batch apply always report.',
     'set.notice.off': 'Off (quiet)',
     'set.notice.errors': 'Errors only',
     'set.notice.all': 'All renames',
@@ -168,7 +171,10 @@ export type LocaleKey = keyof typeof en;
 
 const zhTW: Record<LocaleKey, string> = {
     'notice.renamed': 'H1Aligner：已改名 → {name}',
+    'notice.renamedTags': 'H1Aligner：已改名 → {name}（+{count} 個 tag）',
     'notice.skipped': 'H1Aligner：已跳過（{reason}）',
+    'notice.skippedTags': 'H1Aligner：已跳過（{reason}）－已搬移 {count} 個 tag 到 frontmatter',
+    'notice.tagsMoved': 'H1Aligner：已搬移 {count} 個 tag 到 frontmatter',
     'notice.error': 'H1Aligner 錯誤：{message}',
     'notice.nothingToUndo': 'H1Aligner：沒有可復原的改名',
     'notice.undoMoved': 'H1Aligner：無法復原 — 檔案已被移動或刪除',
@@ -277,7 +283,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.notif.heading': '通知',
     'set.notice.name': '通知層級',
     'set.notice.desc':
-        '僅影響自動改名。「關閉」完全安靜；「僅錯誤」只回報失敗；「全部」連同成功改名一併通知。手動指令與批次套用一律回報。',
+        '僅影響自動改名。「關閉」完全安靜；「僅錯誤」只回報失敗；「全部」連同成功改名一併通知 — 若有啟用移動 tag 功能，寫入 frontmatter 的 tag 也會一併通知。手動指令與批次套用一律回報。',
     'set.notice.off': '關閉（安靜）',
     'set.notice.errors': '僅錯誤',
     'set.notice.all': '全部改名',
@@ -308,7 +314,11 @@ const zhTW: Record<LocaleKey, string> = {
 
 const ja: Record<LocaleKey, string> = {
     'notice.renamed': 'H1Aligner：リネームしました → {name}',
+    'notice.renamedTags': 'H1Aligner：リネームしました → {name}（+{count} タグ）',
     'notice.skipped': 'H1Aligner：スキップしました（{reason}）',
+    'notice.skippedTags':
+        'H1Aligner：スキップしました（{reason}）－{count} 件のタグを frontmatter へ移動しました',
+    'notice.tagsMoved': 'H1Aligner：{count} 件のタグを frontmatter へ移動しました',
     'notice.error': 'H1Aligner エラー：{message}',
     'notice.nothingToUndo': 'H1Aligner：取り消せるリネームはありません',
     'notice.undoMoved': 'H1Aligner：取り消せません — ファイルが移動または削除されています',
@@ -418,7 +428,7 @@ const ja: Record<LocaleKey, string> = {
     'set.notif.heading': '通知',
     'set.notice.name': '通知レベル',
     'set.notice.desc':
-        '自動リネームのみに適用。「オフ」は通知なし。「エラーのみ」は失敗のみ報告。「すべて」は成功したリネームも通知します。手動コマンドと一括適用は常に報告されます。',
+        '自動リネームのみに適用。「オフ」は通知なし。「エラーのみ」は失敗のみ報告。「すべて」は成功したリネームも通知します — タグ移動機能が有効な場合は、frontmatter へのタグ書き込みも通知します。手動コマンドと一括適用は常に報告されます。',
     'set.notice.off': 'オフ（静か）',
     'set.notice.errors': 'エラーのみ',
     'set.notice.all': 'すべてのリネーム',

@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
+import { isLockValue } from './heading';
 import {
     batchSettingsFingerprint,
     DEFAULT_SETTINGS,
@@ -138,6 +139,38 @@ export default class H1AlignerPlugin extends Plugin {
             }),
         );
 
+        // File context menu — explicit Lock/Unlock (never a toggle: the
+        // label is read from metadataCache at menu-open time and can be
+        // stale, but clicking either explicit item is idempotent and can
+        // never accidentally unlock a note that is actually locked), plus a
+        // conditional "Rename from first H1". `source` is deliberately not
+        // filtered — fires on mobile long-press too.
+        this.registerEvent(
+            this.app.workspace.on('file-menu', (menu, file) => {
+                if (!(file instanceof TFile) || file.extension !== 'md') return;
+                const cache = this.app.metadataCache.getFileCache(file);
+                const locked = isLockValue(cache?.frontmatter?.['h1aligner-lock']);
+                menu.addItem((item) => {
+                    if (locked) {
+                        item.setTitle(t('menu.unlock'))
+                            .setIcon('lock-open')
+                            .onClick(() => void this.setLock(file, false));
+                    } else {
+                        item.setTitle(t('menu.lock'))
+                            .setIcon('lock')
+                            .onClick(() => void this.setLock(file, true));
+                    }
+                });
+                if (this.manualEligible(file)) {
+                    menu.addItem((item) => {
+                        item.setTitle(t('menu.renameFromH1'))
+                            .setIcon('heading-1')
+                            .onClick(() => void this.triggerRename(file, /* manual */ true, 'manual'));
+                    });
+                }
+            }),
+        );
+
         // Manual command — bypasses debounce, trigger mode, and include/
         // exclude scope (explicit user action); still honours ignoreFolders.
         this.addCommand({
@@ -169,6 +202,25 @@ export default class H1AlignerPlugin extends Plugin {
             id: 'show-activity',
             name: t('cmd.showActivity'),
             callback: () => new ActivityModal(this.app, this.activity).open(),
+        });
+
+        // A command-palette name is static, so this is TOGGLE semantics —
+        // but the toggle decision is made from the REAL frontmatter inside
+        // setLock()'s processFrontMatter callback, never from
+        // metadataCache, so cache staleness cannot affect it.
+        this.addCommand({
+            id: 'toggle-lock-active-file',
+            name: t('cmd.toggleLock'),
+            checkCallback: (checking: boolean) => {
+                const file = this.app.workspace.getActiveFile();
+                // Deliberately not manualEligible: locking a note inside an
+                // ignored folder is harmless and reasonable.
+                if (!file || file.extension !== 'md') return false;
+                if (!checking) {
+                    void this.setLock(file, 'toggle');
+                }
+                return true;
+            },
         });
     }
 
@@ -302,6 +354,67 @@ export default class H1AlignerPlugin extends Plugin {
         });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
         if (message) new Notice(message);
+    }
+
+    /**
+     * Lock/unlock a note's `h1aligner-lock` frontmatter key. `lock` is a
+     * plain boolean for the (explicit, never-toggle) file-menu items, or
+     * `'toggle'` for the command-palette command. Exactly one
+     * processFrontMatter write.
+     */
+    private async setLock(file: TFile, lock: boolean | 'toggle'): Promise<void> {
+        // Cancel any pending debounced rename FIRST, unconditionally —
+        // regardless of lock vs unlock. This removes the window in which a
+        // debounce could fire during the await below (harmless for unlock:
+        // the next trigger just reschedules); the raw-content L0 re-check in
+        // rename-service.ts remains the last line of defence either way.
+        this.debouncer.cancel(file.path);
+        this.pendingRenameSource.delete(file.path);
+
+        // Decided inside the callback from the REAL frontmatter, never from
+        // metadataCache. `lock === 'toggle'` is truthy as a raw JS value, so
+        // every step after this callback must read `shouldLock` — never the
+        // `lock` parameter directly — or unlock would never be reachable.
+        let shouldLock = false;
+        try {
+            await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                const before = isLockValue(fm['h1aligner-lock']);
+                shouldLock = lock === 'toggle' ? !before : lock;
+                if (shouldLock) fm['h1aligner-lock'] = true;
+                // Unlock deletes the key entirely rather than writing
+                // false — heading.ts's raw-content LOCK_LINE only ever
+                // recognises `true`, and the frontmatter stays clean.
+                else delete fm['h1aligner-lock'];
+            });
+        } catch (err) {
+            console.error('[H1Aligner] lock toggle failed:', err);
+            new Notice(
+                t('notice.error', {
+                    message: err instanceof Error ? err.message : String(err),
+                }),
+            );
+            // Early return: falling through would report the initial
+            // shouldLock=false default as if the write had succeeded.
+            return;
+        }
+
+        let message = shouldLock
+            ? t('notice.locked', { name: file.basename })
+            : t('notice.unlocked', { name: file.basename });
+        if (!this.settings.skipIfFrontmatterLock) {
+            message += ' ' + t('notice.lockDisabled');
+        }
+        new Notice(message);
+
+        // 'lock-on'/'lock-off' — specifically NOT 'locked', which would
+        // render identically to the existing skip-reason 'locked' in the
+        // activity modal.
+        this.activity.record({
+            ts: Date.now(),
+            path: file.path,
+            source: 'manual',
+            outcome: shouldLock ? 'lock-on' : 'lock-off',
+        });
     }
 
     private batchInFlight = false;

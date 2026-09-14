@@ -27,7 +27,7 @@
  * touching the vault (used by the batch preview).
  */
 import type { App, TFile } from 'obsidian';
-import { extractFirstH1, hasFrontmatterLock } from './heading';
+import { extractFirstH1, hasFrontmatterLock, isLockValue } from './heading';
 import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
@@ -304,12 +304,7 @@ export class RenameService {
             if (settings.skipIfFrontmatterLock) {
                 const fm: Record<string, unknown> | undefined = cache?.frontmatter;
                 const lock = fm ? fm['h1aligner-lock'] : undefined;
-                // Case-insensitive on strings so quoted YAML ("True") agrees
-                // with the raw-content fallback scan.
-                if (
-                    lock === true ||
-                    (typeof lock === 'string' && lock.toLowerCase() === 'true')
-                ) {
+                if (isLockValue(lock)) {
                     return { skipped: 'locked', newName: null };
                 }
             }

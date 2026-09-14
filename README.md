@@ -24,7 +24,7 @@ H1Aligner is an Obsidian plugin that keeps your note filenames aligned with thei
 
 ### One rule, strictly enforced
 
-The first H1 is always the source of truth: **H1 → filename, never the reverse.** Rename a file by hand and it snaps back on the next trigger — unless you lock that note with a single line of frontmatter (`h1aligner-lock: true`). One predictable rule beats a dozen half-configured behaviors.
+The first H1 is always the source of truth: **H1 → filename, never the reverse.** Rename a file by hand and it snaps back on the next trigger — unless you lock that note with a single line of frontmatter (`h1aligner-lock: true`), or use the command / right-click context menu instead of hand-typing it. One predictable rule beats a dozen half-configured behaviors.
 
 ### Renames on your terms
 
@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **414 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **31 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **416 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **35 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -67,6 +67,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. |
 | **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
 | **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
+| **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as two explicit items, **Lock this note** / **Unlock this note** — never a toggle there, so a stale menu label can never accidentally unlock a note that is actually locked. |
 
 ## Settings
 
@@ -76,7 +77,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Ignore folders | `.trash` | Prefix match; `/` means the vault root layer. The Obsidian config folder is always ignored automatically. |
 | Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). Invalid drafts are kept separate and pause new renames until fixed. The default protects date-named daily notes. |
-| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed. |
+| Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed — set it by hand, or use the command / right-click context menu. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
 | When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
 | Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
@@ -191,9 +192,9 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 414 unit tests (vitest, incl. property-based)
+npm test               # 416 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 31 E2E scenarios against the built bundle
+npm run test:e2e       # 35 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 

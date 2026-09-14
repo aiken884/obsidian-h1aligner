@@ -47,6 +47,16 @@ const ATX_H1_EMPTY = /^ {0,3}#(?!#)([ \t]+#+)?[ \t]*$/;
 const LOCK_LINE = /^h1aligner-lock:\s*(true|"true"|'true')(?:\s+#.*)?\s*$/i;
 
 /**
+ * Whether a frontmatter value counts as "locked". Shared by every lock check
+ * that reads a value already parsed out of frontmatter (metadataCache or a
+ * processFrontMatter callback) — case-insensitive on strings so quoted YAML
+ * ("True") agrees with the raw-content fallback scan in hasFrontmatterLock.
+ */
+export function isLockValue(v: unknown): boolean {
+    return v === true || (typeof v === 'string' && v.toLowerCase() === 'true');
+}
+
+/**
  * Content-fallback lock check: when the metadata cache is not populated yet,
  * rename-service scans the raw content it just read for the frontmatter lock.
  */

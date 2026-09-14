@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFirstH1 } from '../src/heading';
+import { extractFirstH1, isLockValue } from '../src/heading';
 
 describe('extractFirstH1', () => {
     describe('cache strategy (Q1: Setext via cache for free)', () => {
@@ -215,6 +215,21 @@ describe('extractFirstH1', () => {
 
         it('returns none for empty content', () => {
             expect(extractFirstH1(null, '').source).toBe('none');
+        });
+    });
+
+    describe('isLockValue (shared by the setLock command/menu and the L0 frontmatter check)', () => {
+        it('treats true and case-insensitive "true" strings as locked', () => {
+            expect(isLockValue(true)).toBe(true);
+            expect(isLockValue('true')).toBe(true);
+            expect(isLockValue('True')).toBe(true);
+        });
+
+        it('treats everything else as unlocked', () => {
+            expect(isLockValue(false)).toBe(false);
+            expect(isLockValue(undefined)).toBe(false);
+            expect(isLockValue('yes')).toBe(false);
+            expect(isLockValue(1)).toBe(false);
         });
     });
 });

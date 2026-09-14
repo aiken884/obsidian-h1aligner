@@ -77,6 +77,18 @@ class Modal {
     open() { global.__lastModal = this; this.onOpen && this.onOpen(); }
     close() { this.onClose && this.onClose(); }
 }
+// Minimal file-menu fakes (design doc §6): addItem(cb) hands the callback a
+// MenuItem whose setTitle/setIcon/onClick each return `this` (chainable, like
+// the real API) and record what was set so scenario 25d can assert on it.
+class FakeMenuItem {
+    setTitle(title) { this.title = title; return this; }
+    setIcon(icon) { this.icon = icon; return this; }
+    onClick(cb) { this.handler = cb; return this; }
+}
+class FakeMenu {
+    constructor() { this.items = []; }
+    addItem(cb) { const item = new FakeMenuItem(); cb(item); this.items.push(item); return this; }
+}
 const notices = [];
 class Notice { constructor(msg) { notices.push(String(msg)); } }
 class TAbstractFile {}
@@ -313,7 +325,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(app._ws['file-open'], 'file-open handler registered');
     assert.ok(app._ws['editor-change'], 'editor-change handler registered');
     assert.equal(app._vault['modify'], undefined, 'no raw vault modify handler (sync/backlink writes ignored)');
-    assert.equal(plugin._commands.length, 4, 'four commands registered');
+    assert.equal(plugin._commands.length, 5, 'five commands registered');
     const onboarding = global.__lastModal;
     assert.ok(onboarding, 'onboarding modal shown on first run');
     // Before the user answers, automatic triggers must stay gated.
@@ -328,7 +340,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     await sleep(20);
     assert.equal(plugin.settings.onboardingShown, true, 'onboarding flag persisted');
     assert.equal(plugin.settings.renameTrigger, 'file-open', 'kept automatic trigger');
-    console.log('✓ 1. onload：settings v2、editor-change 事件、4 個指令、onboarding 首次顯示並保存選擇');
+    console.log('✓ 1. onload：settings v2、editor-change 事件、5 個指令、onboarding 首次顯示並保存選擇');
 
     // --- 2: happy path via cache (file-open trigger) ---
     const fa = addFile(app, 'notes/old-name.md', '# New Title\nbody', 'New Title');
@@ -970,5 +982,126 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 24. 檔案在 debounce 尚未觸發前被改名（手動指令/外部）→ fire-time 清理仍對齊排程時的路徑，不留下永久孤兒項目擋住之後重用該路徑字串的正常改名（Fix B 回歸測試）');
 
-    console.log('\nE2E smoke test: 31/31 scenarios passed（真實 production bundle main.js）');
+    // --- 25: toggle-lock-active-file — TOGGLE semantics decided from the
+    // REAL frontmatter inside processFrontMatter (never metadataCache). Lock
+    // writes true; unlock DELETES the key (never writes false); activity
+    // outcomes are the feature-specific 'lock-on'/'lock-off' strings (never
+    // 'locked' — that would collide with the existing skip-reason display).
+    const lockCmd = plugin._commands.find((c) => c.id === 'toggle-lock-active-file');
+    assert.ok(lockCmd, 'toggle-lock-active-file command registered');
+    const fLockCmd = addFile(app, 'notes/lock-cmd.md', '# Lock Cmd Target\n', 'Lock Cmd Target');
+    app._activeFile = fLockCmd;
+    assert.equal(lockCmd.checkCallback(true), true, 'command available for an active .md file');
+    const noticesBeforeLock = notices.length;
+    lockCmd.checkCallback(false);
+    await sleep(30);
+    assert.equal(app._files.get('notes/lock-cmd.md').fm['h1aligner-lock'], true, 'first toggle locks — writes true');
+    assert.ok(notices.slice(noticesBeforeLock).some((n) => n.includes('locked')), 'a locked notice is shown');
+    const actCmd2 = plugin._commands.find((c) => c.id === 'show-activity');
+    actCmd2.callback();
+    await sleep(20);
+    let lockActTexts = [...global.__lastModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(lockActTexts.some((t) => t.includes('notes/lock-cmd.md') && t.includes('lock-on')), "activity records outcome 'lock-on' (not 'locked')");
+    const noticesBeforeUnlock = notices.length;
+    lockCmd.checkCallback(false); // toggle again — decided from the REAL frontmatter, not metadataCache
+    await sleep(30);
+    assert.equal('h1aligner-lock' in app._files.get('notes/lock-cmd.md').fm, false, 'second toggle DELETES the key (never writes false)');
+    assert.ok(notices.slice(noticesBeforeUnlock).some((n) => n.includes('unlocked')), 'an unlocked notice is shown');
+    actCmd2.callback();
+    await sleep(20);
+    lockActTexts = [...global.__lastModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(lockActTexts.some((t) => t.includes('notes/lock-cmd.md') && t.includes('lock-off')), "activity records outcome 'lock-off' (not 'locked')");
+    console.log("✓ 25. toggle-lock-active-file：從真實 frontmatter 判斷 toggle，鎖定寫 true、解鎖刪除整個 key，activity 記錄 lock-on/lock-off");
+
+    // --- 25b: setLock cancels any pending debounced rename FIRST — before
+    // processFrontMatter, unconditionally (regardless of lock vs unlock) —
+    // so a scheduled rename can never fire during the await.
+    const fCancelDebounce = addFile(app, 'notes/cancel-debounce.md', '# Cancel Debounce Target\n', 'Cancel Debounce Target');
+    app._activeFile = fCancelDebounce;
+    app._ws['file-open'](fCancelDebounce); // schedules a rename after fileOpenDebounceMs (default 100ms)
+    const renameCallCountBeforeCancel = app._renameCalls.length;
+    lockCmd.checkCallback(false); // toggles immediately — must cancel the pending debounce synchronously
+    await sleep(400); // generous buffer well past the 100ms debounce
+    assert.equal(app._renameCalls.length, renameCallCountBeforeCancel, 'the pending file-open debounce was cancelled by setLock, never fired');
+    assert.equal(app._files.get('notes/cancel-debounce.md').fm['h1aligner-lock'], true, 'the lock itself still applied normally');
+    console.log('✓ 25b. setLock 在呼叫 processFrontMatter 之前，unconditionally 先取消任何 pending 的 debounced rename');
+
+    // --- 25c: checkCallback returns false for no active file / non-.md
+    // (deliberately not manualEligible — an active-file + extension check only).
+    app._activeFile = null;
+    assert.equal(lockCmd.checkCallback(true), false, 'no active file → command unavailable');
+    const fNonMdForLock = addFile(app, 'notes/not-markdown.txt', 'plain text', null);
+    fNonMdForLock.extension = 'txt';
+    app._activeFile = fNonMdForLock;
+    assert.equal(lockCmd.checkCallback(true), false, 'non-.md active file → command unavailable');
+    console.log('✓ 25c. toggle-lock-active-file 的 checkCallback：無作用中檔案或非 .md 檔案都回傳 false');
+
+    // --- 25d: file-menu — EXPLICIT Lock/Unlock items (never a toggle) plus
+    // a conditional "Rename from first H1". The label is read from
+    // metadataCache at menu-open time and can be stale, but clicking either
+    // explicit item is idempotent and can never accidentally unlock a note
+    // that is actually locked (the BL blocking item from an earlier draft).
+    let menu = new FakeMenu();
+    app._ws['file-menu'](menu, {}, 'file-explorer-context-menu');
+    assert.equal(menu.items.length, 0, 'a non-TFile gets no menu items');
+
+    const fMenuTxt = addFile(app, 'notes/menu-plain.txt', 'text', null);
+    fMenuTxt.extension = 'txt';
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuTxt, 'file-explorer-context-menu');
+    assert.equal(menu.items.length, 0, 'a non-.md TFile gets no menu items');
+
+    const fMenuUnlocked = addFile(app, 'notes/menu-unlocked.md', '# Menu Unlocked Target\n', 'Menu Unlocked Target');
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuUnlocked, 'file-explorer-context-menu');
+    const lockItem = menu.items.find((i) => i.title === 'Lock this note');
+    assert.ok(lockItem, 'an unlocked file shows "Lock this note"');
+    assert.ok(!menu.items.some((i) => i.title === 'Unlock this note'), 'an unlocked file does not also show "Unlock this note"');
+    lockItem.handler();
+    await sleep(30);
+    assert.equal(app._files.get('notes/menu-unlocked.md').fm['h1aligner-lock'], true, 'clicking "Lock this note" sets fm true');
+
+    const fMenuLocked = addFile(app, 'notes/menu-locked.md', '# Menu Locked Target\n', 'Menu Locked Target');
+    app._files.get('notes/menu-locked.md').cache.frontmatter = { 'h1aligner-lock': true };
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuLocked, 'file-explorer-context-menu');
+    const unlockItem = menu.items.find((i) => i.title === 'Unlock this note');
+    assert.ok(unlockItem, 'a cache-locked file shows "Unlock this note"');
+    assert.ok(!menu.items.some((i) => i.title === 'Lock this note'), 'a cache-locked file does not also show "Lock this note"');
+
+    // Stale-cache case: the REAL frontmatter is already locked, but the
+    // cache still says unlocked (not yet re-indexed) — the shown label is
+    // still "Lock", and clicking it is a safe, idempotent re-lock.
+    const fMenuStale = addFile(app, 'notes/menu-stale.md', '# Menu Stale Target\n', 'Menu Stale Target');
+    app._files.get('notes/menu-stale.md').fm = { 'h1aligner-lock': true }; // real frontmatter: locked
+    // cache intentionally left without a frontmatter lock entry (stale)
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuStale, 'file-explorer-context-menu');
+    const staleItem = menu.items.find((i) => i.title === 'Lock this note');
+    assert.ok(staleItem, 'stale cache (still says unlocked) shows the Lock label even though the note is really locked');
+    staleItem.handler();
+    await sleep(30);
+    assert.equal(app._files.get('notes/menu-stale.md').fm['h1aligner-lock'], true, 'clicking the stale "Lock" label is idempotent — the note stays locked, never accidentally unlocked');
+
+    // A file in an ignored folder (default ignoreFolders: .trash) gets the
+    // Lock/Unlock item but no "Rename from first H1" (manualEligible gate).
+    const fMenuIgnored = addFile(app, '.trash/menu-ignored.md', '# Menu Ignored\n', 'Menu Ignored');
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuIgnored, 'file-explorer-context-menu');
+    assert.ok(!menu.items.some((i) => i.title === 'Rename from first H1'), 'an ignored-folder file gets no "Rename from first H1" item');
+    assert.ok(menu.items.some((i) => i.title === 'Lock this note'), 'an ignored-folder file still gets the Lock/Unlock item');
+
+    const fMenuRename = addFile(app, 'notes/menu-rename-src.md', '# Menu Rename Target\n', 'Menu Rename Target');
+    menu = new FakeMenu();
+    app._ws['file-menu'](menu, fMenuRename, 'file-explorer-context-menu');
+    const renameItem = menu.items.find((i) => i.title === 'Rename from first H1');
+    assert.ok(renameItem, 'an eligible file gets "Rename from first H1"');
+    const renameCallCountBeforeMenuRename = app._renameCalls.length;
+    renameItem.handler();
+    await sleep(80);
+    assert.equal(app._renameCalls.length, renameCallCountBeforeMenuRename + 1, 'clicking "Rename from first H1" triggers a rename');
+    assert.deepEqual(app._renameCalls.at(-1), { from: 'notes/menu-rename-src.md', to: 'notes/Menu Rename Target.md' });
+    console.log('✓ 25d. file-menu：Lock/Unlock 為明確項目（非 toggle），stale cache 下點擊仍安全 idempotent；忽略資料夾不顯示改名項目；點擊改名項目確實觸發改名');
+
+    console.log('\nE2E smoke test: 35/35 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

@@ -31,6 +31,9 @@ const en = {
     'notice.unlocked': 'H1Aligner: unlocked — {name}',
     'notice.lockDisabled':
         '"Respect frontmatter lock" is off in settings — this lock is inactive',
+    'notice.undoButton': 'Undo',
+    'notice.undoSuperseded':
+        'H1Aligner: that rename is no longer the latest — use the Undo command',
     // Commands
     'cmd.renameActive': 'Rename active file from first H1',
     'cmd.batchPreview': 'Preview all renames (dry run)',
@@ -201,6 +204,8 @@ const zhTW: Record<LocaleKey, string> = {
     'notice.locked': 'H1Aligner：已鎖定 → {name} 將不會被改名',
     'notice.unlocked': 'H1Aligner：已解除鎖定 → {name}',
     'notice.lockDisabled': '設定中的「尊重 frontmatter 鎖」目前為關閉 — 此鎖定暫不生效',
+    'notice.undoButton': '復原',
+    'notice.undoSuperseded': 'H1Aligner：該次改名已不是最新 — 請改用復原指令',
     'cmd.renameActive': 'Rename active file from first H1（依第一個 H1 改名目前檔案）',
     'cmd.batchPreview': 'Preview all renames (dry run)（批次預覽）',
     'cmd.undo': 'Undo last rename（復原上一次改名）',
@@ -352,6 +357,9 @@ const ja: Record<LocaleKey, string> = {
     'notice.locked': 'H1Aligner：ロックしました → {name} はリネームされません',
     'notice.unlocked': 'H1Aligner：ロックを解除しました → {name}',
     'notice.lockDisabled': '設定の「フロントマターのロックを尊重」がオフのため、このロックは無効です',
+    'notice.undoButton': '元に戻す',
+    'notice.undoSuperseded':
+        'H1Aligner：そのリネームは最新ではありません — 元に戻すコマンドを使用してください',
     'cmd.renameActive': 'Rename active file from first H1（最初の H1 でリネーム）',
     'cmd.batchPreview': 'Preview all renames (dry run)（一括プレビュー）',
     'cmd.undo': 'Undo last rename（直前のリネームを取り消す）',

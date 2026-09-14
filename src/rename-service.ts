@@ -31,7 +31,7 @@ import { extractFirstH1, hasFrontmatterLock, isLockValue } from './heading';
 import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
-import type { RenameHistory } from './history';
+import type { RenameHistory, RenameRecord } from './history';
 import {
     applyBodyTagRemoval,
     foldName,
@@ -58,6 +58,12 @@ export interface RenameOutcome {
     movedTags?: number;
     /** Experimental tag move: candidates skipped because their cached offsets went stale. */
     staleTags?: number;
+    /**
+     * Set only on a successful, non-dry-run rename: the exact same object
+     * pushed onto `history`, returned synchronously so callers (the notice's
+     * Undo button) never race `history.peek()` timing.
+     */
+    record?: RenameRecord;
 }
 
 export interface RenameOptions {
@@ -415,10 +421,14 @@ export class RenameService {
             await this.app.fileManager.renameFile(file, newPath);
             // The live TFile goes into the record so undo can verify identity
             // (a path alone could later resolve to an unrelated new file).
-            this.history?.push({ from: path, to: newPath, file });
+            // The SAME object is both pushed to history and returned in the
+            // outcome, synchronously — the notice's Undo button reads
+            // outcome.record rather than racing history.peek() after an await.
+            const record: RenameRecord = { from: path, to: newPath, file };
+            this.history?.push(record);
             // NOTE: the optional old-name alias write happens in renameFromH1,
             // after the tag move, so it cannot shift the tag offsets first.
-            return { skipped: 'none', newName: finalBase };
+            return { skipped: 'none', newName: finalBase, record };
         } catch (err) {
             return {
                 skipped: 'none',

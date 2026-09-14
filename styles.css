@@ -101,3 +101,8 @@
     opacity: 0.8;
     font-family: var(--font-monospace);
 }
+
+.h1aligner-notice-undo {
+    margin-left: 0.75em;
+    padding: 0.2em 0.8em;
+}

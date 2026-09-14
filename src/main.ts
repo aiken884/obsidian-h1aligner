@@ -13,8 +13,8 @@ import { H1AlignerSettingTab } from './settings-tab';
 import { isInScope } from './scope';
 import { isIgnoredPath } from './ignore';
 import { KeyedDebouncer } from './debounce';
-import { noticeFor } from './notice';
-import { RenameHistory } from './history';
+import { noticeFor, offersUndo } from './notice';
+import { RenameHistory, type RenameRecord } from './history';
 import { ActivityLog, ActivitySource } from './activity-log';
 import { ActivityModal } from './activity-modal';
 import { OnboardingModal } from './onboarding-modal';
@@ -69,6 +69,22 @@ export default class H1AlignerPlugin extends Plugin {
      * referenced elsewhere — no manual cleanup needed.
      */
     private readonly lastEditAt: WeakMap<TFile, number> = new WeakMap();
+
+    /**
+     * Set in onunload(). Checked as the very first line of undoFromNotice():
+     * the CORRECTNESS guarantee for the notice's Undo button, since a
+     * button's click listener can outlive being evicted from `undoNotices`
+     * below (eviction there is UI tidiness only — see trackUndoNotice()).
+     */
+    private unloaded = false;
+
+    /**
+     * Bounded tracking of undo-offering notices for onunload() UI tidiness
+     * ONLY (cap 10; the oldest is shifted out with no hide() call — it is
+     * left to expire naturally after its own 8s duration). This array is not
+     * what makes a post-unload click safe; `unloaded` above is.
+     */
+    private readonly undoNotices: Notice[] = [];
 
     onload(): void {
         setLocaleFromLanguage(getLanguage());
@@ -225,6 +241,9 @@ export default class H1AlignerPlugin extends Plugin {
     }
 
     onunload(): void {
+        this.unloaded = true;
+        for (const n of this.undoNotices) n.hide();
+        this.undoNotices.length = 0;
         this.debouncer.cancelAll();
         this.pendingRenameSource.clear();
     }
@@ -353,7 +372,67 @@ export default class H1AlignerPlugin extends Plugin {
             detail: outcome.error?.message ?? formatTagMoveDetail(outcome.movedTags, outcome.staleTags),
         });
         const message = noticeFor(outcome, manual, this.settings.noticeLevel);
-        if (message) new Notice(message);
+        if (!message) return;
+        // Undo button (design doc §7): only a successful, non-skip/error
+        // rename with a message earns it — the batch-apply summary and every
+        // skip/error notice fall through offersUndo() and stay a plain,
+        // default-duration Notice (a multi-file apply must not be one-tap
+        // revertible).
+        if (!offersUndo(outcome)) {
+            new Notice(message);
+            return;
+        }
+        const { record } = outcome;
+        const notice = new Notice(message, 8000);
+        const btn = notice.messageEl.createEl('button', {
+            text: t('notice.undoButton'),
+            cls: 'h1aligner-notice-undo',
+        });
+        btn.addEventListener('click', (evt) => {
+            // Not required for correctness (see undoFromNotice's own
+            // unload/identity checks) — just avoids a redundant
+            // dismiss-notice reaction from whatever click listener Obsidian
+            // itself binds on the notice.
+            evt.stopPropagation();
+            this.undoFromNotice(record, notice);
+        });
+        this.trackUndoNotice(notice);
+    }
+
+    /**
+     * Undo-button click handler. Two independent unload-safety layers:
+     *   1. `unloaded`, checked FIRST — the correctness guarantee. A notice's
+     *      button listener can outlive being evicted from `undoNotices`
+     *      (eviction there never calls hide()), so only this flag can be
+     *      relied on to block a stale click after the plugin has unloaded.
+     *   2. `undoNotices`'s cap-10 tracking (see trackUndoNotice) — UI
+     *      tidiness only; onunload() hides and clears it, but that is not
+     *      what makes this handler safe.
+     * Compares by RECORD OBJECT IDENTITY, not TFile identity: Obsidian
+     * mutates a TFile's `.path` in place on rename, so two consecutive
+     * renames of the same file would fool a TFile-based comparison into
+     * letting an older toast revert a newer rename. undoLastRename() re-peeks
+     * and re-verifies on its own — a second line of defence, not bypassed.
+     */
+    private undoFromNotice(record: RenameRecord, notice: Notice): void {
+        if (this.unloaded) return;
+        notice.hide();
+        if (this.history.peek() !== record) {
+            new Notice(t('notice.undoSuperseded'));
+            return;
+        }
+        void this.undoLastRename();
+    }
+
+    /**
+     * UI-tidiness bookkeeping only (see `unloaded` for the correctness
+     * layer): push + cap-10 shift, nothing else — no hide() on eviction, so
+     * an evicted notice's button simply expires naturally after its own 8s
+     * duration instead of being dismissed early.
+     */
+    private trackUndoNotice(notice: Notice): void {
+        this.undoNotices.push(notice);
+        if (this.undoNotices.length > 10) this.undoNotices.shift();
     }
 
     /**

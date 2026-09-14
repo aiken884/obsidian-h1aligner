@@ -684,6 +684,40 @@ describe('RenameService', () => {
             await svc.renameFromH1(same as any);
             expect(history.size).toBe(0);
         });
+
+        it('outcome.record is the SAME object as history.peek() (undo button identity)', async () => {
+            const { RenameHistory } = await import('../src/history');
+            const history = new RenameHistory();
+            const file = makeFile({ basename: 'old', folder: 'notes' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            const svc = new RenameService(app as any, () => settings, history);
+            const out = await svc.renameFromH1(file as any);
+            expect(out.record).toBeDefined();
+            // Object identity, not deep equality: the notice's Undo click
+            // handler compares outcome.record to history.peek() by `===`.
+            expect(out.record).toBe(history.peek());
+        });
+
+        it('leaves outcome.record undefined on a dry run and on a skip', async () => {
+            const { RenameHistory } = await import('../src/history');
+            const history = new RenameHistory();
+            const file = makeFile({ basename: 'old' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'New' }],
+            });
+            const svc = new RenameService(app as any, () => settings, history);
+            const dry = await svc.renameFromH1(file as any, { dryRun: true });
+            expect(dry.record).toBeUndefined();
+
+            const same = makeFile({ basename: 'Same' });
+            app.metadataCache.getFileCache.mockReturnValue({
+                headings: [{ level: 1, heading: 'Same' }],
+            });
+            const skip = await svc.renameFromH1(same as any);
+            expect(skip.record).toBeUndefined();
+        });
     });
 
     describe('error handling', () => {

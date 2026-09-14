@@ -90,7 +90,16 @@ class FakeMenu {
     addItem(cb) { const item = new FakeMenuItem(); cb(item); this.items.push(item); return this; }
 }
 const notices = [];
-class Notice { constructor(msg) { notices.push(String(msg)); } }
+const noticeObjs = [];
+class Notice {
+    constructor(msg, duration) {
+        notices.push(String(msg));
+        this.messageEl = new FakeEl('div');
+        this.duration = duration;
+        noticeObjs.push(this);
+    }
+    hide() { this.hidden = true; }
+}
 class TAbstractFile {}
 class TFile extends TAbstractFile {}
 function getLanguage() { return 'en'; }
@@ -1103,5 +1112,185 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.deepEqual(app._renameCalls.at(-1), { from: 'notes/menu-rename-src.md', to: 'notes/Menu Rename Target.md' });
     console.log('✓ 25d. file-menu：Lock/Unlock 為明確項目（非 toggle），stale cache 下點擊仍安全 idempotent；忽略資料夾不顯示改名項目；點擊改名項目確實觸發改名');
 
-    console.log('\nE2E smoke test: 35/35 scenarios passed（真實 production bundle main.js）');
+    // --- 26: Undo button in the rename notice (design doc §7). Isolated
+    // fresh app/plugin (app6/plugin6) for 26a-26d: the shared `plugin` above
+    // already had onunload() called on it back in scenario 17, which would
+    // now permanently short-circuit its undoFromNotice() handler via the
+    // `unloaded` flag — these scenarios need a plugin that is still "loaded".
+    const app6 = makeFakeApp();
+    const plugin6 = new PluginClass(app6, { id: 'heading-aligner' });
+    plugin6._data = { onboardingShown: true, noticeLevel: 'all' };
+    plugin6.onload();
+    await sleep(80);
+    const cmd6 = plugin6._commands.find((c) => c.id === 'rename-active-file-from-h1');
+    const actCmd6 = plugin6._commands.find((c) => c.id === 'show-activity');
+    const batchCmd6 = plugin6._commands.find((c) => c.id === 'batch-preview-renames');
+
+    // --- 26a: successful round-trip — click the Undo button on the notice
+    // for a fresh automatic rename; the rename reverses, the notice closes,
+    // and the activity log records it with source 'undo' (the button's own
+    // code path, not the command's).
+    const fUndoBtnSrc = addFile(app6, 'notes/undo-btn-src.md', '# Undo Btn Target\n', 'Undo Btn Target');
+    app6._ws['file-open'](fUndoBtnSrc);
+    await sleep(180);
+    assert.ok(app6._files.has('notes/Undo Btn Target.md'), 'setup: file-open renamed the file');
+    const notice26a = noticeObjs.at(-1);
+    assert.equal(notice26a.duration, 8000, 'a successful-rename notice uses the 8000ms undo-window duration');
+    const btn26a = notice26a.messageEl.children.find((c) => c.tag === 'button');
+    assert.ok(btn26a, 'the notice has an Undo button');
+    assert.equal(btn26a.text, 'Undo', 'the button is labeled with notice.undoButton');
+    btn26a.listeners.click[0]({ stopPropagation() {} });
+    await sleep(50);
+    assert.deepEqual(
+        app6._renameCalls.at(-1),
+        { from: 'notes/Undo Btn Target.md', to: 'notes/undo-btn-src.md' },
+        'clicking Undo reverses the rename',
+    );
+    assert.ok(notices.some((n) => n.includes('undone')), 'an "undone" notice confirms the revert');
+    assert.ok(notice26a.hidden, 'the original notice is hidden once Undo is clicked');
+    actCmd6.callback();
+    await sleep(20);
+    const undoActTexts = [...global.__lastModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(undoActTexts.some((t) => t.includes('[undo]')), 'the activity log records this as source "undo"');
+    console.log('✓ 26a. Undo 按鈕成功回退：改名還原、原通知關閉、activity 記錄 source=undo');
+
+    // --- 26b: a toast superseded by a LATER, different rename — clicking its
+    // Undo button must not revert anything; the "no longer the latest"
+    // message is shown instead.
+    const fSupA = addFile(app6, 'notes/superseded-a.md', '# Superseded A\n', 'Superseded A');
+    app6._ws['file-open'](fSupA);
+    await sleep(180);
+    const noticeSupA = noticeObjs.at(-1);
+    const btnSupA = noticeSupA.messageEl.children.find((c) => c.tag === 'button');
+    assert.ok(btnSupA, 'notice A has an Undo button');
+    const fSupB = addFile(app6, 'notes/superseded-b.md', '# Superseded B\n', 'Superseded B');
+    app6._ws['file-open'](fSupB);
+    await sleep(180);
+    const renameCallCountBefore26b = app6._renameCalls.length;
+    const noticesBefore26b = notices.length;
+    btnSupA.listeners.click[0]({ stopPropagation() {} });
+    await sleep(50);
+    assert.equal(app6._renameCalls.length, renameCallCountBefore26b, 'clicking a superseded toast triggers no rename');
+    assert.ok(
+        notices.slice(noticesBefore26b).some((n) => n.includes('no longer the latest')),
+        'the superseded message is shown instead',
+    );
+    console.log('✓ 26b. superseded：較舊 toast 被另一次改名蓋過後點擊 Undo → 拒絕並顯示 superseded 訊息');
+
+    // --- 26c: the SAME file renamed twice — Obsidian mutates a TFile's
+    // .path/.basename in place rather than issuing a new object, so this is
+    // exactly the case a TFile-identity comparison would get wrong. Clicking
+    // the FIRST toast's button after the second rename must be rejected by
+    // record-object-identity, not silently "succeed" via a TFile match.
+    const fSameTwice = addFile(app6, 'notes/same-twice-1.md', '# Same Twice First\n', 'Same Twice First');
+    app6._ws['file-open'](fSameTwice);
+    await sleep(180);
+    assert.ok(app6._files.has('notes/Same Twice First.md'), 'setup: first rename of the file');
+    const noticeFirst = noticeObjs.at(-1);
+    const btnFirst = noticeFirst.messageEl.children.find((c) => c.tag === 'button');
+    assert.ok(btnFirst, 'the first toast has an Undo button');
+    // Re-fire file-open on the SAME TFile object with an updated H1 — a
+    // second, independent successful rename of that one file.
+    const sameTwiceEntry = app6._files.get('notes/Same Twice First.md');
+    sameTwiceEntry.cache.headings[0].heading = 'Same Twice Second';
+    sameTwiceEntry.content = '# Same Twice Second\n';
+    app6._ws['file-open'](fSameTwice);
+    await sleep(180);
+    assert.ok(app6._files.has('notes/Same Twice Second.md'), 'setup: second rename of the SAME file object');
+    const renameCallCountBefore26c = app6._renameCalls.length;
+    const noticesBefore26c = notices.length;
+    btnFirst.listeners.click[0]({ stopPropagation() {} });
+    await sleep(50);
+    assert.equal(app6._renameCalls.length, renameCallCountBefore26c, 'the stale first toast cannot undo after a second rename of the same file');
+    assert.ok(
+        notices.slice(noticesBefore26c).some((n) => n.includes('no longer the latest')),
+        'record-identity mismatch is reported, not a false-positive TFile-identity match',
+    );
+    console.log('✓ 26c. 同一檔案連續改名兩次：第一個 toast 的 Undo 因 record 物件識別不符而被拒（非 TFile 識別）');
+
+    // --- 26d: only a successful, non-batch, non-skip/error rename earns the
+    // button + 8000ms duration. The batch-apply summary, a manual skip
+    // notice, and a manual error notice all stay a plain, default-duration
+    // Notice with no button.
+    const fBatchD1 = addFile(app6, 'batch/undo-d1.md', '# Undo D One\n', 'Undo D One');
+    const fBatchD2 = addFile(app6, 'batch/undo-d2.md', '# Undo D Two\n', 'Undo D Two');
+    batchCmd6.callback();
+    await sleep(150);
+    const batchDApply = [...global.__lastModal.contentEl.walk()].find((e) => e.tag === 'button' && e.text.startsWith('Apply'));
+    assert.ok(batchDApply, 'batch apply button present');
+    batchDApply.listeners.click[0]();
+    await sleep(150);
+    assert.ok(app6._files.has('batch/Undo D One.md') && app6._files.has('batch/Undo D Two.md'), 'setup: batch items renamed');
+    const batchSummaryNotice = noticeObjs.at(-1);
+    assert.ok(notices.at(-1).includes('batch renamed'), 'the last notice is the batch-apply summary');
+    assert.equal(batchSummaryNotice.duration, undefined, 'batch summary notice keeps the default duration, not 8000ms');
+    assert.ok(!batchSummaryNotice.messageEl.children.some((c) => c.tag === 'button'), 'batch summary notice has no Undo button');
+
+    const fNoH1Manual = addFile(app6, 'notes/no-h1-manual.md', 'no heading\n', null);
+    app6._activeFile = fNoH1Manual;
+    cmd6.checkCallback(false);
+    await sleep(80);
+    const skipNotice = noticeObjs.at(-1);
+    assert.ok(notices.at(-1).includes('skipped'), 'the last notice is a manual skip notice');
+    assert.equal(skipNotice.duration, undefined, 'skip notice keeps the default duration');
+    assert.ok(!skipNotice.messageEl.children.some((c) => c.tag === 'button'), 'skip notice has no Undo button');
+
+    const fErrManual = addFile(app6, 'notes/err-manual.md', '# Err Manual Target\n', 'Err Manual Target');
+    const savedRenameFile6 = app6.fileManager.renameFile;
+    app6.fileManager.renameFile = async () => { throw new Error('simulated write failure'); };
+    app6._activeFile = fErrManual;
+    cmd6.checkCallback(false);
+    await sleep(80);
+    app6.fileManager.renameFile = savedRenameFile6;
+    const errNotice = noticeObjs.at(-1);
+    assert.ok(notices.at(-1).includes('H1Aligner error'), 'the last notice is an error notice');
+    assert.equal(errNotice.duration, undefined, 'error notice keeps the default duration');
+    assert.ok(!errNotice.messageEl.children.some((c) => c.tag === 'button'), 'error notice has no Undo button');
+
+    const fUndoD3 = addFile(app6, 'notes/undo-d3.md', '# Undo D Three\n', 'Undo D Three');
+    app6._ws['file-open'](fUndoD3);
+    await sleep(180);
+    const okNotice = noticeObjs.at(-1);
+    assert.equal(okNotice.duration, 8000, 'a genuinely successful single-file rename still gets the 8000ms duration');
+    assert.ok(okNotice.messageEl.children.some((c) => c.tag === 'button'), 'a genuinely successful single-file rename still gets the Undo button');
+    console.log('✓ 26d. batch 摘要、手動 skip、手動 error 通知都沒有 Undo 按鈕且維持預設 duration；只有真正成功的單一改名通知才有按鈕與 8000ms');
+
+    // --- 26e: after onunload(), NEITHER an evicted notice's button NOR a
+    // still-tracked one's can trigger a rename — proving the `unloaded` FLAG
+    // (not just the cap-10 tracking array) is what blocks it. Cap 10: with
+    // 12 button-bearing notices created, the first two are evicted from
+    // `undoNotices` (shifted out with no hide() call — left to expire
+    // naturally), and only the last 10 get hidden by onunload().
+    const app7 = makeFakeApp();
+    const plugin7 = new PluginClass(app7, { id: 'heading-aligner' });
+    plugin7._data = { onboardingShown: true, noticeLevel: 'all' };
+    plugin7.onload();
+    await sleep(80);
+    const noticeObjsBaseline26e = noticeObjs.length;
+    for (let i = 1; i <= 12; i++) {
+        const f = addFile(app7, `notes/evict-${i}.md`, `# Evict ${i} Target\n`, `Evict ${i} Target`);
+        app7._ws['file-open'](f);
+        await sleep(150);
+    }
+    const createdNotices26e = noticeObjs.slice(noticeObjsBaseline26e);
+    assert.equal(createdNotices26e.length, 12, 'setup: 12 undo-offering notices created');
+    const buttons26e = createdNotices26e.map((n) => n.messageEl.children.find((c) => c.tag === 'button'));
+    assert.ok(buttons26e.every(Boolean), 'setup: every one of the 12 notices has an Undo button');
+    plugin7.onunload();
+    const evictedTwo26e = createdNotices26e.slice(0, 2);
+    const trackedTen26e = createdNotices26e.slice(2);
+    assert.ok(trackedTen26e.every((n) => n.hidden === true), 'the 10 still-tracked notices are hidden by onunload (UI-tidiness layer)');
+    assert.ok(evictedTwo26e.every((n) => !n.hidden), 'the 2 evicted notices are left untouched — no hide() call on eviction');
+    const renameCallCountBefore26e = app7._renameCalls.length;
+    buttons26e[0].listeners.click[0]({ stopPropagation() {} }); // an evicted notice's button
+    buttons26e.at(-1).listeners.click[0]({ stopPropagation() {} }); // a still-tracked notice's button
+    await sleep(50);
+    assert.equal(
+        app7._renameCalls.length,
+        renameCallCountBefore26e,
+        'neither the evicted notice nor the still-tracked one can trigger a rename after unload — the `unloaded` flag blocks both, not just array membership',
+    );
+    console.log('✓ 26e. onunload：cap 10 逐出最舊通知（不 hide，任其自然到期）；unloaded flag 同時擋下 evicted 與仍被追蹤通知的 Undo 點擊');
+
+    console.log('\nE2E smoke test: 40/40 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

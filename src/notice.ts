@@ -17,6 +17,7 @@
  */
 import type { RenameOutcome } from './rename-service';
 import type { NoticeLevel } from './settings';
+import type { RenameRecord } from './history';
 import { t } from './i18n';
 import { describeSkipReason } from './skip-reason';
 
@@ -43,4 +44,22 @@ export function noticeFor(
         return level === 'all' ? t('notice.tagsMoved', { count: tags }) : null;
     }
     return manual ? t('notice.skipped', { reason }) : null;
+}
+
+/**
+ * Type predicate (design doc §7): does this outcome earn the notice's Undo
+ * button? A successful (non-skip, non-error) rename that produced both a
+ * filename and its history record. Narrowing via `outcome is RenameOutcome &
+ * { record: RenameRecord }` lets callers read `outcome.record` afterwards
+ * without a non-null assertion.
+ */
+export function offersUndo(
+    outcome: RenameOutcome,
+): outcome is RenameOutcome & { record: RenameRecord } {
+    return (
+        outcome.skipped === 'none' &&
+        !outcome.error &&
+        !!outcome.newName &&
+        !!outcome.record
+    );
 }

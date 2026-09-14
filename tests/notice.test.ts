@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { noticeFor } from '../src/notice';
+import { noticeFor, offersUndo } from '../src/notice';
 import type { RenameOutcome } from '../src/rename-service';
+import type { RenameRecord } from '../src/history';
 
 const renamed: RenameOutcome = { skipped: 'none', newName: 'New Title' };
 const noH1: RenameOutcome = { skipped: 'no-h1', newName: null };
@@ -91,5 +92,39 @@ describe('noticeFor', () => {
                 'H1Aligner: skipped (Frontmatter lock)',
             );
         });
+    });
+});
+
+describe('offersUndo (type predicate: does this outcome earn the notice Undo button?)', () => {
+    const record: RenameRecord = { from: 'old.md', to: 'New.md' };
+
+    it('true: a successful rename with a record', () => {
+        const outcome: RenameOutcome = { skipped: 'none', newName: 'New', record };
+        expect(offersUndo(outcome)).toBe(true);
+    });
+
+    it('false: skipped (even with a record present, which should never happen in practice)', () => {
+        const outcome: RenameOutcome = { skipped: 'same-name', newName: null, record };
+        expect(offersUndo(outcome)).toBe(false);
+    });
+
+    it('false: errored', () => {
+        const outcome: RenameOutcome = {
+            skipped: 'none',
+            newName: 'New',
+            record,
+            error: new Error('disk full'),
+        };
+        expect(offersUndo(outcome)).toBe(false);
+    });
+
+    it('false: newName is null', () => {
+        const outcome: RenameOutcome = { skipped: 'none', newName: null, record };
+        expect(offersUndo(outcome)).toBe(false);
+    });
+
+    it('false: record is explicitly undefined (dry-run/skip fixture shape)', () => {
+        const outcome: RenameOutcome = { skipped: 'none', newName: 'New', record: undefined };
+        expect(offersUndo(outcome)).toBe(false);
     });
 });

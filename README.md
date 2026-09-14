@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **416 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **35 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **423 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **40 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -65,7 +65,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 |---|---|
 | **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
 | **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. |
-| **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry. |
+| **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry — or tap **Undo** on the notice itself, right after a successful rename. |
 | **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
 | **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as two explicit items, **Lock this note** / **Unlock this note** — never a toggle there, so a stale menu label can never accidentally unlock a note that is actually locked. |
 
@@ -155,7 +155,7 @@ Backlinks update automatically because the plugin uses `app.fileManager.renameFi
 
 **Daily notes are protected by default.** Date-named notes (`2026-07-03.md`) are never auto-renamed thanks to the default exclude pattern. Remove it if you actually want that.
 
-**Undo is session-scoped.** Up to 20 renames, newest first, this session only. If the H1 still differs from the restored name and an automatic trigger is active, the next trigger renames it again — lock the note or fix the H1 to make the old name stick.
+**Undo is session-scoped.** Up to 20 renames, newest first, this session only. If the H1 still differs from the restored name and an automatic trigger is active, the next trigger renames it again — lock the note or fix the H1 to make the old name stick. When a rename shows a notice, that notice itself carries an **Undo** button for about 8 seconds — no command palette required. A toast that a later rename has superseded (of the same or a different file) refuses to undo and tells you to use the command instead, so an old toast can never revert the wrong thing.
 
 ## ⚠️ Do not pair with these plugins
 
@@ -192,9 +192,9 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 416 unit tests (vitest, incl. property-based)
+npm test               # 423 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 35 E2E scenarios against the built bundle
+npm run test:e2e       # 40 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 

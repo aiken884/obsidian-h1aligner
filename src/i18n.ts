@@ -185,7 +185,7 @@ const zhTW: Record<LocaleKey, string> = {
     'notice.renamed': 'H1Aligner：已改名 → {name}',
     'notice.renamedTags': 'H1Aligner：已改名 → {name}（+{count} 個 tag）',
     'notice.skipped': 'H1Aligner：已跳過（{reason}）',
-    'notice.skippedTags': 'H1Aligner：已跳過（{reason}）－已搬移 {count} 個 tag 到 frontmatter',
+    'notice.skippedTags': 'H1Aligner：已跳過（{reason}） — 已搬移 {count} 個 tag 到 frontmatter',
     'notice.tagsMoved': 'H1Aligner：已搬移 {count} 個 tag 到 frontmatter',
     'notice.error': 'H1Aligner 錯誤：{message}',
     'notice.nothingToUndo': 'H1Aligner：沒有可復原的改名',
@@ -338,7 +338,7 @@ const ja: Record<LocaleKey, string> = {
     'notice.renamedTags': 'H1Aligner：リネームしました → {name}（+{count} タグ）',
     'notice.skipped': 'H1Aligner：スキップしました（{reason}）',
     'notice.skippedTags':
-        'H1Aligner：スキップしました（{reason}）－{count} 件のタグを frontmatter へ移動しました',
+        'H1Aligner：スキップしました（{reason}） — {count} 件のタグを frontmatter へ移動しました',
     'notice.tagsMoved': 'H1Aligner：{count} 件のタグを frontmatter へ移動しました',
     'notice.error': 'H1Aligner エラー：{message}',
     'notice.nothingToUndo': 'H1Aligner：取り消せるリネームはありません',

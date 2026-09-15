@@ -30,6 +30,80 @@ Using a dedicated test vault is recommended.
 | 15 | Rename notice Undo button | Trigger a rename, then tap the **Undo** button on the toast itself (not the command palette) | The toast shows a tappable Undo button; tapping it reverts the rename, closes the toast, and the activity log records source "undo"; tapping an older toast after a newer rename has happened shows "no longer the latest" instead of undoing |
 | 16 | Lock / unlock via context menu | Long-press a note in the file explorer (or right-click on desktop) → **Lock this note** → open the note; then long-press it again *immediately* (before re-indexing) and confirm whatever the menu shows cannot accidentally unlock it; then **Unlock this note** → open the note | Locked: opening the note does not rename it. The menu never offers an action that unlocks a note that is actually still locked, even if its label is briefly stale. Unlocked: opening the note renames it again |
 
+## Suggested Run Order (single efficient pass)
+
+Items are grouped into phases so trigger/notice settings are changed as few times as possible. Run this
+same sequence on iPhone and again on Android (skip #13's Android-only note on iOS, and vice versa the item
+doesn't apply). Do the whole thing in **one dedicated test vault**, not your real vault.
+
+**Prep, once per device:**
+- Install per the "Installation" section above, but do **not** enable the plugin yet — item #1 requires a
+  genuinely fresh enable.
+- Have these test notes ready to create as you go (exact names matter for a couple of items):
+  - `2026-09-15.md` (or today's date) — for #4, daily-note protection. Give it an H1 that does **not** match
+    the filename, e.g. `# Not the date`.
+  - `Readme.md` — for #8 (iOS) / #13 (Android). Create it first with any H1.
+  - A long-CJK note for #3 — H1 of 100+ Chinese characters (e.g. paste a paragraph).
+  - 3-4 disposable notes with mismatched H1s for #9/#10 batch preview+apply.
+  - One note whose H1 you can freely edit for #6/#6b/#15.
+
+**Phase 0 — Fresh install (#1).** Enable the plugin for the first time. Confirm the onboarding modal
+appears once; pick "Start with manual mode"; confirm the trigger setting became Manual only; restart the
+app and confirm the modal does *not* reappear.
+
+**Phase 1 — Settings: trigger = On file open, notice level = All.** Covers #2, #3, #4, #5, #8 or #13, #15,
+#16 — all naturally exercised via "open a note and see what happens," so batch them together:
+1. #2: open a mismatched-H1 note → renamed in ~0.1s, backlinks intact.
+2. #3: open the long-CJK note → renames cleanly, no error on either OS.
+3. #4: open `2026-09-15.md` → not renamed (daily-note protection).
+4. #5: add `h1aligner-lock: true` to a note's frontmatter, open it → not renamed; run the manual rename
+   command on it → reports skipped (locked).
+5. #16 (uses the same locked note from #5): long-press it in the file explorer → confirm the menu shows
+   **Unlock this note** (it's currently locked) → tap it → open the note → now renames normally. Long-press
+   again *immediately* after re-locking it (before giving the UI time to re-index) and confirm the menu
+   can't be used to accidentally unlock it.
+6. #8 (iOS) / #13 (Android): create/open a second note whose H1 is `README` while `Readme.md` exists →
+   skipped as a collision, `Readme.md` untouched. (Android: additionally create `Note.md` and `note.md` and
+   record the actual collision behavior — this item exists specifically to document real device behavior,
+   not to assert a single expected outcome.)
+7. #15: trigger any rename in this phase (e.g. re-run #2 on a fresh note) → tap the **Undo** button on the
+   toast itself → filename reverts, toast closes, activity log records source "undo." Trigger two renames
+   back to back and tap the *older* toast's button → should say "no longer the latest" instead of undoing.
+
+**Phase 2 — Settings: trigger = After editing.** Covers #6 and #7:
+1. #6: edit a note's H1, pause 2 seconds with the keyboard still open → renames after the pause; confirm no
+   rename fires *during* typing and the cursor never jumps.
+2. #7 (needs a second device signed into the same Sync vault): edit the H1 on device A while this device
+   sits idle on that same note → this device must **not** rename off the synced write.
+
+**Phase 3 — Settings: trigger = Both, then Leave.** Covers #6b:
+1. Switch to "Both enabled" → re-run #2's file-open check and #6's edit-pause check, both should fire.
+2. Switch to "On leaving a note" → edit the H1 while staying on the note (no rename yet) → switch to a
+   different note → the note you left is now renamed.
+
+**Phase 4 — Settings: trigger = Manual only.** Covers #9, #10, #11, #14 — batch/manual flows where you
+don't want anything renaming out from under you:
+1. #14: turn on "Keep old filename as alias," manually rename a note → old filename appears in frontmatter
+   aliases; quick switcher finds the note by its old name.
+2. #9: run "Preview all renames (dry run)" over your disposable batch notes (arrange for at least one
+   collision, one skip, one error if you can) → results grouped into Rename/Conflicts/Errors/Skipped,
+   scrollable, no horizontal overflow; change a rename-affecting setting while the preview is open → it's
+   rejected as stale and asks for a re-preview.
+3. #10: apply the batch, then run "Undo last rename" → last rename reverts; both the apply and the undo show
+   up in the activity log.
+4. #11: open "Show recent activity" → everything from this whole run so far is listed (time / source /
+   result), readable at phone width.
+
+**Phase 5 — Full settings walkthrough (#12), last.** Touches every settings field, so do it after
+everything else so a half-changed setting can't contaminate an earlier phase: open plugin settings, adjust
+each field and watch the live preview; type an invalid exclusion regex (e.g. `[`) → inline error appears,
+the previous valid rule stays active, and automatic/manual/batch renaming all pause until it's fixed → fix
+it → renaming resumes. Confirm zh-TW strings throughout if Obsidian's language is set to Traditional
+Chinese.
+
+**Wrap-up:** fill in one row of the Verification Log table below per device — date, device/OS, Obsidian
+version, plugin version, and which numbered items passed/failed/were skipped with why.
+
 ## Verification Log
 
 | Date | Device / OS | Obsidian Version | Plugin Version | Result (passed items / failed items with description) |

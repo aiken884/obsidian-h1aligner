@@ -32,7 +32,7 @@ import { join } from "path";
 // or note names without Aiken's OK.
 const VAULTS = [
     "/Users/aikenlin/Obsidian/ObsidianVault",
-    "/Users/aikenlin/Obsidian/ObsidianTestVault/ObsidianTestVault",
+    "/Users/aikenlin/Obsidian/ObsidianTestVault",
 ];
 
 console.log("Building...");

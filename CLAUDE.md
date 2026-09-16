@@ -26,5 +26,5 @@ remagraph search --cross-project-label topic:how-to-contact-tower
 
 ## Vaults
 
-- **ObsidianTestVault**（Mac：`/Users/aikenlin/Obsidian/ObsidianTestVault/ObsidianTestVault`）是專門固定拿來測試的資料庫。外掛實機驗證、設定頁驗證、Obsidian Sync 到手機，都用這個 vault。
+- **ObsidianTestVault**（Mac：`/Users/aikenlin/Obsidian/ObsidianTestVault`）是專門固定拿來測試的資料庫。外掛實機驗證、設定頁驗證、Obsidian Sync 到手機，都用這個 vault。
 - 主 vault 是 **ObsidianVault**（Mac：`/Users/aikenlin/Obsidian/ObsidianVault`）：真實筆記。未經 Aiken 同意，不要改主 vault 的設定或檔名。

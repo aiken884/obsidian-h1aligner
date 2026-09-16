@@ -403,7 +403,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     await sleep(20);
     assert.equal(plugin.settings.onboardingShown, true, 'onboarding flag persisted');
     assert.equal(plugin.settings.renameTrigger, 'file-open', 'kept automatic trigger');
-    console.log('✓ 1. onload：settings v2、editor-change 事件、5 個指令、onboarding 首次顯示並保存選擇');
+    console.log('✓ 1. onload：settings v2、editor-change 事件、6 個指令、onboarding 首次顯示並保存選擇');
 
     // --- 2: happy path via cache (file-open trigger) ---
     const fa = addFile(app, 'notes/old-name.md', '# New Title\nbody', 'New Title');

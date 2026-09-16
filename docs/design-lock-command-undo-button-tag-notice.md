@@ -1,12 +1,15 @@
 # Design Document: Lock Command, Undo Button in Notice, Tag-Move Notice (0.12.0, batch 1)
 
 Date: 2026-09-13  Status: **Design finalized (external review round 3: approve).**
-Implementation status (2026-09-14): all three features (A, B, C) are implemented on branch
+Implementation status (2026-09-16): all three features (A, B, C) were implemented on branch
 `feature/0.12.0-batch1` — commits `515dd9b` (A), `c984036` (B), `336c404` (C), each TDD'd and independently
-adversarially reviewed against this document with no blocking issues. `npm run lint`, `npm run build`,
-`npm test` (423, up from 408), and `npm run test:e2e` (40, up from 31) are all green on the branch tip.
-**Not yet merged to `main`** — per §11, that happens only after Aiken reviews the three commits and runs the
-on-device checklist there.
+adversarially reviewed against this document with no blocking issues, plus a wrap-up commit `78e9a04`.
+`npm run lint`, `npm run build`, `npm test` (423), and `npm run test:e2e` (40) were green throughout.
+**Merged to `main`** (fast-forward, `78e9a04`) after Aiken's review; the batch branch has been deleted.
+Real desktop on-device verification (Mac + PC, not the automated suite) also passed 4/4 on all items,
+including the stale-cache race — see `docs/MOBILE-TESTING.md`'s Verification Log. Actual iPhone/Android
+on-device testing and the `0.12.0` version bump/release are separate, still-pending steps per §11 —
+the checklist for that is waiting in "H1Aligner Mobile Verification.md" at the root of Aiken's main vault.
 Target version: H1Aligner (community id `heading-aligner`) 0.12.0
 Companion: the full-context planning file (including the author's own vault configuration that motivated
 the feature choice) lives outside the repo; this document is the repo-safe, implementation-ready version.

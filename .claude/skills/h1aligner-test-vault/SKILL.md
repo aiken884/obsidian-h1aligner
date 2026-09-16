@@ -62,6 +62,7 @@ Settings-page conflict row (Obsidian 1.13.7): extra nodes created on `group.list
 - One note can serve multiple sequential checklist items — don't multiply notes; the goal is speed, not exhaustive 1:1 coverage.
 - Notes meant for a *later* phase (e.g. manual-only disposables) are safe to pre-create now with `app.vault.create` — creation alone never fires the file-open hook, so they won't be prematurely renamed.
 - Never touch `ObsidianVault` (the real vault) from this skill. Always pass `vault=ObsidianTestVault` explicitly to every `obsidian` CLI call.
+- Index notes (`00-測試索引.md` and similar) must be locked (`h1aligner-lock: true`) **or** the H1 itself must keep the sort prefix. Opening an unlocked index whose H1 does not match the `00-` filename will rename it and drop the prefix (happened 2026-09-16).
 
 ## Quick-reference eval snippets
 

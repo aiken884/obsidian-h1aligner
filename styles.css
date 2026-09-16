@@ -72,19 +72,21 @@
 .h1aligner-experimental-warning {
     font-weight: 600;
     color: var(--text-error);
-    margin-top: -0.5em;
-    margin-bottom: 1em;
 }
 
-.h1aligner-scope-conflict {
-    font-weight: 600;
+.h1aligner-experimental-warning .setting-item-name,
+.h1aligner-experimental-warning .setting-item-description {
     color: var(--text-error);
-    margin-top: -0.5em;
-    margin-bottom: 1em;
+    font-weight: 600;
 }
 
 .h1aligner-scope-conflict.is-hidden {
     display: none;
+}
+
+.h1aligner-scope-conflict .setting-item-description {
+    color: var(--text-error);
+    font-weight: 600;
 }
 
 .h1aligner-screen-reader-only {

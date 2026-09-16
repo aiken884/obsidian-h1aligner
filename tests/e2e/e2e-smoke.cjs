@@ -16,7 +16,19 @@ class FakeEl {
         this.style = {};
         this.listeners = {};
         this.attributes = {};
-        this.classList = { add() {} };
+        this.classes = new Set();
+        const self = this;
+        this.classList = {
+            add(...cs) { cs.forEach((c) => self.classes.add(c)); },
+            remove(...cs) { cs.forEach((c) => self.classes.delete(c)); },
+            contains(c) { return self.classes.has(c); },
+            toggle(c, force) {
+                if (force === true) self.classes.add(c);
+                else if (force === false) self.classes.delete(c);
+                else if (self.classes.has(c)) self.classes.delete(c);
+                else self.classes.add(c);
+            },
+        };
     }
     createEl(tag, opts) { const el = new FakeEl(tag, opts); this.children.push(el); return el; }
     createDiv(opts) { return this.createEl('div', opts); }
@@ -25,6 +37,8 @@ class FakeEl {
     remove() { this.children = []; this.removed = true; }
     setText(t) { this.text = t; }
     setAttribute(name, value) { this.attributes[name] = String(value); }
+    addClass(...cs) { this.classList.add(...cs); }
+    toggleClass(c, force) { this.classList.toggle(c, force); }
     addEventListener(evt, cb) { (this.listeners[evt] = this.listeners[evt] || []).push(cb); }
     *walk() { yield this; for (const c of this.children) yield* c.walk(); }
 }
@@ -62,13 +76,46 @@ class TextAreaComponent {
     setValue(value) { this.inputEl.value = value; return this; }
     onChange(cb) { this.inputEl.onChange = cb; return this; }
 }
+class TextComponent {
+    constructor(settingEl) {
+        this.inputEl = new FakeEl('input');
+        settingEl.children.push(this.inputEl);
+    }
+    setPlaceholder(value) { this.inputEl.placeholder = value; return this; }
+    setValue(value) { this.inputEl.value = value; return this; }
+    onChange(cb) { this.inputEl.onChange = cb; return this; }
+}
 class Setting {
     constructor(containerEl) {
         this.settingEl = new FakeEl('div');
+        this.settingEl.addClass('setting-item');
         containerEl.children.push(this.settingEl);
     }
-    setName() { return this; } setDesc() { return this; } setHeading() { return this; }
-    addToggle() { return this; } addText() { return this; }
+    setName(name) {
+        this.name = name;
+        if (!this.nameEl) {
+            this.nameEl = this.settingEl.createDiv();
+            this.nameEl.addClass('setting-item-name');
+        }
+        this.nameEl.setText(name || '');
+        return this;
+    }
+    setDesc(desc) {
+        const text = typeof desc === 'string' ? desc : '';
+        this.desc = text;
+        if (!this.descEl) {
+            this.descEl = this.settingEl.createDiv();
+            this.descEl.addClass('setting-item-description');
+        }
+        this.descEl.setText(text);
+        return this;
+    }
+    setHeading() { return this; }
+    addToggle() { return this; }
+    addText(cb) {
+        if (typeof cb === 'function') cb(new TextComponent(this.settingEl));
+        return this;
+    }
     addTextArea(cb) { cb(new TextAreaComponent(this.settingEl)); return this; }
     addDropdown() { return this; }
 }
@@ -234,16 +281,21 @@ function addFile(app, p, content, h1InCache, frontmatter) {
  */
 function renderDeclarativeSettings(tab) {
     tab.containerEl.empty();
-    const renderItems = (items, containerEl) => {
+    const renderItems = (items, containerEl, pruneToSettingEls = false) => {
+        const kept = [];
         for (const item of items) {
             if (item.visible === false) continue;
             if (typeof item.visible === 'function' && !item.visible()) continue;
             if (item.type === 'group' || item.type === 'list') {
                 if (item.heading) new Setting(containerEl).setName(item.heading).setHeading();
-                if (item.items) renderItems(item.items, containerEl);
+                // Real 1.13.7 SettingGroup.listEl: after every item.render,
+                // the renderer re-parents and keeps only each item's settingEl.
+                const listEl = containerEl.createDiv();
+                if (item.items) renderItems(item.items, listEl, true);
                 continue;
             }
             const setting = new Setting(containerEl);
+            kept.push(setting.settingEl);
             if (item.name) setting.setName(item.name);
             if (item.desc) setting.setDesc(item.desc);
             if (item.render) {
@@ -278,6 +330,7 @@ function renderDeclarativeSettings(tab) {
                 });
             }
         }
+        if (pruneToSettingEls) containerEl.children = kept;
     };
     renderItems(tab.getSettingDefinitions(), tab.containerEl);
 }
@@ -423,6 +476,54 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.equal(excludeInput.attributes['aria-invalid'], 'false', 'textarea clears invalid state');
     await excludeInput.onChange('^\\d{4}-\\d{2}-\\d{2}$');
     console.log('✓ 4b. 設定頁：無效 pattern 即時 inline 驗證、保留有效規則、修正後才套用');
+
+    // --- 4c: include/ignore overlap warning survives 1.13.7 listEl prune ---
+    const prevInclude = plugin.settings.includeFolders;
+    const prevIgnore = plugin.settings.ignoreFolders;
+    plugin.settings.includeFolders = ['/', 'H1A-SCOPE-sub'];
+    plugin.settings.ignoreFolders = ['.trash', 'H1A-SCOPE-sub'];
+    renderDeclarativeSettings(plugin._settingTab);
+    const conflictRow = [...plugin._settingTab.containerEl.walk()].find(
+        (e) => e.classes && e.classes.has('h1aligner-scope-conflict'),
+    );
+    assert.ok(conflictRow, 'conflict warning settingEl is still in the DOM after listEl prune');
+    assert.equal(conflictRow.classes.has('is-hidden'), false, 'overlapping folders show the conflict row');
+    const conflictTexts = [...conflictRow.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(conflictTexts.some((t) => t.includes('H1A-SCOPE-sub')), 'conflict description names the overlapping folder');
+    plugin.settings.includeFolders = ['/'];
+    plugin.settings.ignoreFolders = ['.trash'];
+    renderDeclarativeSettings(plugin._settingTab);
+    const hiddenConflict = [...plugin._settingTab.containerEl.walk()].find(
+        (e) => e.classes && e.classes.has('h1aligner-scope-conflict'),
+    );
+    assert.ok(hiddenConflict, 'conflict settingEl still exists when lists do not overlap');
+    assert.equal(hiddenConflict.classes.has('is-hidden'), true, 'non-overlapping lists hide the conflict row');
+    plugin.settings.includeFolders = prevInclude;
+    plugin.settings.ignoreFolders = prevIgnore;
+    console.log('✓ 4c. 設定頁：忽略與僅套用重疊時衝突提示仍在 settingEl 上（1.13.7 listEl 重排）');
+
+    // --- 4d: filename preview lives on settingEl, not group.listEl ---
+    renderDeclarativeSettings(plugin._settingTab);
+    const previewInput = [...plugin._settingTab.containerEl.walk()].find(
+        (e) => e.tag === 'input' && e.placeholder === '# My note: draft/v2',
+    );
+    assert.ok(previewInput, 'filename preview input rendered');
+    previewInput.onChange('# Hello world');
+    const previewEl = [...plugin._settingTab.containerEl.walk()].find(
+        (e) => e.classes && e.classes.has('h1aligner-preview'),
+    );
+    assert.ok(previewEl, 'preview element is still in the DOM after listEl prune');
+    assert.equal(previewEl.text, '→ Hello world.md', 'preview updates from the typed H1');
+    console.log('✓ 4d. 設定頁：名稱即時預覽掛在 settingEl，listEl 重排後仍顯示');
+
+    // --- 4e: experimental warning stays on settingEl ---
+    const expWarn = [...plugin._settingTab.containerEl.walk()].find(
+        (e) => e.classes && e.classes.has('h1aligner-experimental-warning'),
+    );
+    assert.ok(expWarn, 'experimental warning settingEl is still in the DOM after listEl prune');
+    const expTexts = [...expWarn.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(expTexts.length > 0, 'experimental warning still has visible text');
+    console.log('✓ 4e. 設定頁：實驗性功能警告掛在 settingEl，listEl 重排後仍顯示');
 
     // --- 5: frontmatter lock ---
     before = app._renameCalls.length;
@@ -1320,5 +1421,5 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 26e. onunload：cap 10 逐出最舊通知（不 hide，任其自然到期）；unloaded flag 同時擋下 evicted 與仍被追蹤通知的 Undo 點擊');
 
-    console.log('\nE2E smoke test: 41/41 scenarios passed（真實 production bundle main.js）');
+    console.log('\nE2E smoke test: 44/44 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

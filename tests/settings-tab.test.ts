@@ -160,7 +160,7 @@ describe('getSettingDefinitions', () => {
         expect(keys.length).toBe(new Set(keys).size);
     });
 
-    it('renders the folder-list conflict warning without a visible predicate (Obsidian 1.13.7 never calls render when both are set)', () => {
+    it('renders the folder-list conflict warning without a visible predicate (display is toggled on settingEl)', () => {
         const tab = makeTab(
             makeFakePlugin({ ignoreFolders: ['.trash'], includeFolders: ['/'] }),
         );
@@ -367,24 +367,29 @@ describe('debounce fields — empty-string guard (Number(\'\') === 0 regression)
 describe("setControlValue('includeFolders' / 'ignoreFolders')", () => {
     function mountConflictWarning(tab: H1AlignerSettingTab) {
         const classes = new Set<string>();
-        const el = {
-            text: '',
+        const settingEl = {
+            addClass: (c: string) => {
+                classes.add(c);
+            },
+            toggleClass: (c: string, on?: boolean) => {
+                if (on === false) classes.delete(c);
+                else if (on === true) classes.add(c);
+                else if (classes.has(c)) classes.delete(c);
+                else classes.add(c);
+            },
             classList: {
-                add: (c: string) => {
-                    classes.add(c);
-                },
-                remove: (c: string) => {
-                    classes.delete(c);
-                },
                 contains: (c: string) => classes.has(c),
             },
-            setText(s: string) {
-                this.text = s;
+        };
+        let desc = '';
+        const setting = {
+            settingEl,
+            setDesc: (d: string) => {
+                desc = d;
+                return setting;
             },
         };
-        const setting = { settingEl: { remove: vi.fn() } };
-        const group = { listEl: { createEl: vi.fn(() => el) } };
-        const walk = (items: unknown[]): ((s: unknown, g: unknown) => void) | undefined => {
+        const walk = (items: unknown[]): ((s: unknown) => void) | undefined => {
             for (const raw of items) {
                 const item = raw as Record<string, unknown>;
                 if (item.type === 'group' || item.type === 'list') {
@@ -393,34 +398,37 @@ describe("setControlValue('includeFolders' / 'ignoreFolders')", () => {
                     continue;
                 }
                 if (item.name === 'Folder list conflict') {
-                    return item.render as (s: unknown, g: unknown) => void;
+                    return item.render as (s: unknown) => void;
                 }
             }
             return undefined;
         };
         const render = walk(tab.getSettingDefinitions() as unknown[]);
         expect(render).toBeTypeOf('function');
-        render!(setting, group);
-        expect(setting.settingEl.remove).toHaveBeenCalledTimes(1);
-        return el;
+        render!(setting);
+        return {
+            classes,
+            getDesc: () => desc,
+            hasClass: (c: string) => classes.has(c),
+        };
     }
 
-    it('writes the overlapping folder name into the warning paragraph after persist', async () => {
+    it('writes the overlapping folder name into the warning description after persist', async () => {
         const plugin = makeFakePlugin({ ignoreFolders: ['.trash'], includeFolders: [] });
         const tab = makeTab(plugin);
-        const el = mountConflictWarning(tab);
+        const row = mountConflictWarning(tab);
 
-        expect(el.classList.contains('is-hidden')).toBe(true);
-        expect(el.text).toBe('');
+        expect(row.hasClass('h1aligner-scope-conflict')).toBe(true);
+        expect(row.hasClass('is-hidden')).toBe(true);
+        expect(row.getDesc()).toBe('');
 
         await tab.setControlValue('includeFolders', '/, H1A-SCOPE-sub');
         await tab.setControlValue('ignoreFolders', '.trash, H1A-SCOPE-sub');
 
         expect(plugin.settings.includeFolders).toEqual(['/', 'H1A-SCOPE-sub']);
         expect(plugin.settings.ignoreFolders).toEqual(['.trash', 'H1A-SCOPE-sub']);
-        expect(el.classList.contains('is-hidden')).toBe(false);
-        expect(el.text).toContain('H1A-SCOPE-sub');
-        expect(el.text.length).toBeGreaterThan(0);
+        expect(row.hasClass('is-hidden')).toBe(false);
+        expect(row.getDesc()).toContain('H1A-SCOPE-sub');
     });
 
     it('hides the warning again when the lists no longer overlap', async () => {
@@ -429,13 +437,13 @@ describe("setControlValue('includeFolders' / 'ignoreFolders')", () => {
             includeFolders: ['/', 'H1A-SCOPE-sub'],
         });
         const tab = makeTab(plugin);
-        const el = mountConflictWarning(tab);
-        expect(el.text).toContain('H1A-SCOPE-sub');
-        expect(el.classList.contains('is-hidden')).toBe(false);
+        const row = mountConflictWarning(tab);
+        expect(row.getDesc()).toContain('H1A-SCOPE-sub');
+        expect(row.hasClass('is-hidden')).toBe(false);
 
         await tab.setControlValue('ignoreFolders', '.trash');
-        expect(el.classList.contains('is-hidden')).toBe(true);
-        expect(el.text).toBe('');
+        expect(row.hasClass('is-hidden')).toBe(true);
+        expect(row.getDesc()).toBe('');
     });
 });
 

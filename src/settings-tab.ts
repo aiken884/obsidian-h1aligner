@@ -17,7 +17,7 @@
  * was) — raising the floor and dropping the fallback was the only option
  * that reliably passes review; see CHANGELOG.md's 0.11.1 entry.
  */
-import { App, PluginSettingTab, Setting, type SettingDefinitionItem, type SettingGroup } from 'obsidian';
+import { App, PluginSettingTab, Setting, type SettingDefinitionItem } from 'obsidian';
 import type H1AlignerPlugin from './main';
 import {
     conflictingScopeFolders,
@@ -89,11 +89,13 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     {
                         name: t('set.scope.conflict.name'),
                         searchable: false,
-                        // Do not set `visible` here. On Obsidian 1.13.7 a
-                        // definition with both visible and render builds the
-                        // name/control shell and toggles display, but never
-                        // calls render — the warning paragraph never appears.
-                        render: (setting, group) => this.renderScopeConflict(setting, group),
+                        // Stay on setting.settingEl. Obsidian 1.13.7's
+                        // declarative renderer re-parents group.listEl after
+                        // every render callback and keeps only each item's
+                        // settingEl — listEl.createEl / settingEl.remove are
+                        // discarded. Do not combine this with `visible`:
+                        // display is toggled here via is-hidden instead.
+                        render: (setting) => this.renderScopeConflict(setting),
                     },
                     {
                         name: t('set.exclude.name'),
@@ -171,7 +173,7 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     {
                         name: t('set.preview.name'),
                         desc: t('set.preview.desc'),
-                        render: (setting, group) => this.renderPreview(setting, group),
+                        render: (setting) => this.renderPreview(setting),
                     },
                 ],
             },
@@ -237,13 +239,10 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     {
                         name: t('set.exp.warning'),
                         searchable: false,
-                        render: (setting, group) => {
-                            // Plain warning paragraph, not a name/control row —
-                            // discard the framework-created row shell and
-                            // append directly to the group's list instead.
-                            setting.settingEl.remove();
-                            const el = group.listEl.createEl('p', { text: t('set.exp.warning') });
-                            el.classList.add('h1aligner-experimental-warning');
+                        render: (setting) => {
+                            // Must stay on settingEl — see renderScopeConflict.
+                            setting.settingEl.addClass('h1aligner-experimental-warning');
+                            setting.setDesc(t('set.exp.warning'));
                         },
                     },
                     {
@@ -495,40 +494,38 @@ export class H1AlignerSettingTab extends PluginSettingTab {
     }
 
     /** Filename-template text input + live rendered preview — not a stored setting. */
-    private renderPreview(setting: Setting, group: SettingGroup): void {
+    private renderPreview(setting: Setting): void {
         setting.addText((txt) =>
             txt.setPlaceholder('# My note: draft/v2').onChange((v) => {
                 this.previewInput = v;
                 this.updatePreview();
             }),
         );
-        this.previewEl = group.listEl.createDiv();
+        // Parent must be settingEl, not group.listEl — see renderScopeConflict.
+        this.previewEl = setting.settingEl.createDiv();
         this.previewEl.classList.add('h1aligner-preview');
         this.updatePreview();
     }
 
     private previewInput = '';
     private previewEl: HTMLElement | null = null;
-    private conflictEl: HTMLElement | null = null;
+    private conflictSetting: Setting | null = null;
 
-    /** Always-rendered conflict paragraph; show/hide by class, never via `visible`. */
-    private renderScopeConflict(setting: Setting, group: SettingGroup): void {
-        setting.settingEl.remove();
-        this.conflictEl = group.listEl.createEl('p');
-        this.conflictEl.classList.add('h1aligner-scope-conflict');
+    /** Conflict row lives on settingEl and is shown or hidden in place. */
+    private renderScopeConflict(setting: Setting): void {
+        this.conflictSetting = setting;
+        setting.settingEl.addClass('h1aligner-scope-conflict');
         this.updateConflictWarning();
     }
 
     private updateConflictWarning(): void {
-        if (!this.conflictEl) return;
+        if (!this.conflictSetting) return;
         const folders = this.conflictingFolders();
-        if (folders.length === 0) {
-            this.conflictEl.setText('');
-            this.conflictEl.classList.add('is-hidden');
-            return;
-        }
-        this.conflictEl.setText(t('set.scope.conflict', { folders: folders.join(', ') }));
-        this.conflictEl.classList.remove('is-hidden');
+        const hasConflict = folders.length > 0;
+        this.conflictSetting.setDesc(
+            hasConflict ? t('set.scope.conflict', { folders: folders.join(', ') }) : '',
+        );
+        this.conflictSetting.settingEl.toggleClass('is-hidden', !hasConflict);
     }
 
     private updatePreview(): void {

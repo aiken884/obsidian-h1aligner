@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **432 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **41 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **432 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **44 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 

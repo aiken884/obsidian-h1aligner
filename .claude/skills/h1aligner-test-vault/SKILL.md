@@ -9,10 +9,22 @@ description: Use when preparing or resetting Obsidian's ObsidianTestVault to man
 
 ObsidianTestVault is disposable test data only — reshape it freely (Aiken confirmed 2026-09-16). This skill resets it to a clean, low-interference baseline (vault settings, plugin settings, note content) and provisions the minimal fixture notes a given phase's checklist needs, driven entirely through the `obsidian` CLI against the live app — no manual clicking, no editing files while Obsidian has them open.
 
+## Where this runs
+
+This skill drives the **live Obsidian desktop app**. It is for Mac or PC sessions with GUI Obsidian. Home Linux Grok has no GUI Obsidian — do not try to reset TestVault from Home; coordinate with a Mac/PC agent instead.
+
+| Machine | Test vault disk path | Real vault (never touch) |
+|---|---|---|
+| Mac | `/Users/aikenlin/Obsidian/ObsidianTestVault` | `/Users/aikenlin/Obsidian/ObsidianVault` |
+| PC | *ask Aiken if missing — do not guess* | *ask Aiken* |
+| Home | n/a (no GUI) | n/a |
+
+The Obsidian CLI vault id is always `ObsidianTestVault` (the nested `.../ObsidianTestVault/ObsidianTestVault` folder was flattened on 2026-09-16). `scripts/dev-deploy.mjs` currently lists Mac paths only.
+
 ## Prerequisites
 
 - Obsidian desktop running; `obsidian` CLI available (`obsidian help` to confirm).
-- The feature branch already built and deployed to TestVault (`node scripts/dev-deploy.mjs`) — this skill provisions the *workspace*, not the plugin build.
+- The feature branch already built and deployed to TestVault (`node scripts/dev-deploy.mjs`) — this skill provisions the *workspace*, not the plugin build. On Mac, that script also writes the **real** vault; if Aiken said not to touch the main vault's plugin, copy `main.js` / `manifest.json` / `styles.css` into TestVault only.
 - Read what this phase actually needs before designing fixtures: `docs/MOBILE-TESTING.md`'s 16-item table for behavioral coverage, plus any per-batch design doc (e.g. `docs/design-lock-command-undo-button-tag-notice.md`) for what's new.
 
 ## Procedure
@@ -21,7 +33,7 @@ ObsidianTestVault is disposable test data only — reshape it freely (Aiken conf
 2. **Reset the plugin's settings.** `plugin.settings = { ...plugin.settings, ...baseline }; await plugin.saveSettings()`, starting from `DEFAULT_SETTINGS` (`src/settings.ts`) with only the phase's overrides (table below).
 3. **Reset vault-level Obsidian settings.** `community-plugins.json` should list `heading-aligner` only — check `.obsidian/plugins/` for stray folders (e.g. a leftover pre-rename `h1aligner` id) and delete unused ones. `core-plugins.json` stays minimal: `file-explorer`, `properties`, `command-palette`, `editor-status`, `sync` on; everything else off. `app.json`/`appearance.json` stay `{}`.
 4. **Design fixture notes.** For each checklist item in scope, ask "does an existing fixture already exercise this, or does it need its own note?" One note often carries several sequential items (a lock-test note serves both "add the lock" and "lock/unlock context menu"). Write a `00-測試索引.md` index note (numeric prefix sorts first) listing every fixture, what it tests, and the settings baseline in effect.
-5. **Verify.** `dev:errors` clean, `app.vault.getMarkdownFiles()` matches the intended list, settings read back correctly. Only screenshot with `cliclick`/`screencapture` when a *visual* behavior (not just content) needs eyeballing on the real desktop UI.
+5. **Verify.** `dev:errors` clean, `app.vault.getMarkdownFiles()` matches the intended list, settings read back correctly. Only screenshot when a *visual* behavior (not just content) needs eyeballing: Mac `cliclick`/`screencapture`; PC use that machine's equivalent. Confirm the capture is the settings window or the editor you meant — a previous pass screenshot the editor while claiming it was Settings.
 6. **Report** a short table: fixture → what to do → what to expect, plus the settings baseline used.
 
 ## Baseline settings reference
@@ -37,7 +49,9 @@ ObsidianTestVault is disposable test data only — reshape it freely (Aiken conf
 | `moveTagsToFrontmatter` / `bodyTagHandling` | `true` / `remove-tag` | Needed once a batch ships the tag-move feature |
 | `skipIfFrontmatterLock` | `true` | Needed once a batch ships lock |
 
-For a scope/include-ignore pass, override `includeFolders`/`ignoreFolders` per the scenario under test — see the `h1aligner-declarative-settings-render-gotcha` memory for the settings-page conflict-row on-device gotcha — and always restore the table above afterward; the index note should say what the restore value is.
+For a scope/include-ignore pass, override `includeFolders`/`ignoreFolders` per the scenario under test, then **always restore the table above**. The index note should say what the restore value is.
+
+Settings-page conflict row (Obsidian 1.13.7): extra nodes created on `group.listEl` (and `settingEl.remove()`) are discarded when the declarative renderer re-parents and keeps only each item's `settingEl`. Conflict warning, filename preview, and the experimental warning must live on `setting.settingEl` (see `src/settings-tab.ts`). Verify the red conflict description names the overlapping folder; do not accept an empty heading-only row.
 
 **Vault-level:** `community-plugins.json` → `["heading-aligner"]` only. `core-plugins.json` → only `file-explorer`, `properties`, `command-palette`, `editor-status`, `sync` `true`. `app.json` / `appearance.json` → `{}`.
 
@@ -78,4 +92,5 @@ Reset TestVault from 57 accumulated notes down to the checklist note, applied th
 - Hard-deleting instead of `vault.trash` — not recoverable if a note turns out to matter.
 - Forgetting to restore `includeFolders`/`ignoreFolders` after a scope test — the next phase silently inherits a narrowed scope (this happened once: a stray `未命名` folder lingered in `includeFolders` from manual exploration and wasn't caught until the next session).
 - Running against `ObsidianVault` by mistake — always pass `vault=ObsidianTestVault`.
+- Running this skill from Home (no GUI Obsidian) — hand it to a Mac/PC desktop session.
 - Leaving a stray plugin folder under an old id installed — harmless to Obsidian but it's noise; delete it.

@@ -523,6 +523,8 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(expWarn, 'experimental warning settingEl is still in the DOM after listEl prune');
     const expTexts = [...expWarn.walk()].map((e) => e.text).filter(Boolean);
     assert.ok(expTexts.length > 0, 'experimental warning still has visible text');
+    const longExpTexts = expTexts.filter((t) => t.length > 40);
+    assert.equal(longExpTexts.length, 1, 'warning body is the name only — not duplicated as description');
     console.log('✓ 4e. 設定頁：實驗性功能警告掛在 settingEl，listEl 重排後仍顯示');
 
     // --- 5: frontmatter lock ---

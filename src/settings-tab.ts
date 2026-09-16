@@ -241,8 +241,9 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         searchable: false,
                         render: (setting) => {
                             // Must stay on settingEl — see renderScopeConflict.
+                            // Name is already the warning text; do not setDesc
+                            // the same string or it appears twice.
                             setting.settingEl.addClass('h1aligner-experimental-warning');
-                            setting.setDesc(t('set.exp.warning'));
                         },
                     },
                     {

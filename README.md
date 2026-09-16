@@ -194,7 +194,7 @@ npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
 npm test               # 432 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 40 E2E scenarios against the built bundle
+npm run test:e2e       # 44 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 

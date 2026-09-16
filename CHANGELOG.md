@@ -3,6 +3,10 @@
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
 ## Unreleased
+
+## 0.12.0 — 2026-09-16
+Lock/unlock from the command palette and file menu, an Undo button on the rename notice, a notice when an alignment-only pass still moved tags, and the include/ignore settings-page fixes (separators, ignore-wins warning, Obsidian 1.13.7 declarative-render). Verified on Mac desktop (Obsidian 1.13.7) and iPhone via ObsidianTestVault; Android was not run this cycle.
+
 - **Fix**: the "Include only these folders" / "Ignore folders" fields only split on ASCII comma, so listing more than one folder with a semicolon, a full-width comma/semicolon (`，` `；`), or the CJK enumeration comma (`、`) stored the whole line as a single unmatchable path — combining vault root `/` with another folder such as `04.Archives` therefore appeared to do nothing. Both fields now accept comma or semicolon (half-width or full-width); after save the field still displays comma-separated.
 - **Fix**: a folder listed in both Ignore and Include was silently skipped (ignore wins) with no settings-page explanation, which made "Include only these folders" look broken. The copy now states that ignore takes priority and that the manual command is not limited by the include whitelist (Ignore still applies); overlapping folders show an inline conflict warning. Unit tests: 423 → 431; E2E scenarios: 40 → 41
 - **Fix**: on Obsidian 1.13.7 the conflict warning showed only the empty heading "Folder list conflict" and never the red paragraph with the folder name — a definition with both `visible` and `render` builds the name/control shell and toggles `display`, but does not call `render`. The warning is now always rendered (like the filename preview) and shown or hidden in place. Unit tests: 431 → 432

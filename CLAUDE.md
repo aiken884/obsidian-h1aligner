@@ -17,12 +17,11 @@ remagraph search --cross-project-label topic:how-to-contact-tower
 - **Tertiary**：side-channel `/tmp/tower-reports.sock`（僅限被指揮塔明確派工、拿到 report_sock 路徑者使用）
 - **即時互動**：`herdr pane send-text`（送出後務必驗證真的送達，不能假設成功）
 
-## 發版分流（階段一尚未釋出）
+## 發版
 
-- 已發布：`0.11.2`。
-- 這次修復（白名單／衝突提示／設定頁 1.13.7 render）：分支 `release/0.11.3`。正式釋出時在該分支 `npm version patch` → `0.11.3`。**階段一還沒發之前，這類 patch 修復先 commit 到 `release/0.11.3`，再 merge 進 `main`。** 不要先改 main 再 cherry-pick，以免漏帶或把階段一帶進 0.11.3。
-- 階段一（lock／通知 Undo／tag-move notice）只在 `main`，之後 `npm version minor` → `0.12.0`。
-- ObsidianTestVault 一次只能裝一個 build。Aiken 用手機測階段一時維持 `main`；要驗不含階段一的 0.11.3 時再換成 `release/0.11.3`。
+- 已發布：`0.11.2`。**0.12.0** 合併階段一（lock／通知 Undo／tag-move notice）與設定頁修復；不再使用 `release/0.11.3`。
+- 發版由 Home 執行（`npm version`、tag、GitHub release）。Mac 不必部署或更換 TestVault，除非 Aiken 要求對到正式版。
+- 後續 patch／minor 直接在 `main` 上做。
 
 ## Vaults
 

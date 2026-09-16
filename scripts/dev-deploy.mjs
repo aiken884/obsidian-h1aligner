@@ -26,6 +26,10 @@ import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from "fs";
 import { join } from "path";
 
 // This machine's local vaults only — not portable, not meant to be.
+// ObsidianTestVault is the dedicated test vault (Aiken: always use it for
+// plugin / settings / mobile Sync verification). ObsidianVault is the real
+// notes vault — deploy plugin files there, but do not change its settings
+// or note names without Aiken's OK.
 const VAULTS = [
     "/Users/aikenlin/Obsidian/ObsidianVault",
     "/Users/aikenlin/Obsidian/ObsidianTestVault/ObsidianTestVault",

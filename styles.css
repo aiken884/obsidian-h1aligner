@@ -83,6 +83,10 @@
     margin-bottom: 1em;
 }
 
+.h1aligner-scope-conflict.is-hidden {
+    display: none;
+}
+
 .h1aligner-screen-reader-only {
     position: absolute;
     width: 1px;

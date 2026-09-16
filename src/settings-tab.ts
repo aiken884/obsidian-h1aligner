@@ -89,16 +89,11 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                     {
                         name: t('set.scope.conflict.name'),
                         searchable: false,
-                        visible: () => this.conflictingFolders().length > 0,
-                        render: (setting, group) => {
-                            setting.settingEl.remove();
-                            const folders = this.conflictingFolders();
-                            if (folders.length === 0) return;
-                            const el = group.listEl.createEl('p', {
-                                text: t('set.scope.conflict', { folders: folders.join(', ') }),
-                            });
-                            el.classList.add('h1aligner-scope-conflict');
-                        },
+                        // Do not set `visible` here. On Obsidian 1.13.7 a
+                        // definition with both visible and render builds the
+                        // name/control shell and toggles display, but never
+                        // calls render — the warning paragraph never appears.
+                        render: (setting, group) => this.renderScopeConflict(setting, group),
                     },
                     {
                         name: t('set.exclude.name'),
@@ -316,12 +311,12 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             case 'ignoreFolders':
                 s.ignoreFolders = parseIgnoreFolders(String(value));
                 await this.plugin.saveSettings();
-                this.withPreservedScroll(() => this.refreshDomState());
+                this.updateConflictWarning();
                 return;
             case 'includeFolders':
                 s.includeFolders = parseIgnoreFolders(String(value));
                 await this.plugin.saveSettings();
-                this.withPreservedScroll(() => this.refreshDomState());
+                this.updateConflictWarning();
                 return;
             case 'skipIfFrontmatterLock':
                 s.skipIfFrontmatterLock = Boolean(value);
@@ -514,6 +509,27 @@ export class H1AlignerSettingTab extends PluginSettingTab {
 
     private previewInput = '';
     private previewEl: HTMLElement | null = null;
+    private conflictEl: HTMLElement | null = null;
+
+    /** Always-rendered conflict paragraph; show/hide by class, never via `visible`. */
+    private renderScopeConflict(setting: Setting, group: SettingGroup): void {
+        setting.settingEl.remove();
+        this.conflictEl = group.listEl.createEl('p');
+        this.conflictEl.classList.add('h1aligner-scope-conflict');
+        this.updateConflictWarning();
+    }
+
+    private updateConflictWarning(): void {
+        if (!this.conflictEl) return;
+        const folders = this.conflictingFolders();
+        if (folders.length === 0) {
+            this.conflictEl.setText('');
+            this.conflictEl.classList.add('is-hidden');
+            return;
+        }
+        this.conflictEl.setText(t('set.scope.conflict', { folders: folders.join(', ') }));
+        this.conflictEl.classList.remove('is-hidden');
+    }
 
     private updatePreview(): void {
         if (!this.previewEl) return;

@@ -6,7 +6,7 @@ Unit and E2E automated tests cannot cover the behavior of real WebViews and mobi
 
 Installation: place `main.js`, `manifest.json`, and `styles.css` into
 `<vault>/.obsidian/plugins/heading-aligner/`, then enable the plugin under Community plugins.
-Using a dedicated test vault is recommended.
+Use **ObsidianTestVault** (the dedicated test vault). Do not run this checklist on the real `ObsidianVault`.
 
 ## Check Items
 
@@ -34,7 +34,7 @@ Using a dedicated test vault is recommended.
 
 Items are grouped into phases so trigger/notice settings are changed as few times as possible. Run this
 same sequence on iPhone and again on Android (skip #13's Android-only note on iOS, and vice versa the item
-doesn't apply). Do the whole thing in **one dedicated test vault**, not your real vault.
+doesn't apply). Do the whole thing in **ObsidianTestVault**, not the real `ObsidianVault`.
 
 **Prep, once per device:**
 - Install per the "Installation" section above, but do **not** enable the plugin yet — item #1 requires a

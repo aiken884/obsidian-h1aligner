@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **432 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **44 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **443 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **46 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -64,7 +64,8 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Command | What it does |
 |---|---|
 | **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
-| **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. |
+| **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Notes excluded by ignore/include/exclude are **counted** (not listed as skipped rows). Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. Right-click a **folder** for the same preview scoped to that folder. |
+| **Explain this note** | Read-only: says why the active markdown note would or would not be renamed (ignored folder, include miss, exclude pattern, lock, no H1, or the proposed name). Does not rename, write, or lock. |
 | **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry — or tap **Undo** on the notice itself, right after a successful rename. |
 | **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
 | **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as two explicit items, **Lock this note** / **Unlock this note** — never a toggle there, so a stale menu label can never accidentally unlock a note that is actually locked. |
@@ -192,9 +193,9 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 432 unit tests (vitest, incl. property-based)
+npm test               # 443 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 44 E2E scenarios against the built bundle
+npm run test:e2e       # 46 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 

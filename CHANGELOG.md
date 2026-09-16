@@ -3,6 +3,9 @@
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
 ## Unreleased
+- **Add**: **Explain this note** — a read-only command that reports why the active markdown note would or would not be renamed (ignored folder, include-list miss, exclude pattern, lock, no H1, or the proposed filename). It never writes.
+- **Add**: the vault-wide dry-run preview shows how many markdown notes sit **outside** ignore/include/exclude (counted, not listed as skipped rows). Apply still only acts on in-scope rename items.
+- **Add**: right-click a folder → **Preview renames in this folder** — the same dry-run modal, limited to that folder's descendants.
 
 ## 0.12.0 — 2026-09-16
 Lock/unlock from the command palette and file menu, an Undo button on the rename notice, a notice when an alignment-only pass still moved tags, and the include/ignore settings-page fixes (separators, ignore-wins warning, Obsidian 1.13.7 declarative-render). Verified on Mac desktop (Obsidian 1.13.7) and iPhone via ObsidianTestVault; Android was not run this cycle.

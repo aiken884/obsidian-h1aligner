@@ -95,10 +95,13 @@ const en = {
     'set.scope.heading': 'Scope',
     'set.ignore.name': 'Ignore folders',
     'set.ignore.desc':
-        'Comma-separated folder paths to ignore (prefix match; / means the vault root layer). The Obsidian config folder is always ignored. Default: .trash',
+        'Folder paths to ignore, separated by commas or semicolons (`,` `;` or full-width `，` `；`; prefix match; / means the vault root layer). Ignored folders are never auto-renamed, even if they also appear in Include. Ignore wins. The Obsidian config folder is always ignored. Default: .trash',
     'set.include.name': 'Include only these folders',
     'set.include.desc':
-        'Comma-separated whitelist. When non-empty, ONLY notes inside these folders are renamed. Use / for the vault root layer (root files only). Leave empty to process the whole vault.',
+        'Whitelist, separated by commas or semicolons (`,` `;` or full-width `，` `；`). When non-empty, ONLY notes inside these folders are auto-renamed. You can list several, e.g. /, notes. Use / for the vault root layer (root files only). Leave empty to process the whole vault. Ignore takes priority if the same folder is in both lists. The manual rename command is not limited by this whitelist (Ignore still applies).',
+    'set.scope.conflict.name': 'Folder list conflict',
+    'set.scope.conflict':
+        'These folders are in both Ignore and Include: {folders}. Ignore wins — they will not be auto-renamed. The manual command also skips ignored folders.',
     'set.exclude.name': 'Exclude filename patterns',
     'set.exclude.desc':
         'One regular expression per line, tested against the note name (without .md). Unanchored substring match — use ^ and $ for exact names. Matching notes are not auto-renamed (the manual command still works). The default protects date-named daily notes.',
@@ -257,10 +260,14 @@ const zhTW: Record<LocaleKey, string> = {
     'set.trigger.manual': '僅手動',
     'set.scope.heading': '套用範圍',
     'set.ignore.name': '忽略資料夾',
-    'set.ignore.desc': '逗號分隔的資料夾路徑（前綴比對；/ 代表 vault 根目錄層）。設定資料夾一律自動忽略。預設：.trash',
+    'set.ignore.desc':
+        '要忽略的資料夾路徑，用逗號或分號分隔（半形 , ; 或全形 ， ； 皆可；前綴比對；/ 代表 vault 根目錄層）。被忽略的資料夾即使也出現在「僅套用」裡，自動改名仍不會套用（忽略優先）。設定資料夾一律自動忽略。預設：.trash',
     'set.include.name': '僅套用於這些資料夾',
     'set.include.desc':
-        '逗號分隔的白名單。填寫後「只有」這些資料夾內的筆記會被改名；輸入 / 代表 vault 根目錄那一層（不含子資料夾）；留空則套用整個 vault。',
+        '白名單，用逗號或分號分隔多個資料夾（半形 , ; 或全形 ， ； 皆可）。填寫後「只有」這些資料夾內的筆記會被自動改名。可同時列出多個，例如：/, notes。輸入 / 代表 vault 根目錄那一層（不含子資料夾）；留空則套用整個 vault。若同一資料夾也在「忽略資料夾」裡，忽略優先。手動指令不受此白名單限制（仍受忽略清單限制）。',
+    'set.scope.conflict.name': '資料夾清單衝突',
+    'set.scope.conflict':
+        '這些資料夾同時出現在「忽略」與「僅套用」：{folders}。忽略優先，自動改名不會套用。手動指令也會跳過被忽略的資料夾。',
     'set.exclude.name': '排除檔名 pattern',
     'set.exclude.desc':
         '每行一條正規表達式，比對筆記名稱（不含 .md）。未錨定的子字串比對 — 精確比對請用 ^ 與 $。符合的筆記不會被自動改名（手動指令仍可用）。預設保護日期命名的 daily notes。',
@@ -411,10 +418,14 @@ const ja: Record<LocaleKey, string> = {
     'set.trigger.manual': '手動のみ',
     'set.scope.heading': '適用範囲',
     'set.ignore.name': '除外フォルダ',
-    'set.ignore.desc': 'カンマ区切りのフォルダパス（前方一致。/ はルート階層）。設定フォルダは常に無視されます。デフォルト：.trash',
+    'set.ignore.desc':
+        '除外するフォルダパス。カンマまたはセミコロンで区切ります（半角 , ; または全角 ， ；。前方一致。/ はルート階層）。除外フォルダは「対象をこれらのフォルダに限定」に含まれていても自動リネームされません（除外が優先）。設定フォルダは常に無視されます。デフォルト：.trash',
     'set.include.name': '対象をこれらのフォルダに限定',
     'set.include.desc':
-        'カンマ区切りのホワイトリスト。指定すると、これらのフォルダ内のノート「のみ」リネームされます。/ は保管庫のルート階層（サブフォルダを除く）を意味します。空欄で保管庫全体が対象になります。',
+        'ホワイトリスト。フォルダはカンマまたはセミコロンで区切ります（半角 , ; または全角 ， ；）。指定すると、これらのフォルダ内のノート「のみ」自動リネームされます。複数指定可（例: /, notes）。/ は保管庫のルート階層（サブフォルダを除く）を意味します。空欄で保管庫全体が対象になります。同じフォルダが除外リストにもある場合は除外が優先します。手動コマンドはこのホワイトリストに制限されません（除外リストは適用されます）。',
+    'set.scope.conflict.name': 'フォルダリストの衝突',
+    'set.scope.conflict':
+        '次のフォルダが除外と対象の両方にあります: {folders}。除外が優先され、自動リネームされません。手動コマンドも除外フォルダはスキップします。',
     'set.exclude.name': '除外ファイル名パターン',
     'set.exclude.desc':
         '1 行につき 1 つの正規表現。ノート名（.md を除く）と照合します。アンカーなしの部分一致 — 完全一致には ^ と $ を使ってください。一致したノートは自動リネームされません（手動コマンドは使用可能）。デフォルトは日付名のデイリーノートを保護します。',

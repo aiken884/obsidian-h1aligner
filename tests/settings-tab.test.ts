@@ -160,6 +160,37 @@ describe('getSettingDefinitions', () => {
         expect(keys.length).toBe(new Set(keys).size);
     });
 
+    it('shows the folder-list conflict row only when ignore and include overlap', () => {
+        const clear = makeTab(makeFakePlugin({ ignoreFolders: ['.trash'], includeFolders: ['/'] }));
+        const overlapping = makeTab(
+            makeFakePlugin({
+                ignoreFolders: ['.trash', 'H1A-SCOPE-sub'],
+                includeFolders: ['/', 'H1A-SCOPE-sub'],
+            }),
+        );
+
+        const conflictVisible = (tab: H1AlignerSettingTab): boolean | undefined => {
+            const walk = (items: unknown[]): boolean | undefined => {
+                for (const raw of items) {
+                    const item = raw as Record<string, unknown>;
+                    if (item.type === 'group' || item.type === 'list') {
+                        const found = walk(item.items as unknown[]);
+                        if (found !== undefined) return found;
+                        continue;
+                    }
+                    if (item.name === 'Folder list conflict' && typeof item.visible === 'function') {
+                        return (item.visible as () => boolean)();
+                    }
+                }
+                return undefined;
+            };
+            return walk(tab.getSettingDefinitions() as unknown[]);
+        };
+
+        expect(conflictVisible(clear)).toBe(false);
+        expect(conflictVisible(overlapping)).toBe(true);
+    });
+
     it('reflects current settings via visible predicates (moveTagsToFrontmatter gates its sub-settings)', () => {
         const off = makeTab(makeFakePlugin({ moveTagsToFrontmatter: false }));
         const on = makeTab(makeFakePlugin({ moveTagsToFrontmatter: true }));
@@ -216,6 +247,20 @@ describe('getControlValue / setControlValue round-trip', () => {
         await tab.setControlValue('includeFolders', '_inbox, projects');
         expect(plugin.settings.includeFolders).toEqual(['_inbox', 'projects']);
         expect(tab.getControlValue('includeFolders')).toBe('_inbox, projects');
+    });
+
+    it('round-trips includeFolders with vault root plus a second folder, accepting ; as well as ,', async () => {
+        const plugin = makeFakePlugin();
+        const tab = makeTab(plugin);
+
+        await tab.setControlValue('includeFolders', '/; 04.archive');
+        expect(plugin.settings.includeFolders).toEqual(['/', '04.archive']);
+        // Canonical display is comma-separated so the field stays readable.
+        expect(tab.getControlValue('includeFolders')).toBe('/, 04.archive');
+
+        await tab.setControlValue('includeFolders', '/，04.archive');
+        expect(plugin.settings.includeFolders).toEqual(['/', '04.archive']);
+        expect(tab.getControlValue('includeFolders')).toBe('/, 04.archive');
     });
 
     it('round-trips tagsToIgnoreForMove (array <-> comma-joined string, comma/newline parse, strips #)', async () => {
@@ -327,6 +372,25 @@ describe('debounce fields — empty-string guard (Number(\'\') === 0 regression)
 // ---------------------------------------------------------------------------
 // moveTagsToFrontmatter -> refreshDomState()
 // ---------------------------------------------------------------------------
+
+describe("setControlValue('includeFolders' / 'ignoreFolders')", () => {
+    it('refreshes the settings page after persist so the conflict warning can appear', async () => {
+        const plugin = makeFakePlugin({ ignoreFolders: ['.trash'], includeFolders: [] });
+        const tab = makeTab(plugin);
+        const refreshSpy = vi.spyOn(tab, 'refreshDomState');
+
+        await tab.setControlValue('includeFolders', '/, H1A-SCOPE-sub');
+        expect(plugin.settings.includeFolders).toEqual(['/', 'H1A-SCOPE-sub']);
+        expect(refreshSpy).toHaveBeenCalledTimes(1);
+
+        await tab.setControlValue('ignoreFolders', '.trash, H1A-SCOPE-sub');
+        expect(plugin.settings.ignoreFolders).toEqual(['.trash', 'H1A-SCOPE-sub']);
+        expect(refreshSpy).toHaveBeenCalledTimes(2);
+        expect(plugin.saveSettings.mock.invocationCallOrder[1]).toBeLessThan(
+            refreshSpy.mock.invocationCallOrder[1],
+        );
+    });
+});
 
 describe("setControlValue('moveTagsToFrontmatter', ...)", () => {
     it('does not throw and calls refreshDomState() after persisting', async () => {

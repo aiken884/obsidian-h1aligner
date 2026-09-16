@@ -50,6 +50,16 @@ describe('isInScope', () => {
             expect(isInScope('other/x.md', 'x', s)).toBe(false);
         });
 
+        it("combines root '/' with a numbered dotted folder (04.archive)", () => {
+            const s = { ...base, includeFolders: ['/', '04.archive'] };
+            expect(isInScope('a.md', 'a', s)).toBe(true);
+            expect(isInScope('04.archive/x.md', 'x', s)).toBe(true);
+            expect(isInScope('04.archive/nested/y.md', 'y', s)).toBe(true);
+            expect(isInScope('notes/z.md', 'z', s)).toBe(false);
+            // Sibling that only shares the string prefix must not sneak in.
+            expect(isInScope('04.archived/x.md', 'x', s)).toBe(false);
+        });
+
         it('still ignores blank entries without locking out the vault', () => {
             expect(isInScope('notes/a.md', 'a', { ...base, includeFolders: ['  '] })).toBe(true);
         });

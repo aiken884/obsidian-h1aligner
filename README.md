@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **423 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **40 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **431 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **41 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -74,8 +74,8 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Setting | Default | Notes |
 |---|---|---|
 | Rename trigger | On file open | The five modes above. The manual command always works. |
-| Ignore folders | `.trash` | Prefix match; `/` means the vault root layer. The Obsidian config folder is always ignored automatically. |
-| Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are processed. `/` means the vault root layer (root files only). |
+| Ignore folders | `.trash` | Prefix match; `/` means the vault root layer. Separate several with commas or semicolons. Ignore wins over Include if the same folder is in both lists. The Obsidian config folder is always ignored automatically. |
+| Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are auto-renamed. Separate several with commas or semicolons (e.g. `/, notes`). `/` means the vault root layer (root files only). The manual command is not limited by this whitelist (Ignore still applies). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). Invalid drafts are kept separate and pause new renames until fixed. The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed — set it by hand, or use the command / right-click context menu. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
@@ -192,7 +192,7 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 423 unit tests (vitest, incl. property-based)
+npm test               # 431 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
 npm run test:e2e       # 40 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md

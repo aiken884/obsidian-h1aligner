@@ -239,18 +239,45 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
 }
 
 /**
- * Parse the comma-separated folders text fields (ignore / include).
- * '/' (or '\') survives as the vault-root marker.
+ * Parse the folder text fields (ignore / include).
+ * Separators: ASCII comma/semicolon, full-width comma/semicolon, and the
+ * CJK enumeration comma. '/' (or '\') survives as the vault-root marker.
  */
 export function parseIgnoreFolders(input: string): string[] {
     return input
-        .split(',')
+        .split(/[,;，；、]+/)
         .map((s) => {
             const trimmed = s.trim();
             if (trimmed === '/' || trimmed === '\\') return '/';
             return trimmed.replace(/\/+$/, '');
         })
         .filter((s) => s.length > 0);
+}
+
+/** Compare-form for ignore/include entries (`/` stays `/`; leading slashes drop). */
+export function normalizeFolderEntryForCompare(raw: string): string {
+    const trimmed = raw.trim();
+    if (trimmed === '/' || trimmed === '\\') return '/';
+    return trimmed.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+/**
+ * Folders listed in both ignore and include. Ignore wins at runtime
+ * (scope.ts), so the settings page warns instead of silently no-op'ing.
+ */
+export function conflictingScopeFolders(ignoreFolders: string[], includeFolders: string[]): string[] {
+    const ignored = new Set(
+        ignoreFolders.map(normalizeFolderEntryForCompare).filter((s) => s.length > 0),
+    );
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of includeFolders) {
+        const n = normalizeFolderEntryForCompare(raw);
+        if (!n || !ignored.has(n) || seen.has(n)) continue;
+        seen.add(n);
+        out.push(n);
+    }
+    return out;
 }
 
 /**

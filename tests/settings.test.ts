@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    conflictingScopeFolders,
     getExcludePatternsDraft,
     normalizeSettings,
     parseIgnoreFolders,
@@ -179,6 +180,31 @@ describe('parseIgnoreFolders', () => {
     it('returns empty array for empty input', () => {
         expect(parseIgnoreFolders('')).toEqual([]);
         expect(parseIgnoreFolders('  ,  ')).toEqual([]);
+    });
+
+    it('accepts semicolon and CJK list separators, not just ASCII comma', () => {
+        expect(parseIgnoreFolders('/; 04.archive')).toEqual(['/', '04.archive']);
+        expect(parseIgnoreFolders('/，04.archive')).toEqual(['/', '04.archive']);
+        expect(parseIgnoreFolders('/；04.archive')).toEqual(['/', '04.archive']);
+        expect(parseIgnoreFolders('/、04.archive')).toEqual(['/', '04.archive']);
+        expect(parseIgnoreFolders('/, 04.archive; notes')).toEqual(['/', '04.archive', 'notes']);
+    });
+});
+
+describe('conflictingScopeFolders', () => {
+    it('returns folders listed in both ignore and include', () => {
+        expect(
+            conflictingScopeFolders(['.trash', '04.Archives'], ['/', '04.Archives']),
+        ).toEqual(['04.Archives']);
+    });
+
+    it('treats a leading slash on a named folder as the same entry', () => {
+        expect(conflictingScopeFolders(['04.Archives'], ['/04.Archives'])).toEqual(['04.Archives']);
+    });
+
+    it('returns empty when the lists do not overlap', () => {
+        expect(conflictingScopeFolders(['.trash'], ['/', 'notes'])).toEqual([]);
+        expect(conflictingScopeFolders(['.trash'], [])).toEqual([]);
     });
 });
 

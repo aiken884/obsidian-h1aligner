@@ -366,6 +366,34 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.equal(app._renameCalls.length, before, 'no rename inside .trash');
     console.log('✓ 3. ignoreFolders（.trash）→ 不改名');
 
+    // --- 3b: includeFolders allowlist — vault root plus a numbered dotted
+    // folder (the Mac-side report: "/", "04.archive" together). Restore the
+    // empty allowlist afterwards so later scenarios in notes/ stay in scope.
+    plugin.settings.includeFolders = ['/', '04.archive'];
+    before = app._renameCalls.length;
+    const fRootInc = addFile(app, 'root-include.md', '# Root Include Title\n', 'Root Include Title');
+    app._ws['file-open'](fRootInc);
+    await sleep(180);
+    assert.deepEqual(app._renameCalls.at(-1), { from: 'root-include.md', to: 'Root Include Title.md' }, 'root-layer file is in scope when / is listed');
+    const fArchInc = addFile(app, '04.archive/arch-old.md', '# Archived Include\n', 'Archived Include');
+    app._ws['file-open'](fArchInc);
+    await sleep(180);
+    assert.deepEqual(app._renameCalls.at(-1), { from: '04.archive/arch-old.md', to: '04.archive/Archived Include.md' }, '04.archive file is in scope alongside /');
+    before = app._renameCalls.length;
+    const fOutInc = addFile(app, 'notes/out-of-include.md', '# Out Of Include\n', 'Out Of Include');
+    app._ws['file-open'](fOutInc);
+    await sleep(180);
+    assert.equal(app._renameCalls.length, before, 'a folder not on the allowlist is left untouched');
+    plugin.settings.includeFolders = [];
+    // Undo the two allowlist renames so later undo scenarios still see the
+    // original scenario-2 history entry on top of an otherwise empty stack.
+    const undoAfterInclude = plugin._commands.find((c) => c.id === 'undo-last-rename');
+    undoAfterInclude.callback();
+    await sleep(50);
+    undoAfterInclude.callback();
+    await sleep(50);
+    console.log('✓ 3b. includeFolders（/, 04.archive）→ 根目錄與該資料夾會改名，其他資料夾不改');
+
     // --- 4: daily-note default exclude pattern ---
     before = app._renameCalls.length;
     const fdaily = addFile(app, 'daily/2026-07-03.md', '# 週五工作日誌\n', '週五工作日誌');
@@ -1292,5 +1320,5 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 26e. onunload：cap 10 逐出最舊通知（不 hide，任其自然到期）；unloaded flag 同時擋下 evicted 與仍被追蹤通知的 Undo 點擊');
 
-    console.log('\nE2E smoke test: 40/40 scenarios passed（真實 production bundle main.js）');
+    console.log('\nE2E smoke test: 41/41 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

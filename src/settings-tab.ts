@@ -20,6 +20,7 @@
 import { App, PluginSettingTab, Setting, type SettingDefinitionItem, type SettingGroup } from 'obsidian';
 import type H1AlignerPlugin from './main';
 import {
+    conflictingScopeFolders,
     getExcludePatternsDraft,
     parseIgnoreFolders,
     parseMaxFilenameLength,
@@ -82,7 +83,21 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         control: {
                             type: 'text',
                             key: 'includeFolders',
-                            placeholder: '_inbox, projects',
+                            placeholder: '/, notes',
+                        },
+                    },
+                    {
+                        name: t('set.scope.conflict.name'),
+                        searchable: false,
+                        visible: () => this.conflictingFolders().length > 0,
+                        render: (setting, group) => {
+                            setting.settingEl.remove();
+                            const folders = this.conflictingFolders();
+                            if (folders.length === 0) return;
+                            const el = group.listEl.createEl('p', {
+                                text: t('set.scope.conflict', { folders: folders.join(', ') }),
+                            });
+                            el.classList.add('h1aligner-scope-conflict');
                         },
                     },
                     {
@@ -301,10 +316,12 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             case 'ignoreFolders':
                 s.ignoreFolders = parseIgnoreFolders(String(value));
                 await this.plugin.saveSettings();
+                this.withPreservedScroll(() => this.refreshDomState());
                 return;
             case 'includeFolders':
                 s.includeFolders = parseIgnoreFolders(String(value));
                 await this.plugin.saveSettings();
+                this.withPreservedScroll(() => this.refreshDomState());
                 return;
             case 'skipIfFrontmatterLock':
                 s.skipIfFrontmatterLock = Boolean(value);
@@ -516,6 +533,13 @@ export class H1AlignerSettingTab extends PluginSettingTab {
             maxBytes: 255 - ('md'.length + 1),
         });
         this.previewEl.setText(base ? `→ ${base}.md` : t('set.preview.empty'));
+    }
+
+    private conflictingFolders(): string[] {
+        return conflictingScopeFolders(
+            this.plugin.settings.ignoreFolders,
+            this.plugin.settings.includeFolders,
+        );
     }
 
     /**

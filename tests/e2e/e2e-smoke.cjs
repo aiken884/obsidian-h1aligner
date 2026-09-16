@@ -149,12 +149,13 @@ class Notice {
 }
 class TAbstractFile {}
 class TFile extends TAbstractFile {}
+class TFolder extends TAbstractFile {}
 function getLanguage() { return 'en'; }
 function normalizePath(p) {
     return String(p).replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
 }
 
-const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, normalizePath, getLanguage };
+const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, TFolder, normalizePath, getLanguage };
 
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...rest) {
@@ -387,7 +388,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(app._ws['file-open'], 'file-open handler registered');
     assert.ok(app._ws['editor-change'], 'editor-change handler registered');
     assert.equal(app._vault['modify'], undefined, 'no raw vault modify handler (sync/backlink writes ignored)');
-    assert.equal(plugin._commands.length, 5, 'five commands registered');
+    assert.equal(plugin._commands.length, 6, 'six commands registered');
     const onboarding = global.__lastModal;
     assert.ok(onboarding, 'onboarding modal shown on first run');
     // Before the user answers, automatic triggers must stay gated.
@@ -726,6 +727,11 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(modal, 'batch modal opened');
     const texts = [...modal.contentEl.walk()].map((e) => e.text).filter(Boolean);
     assert.ok(texts.some((t) => t.includes('batch/a.md → Alpha Report.md')), 'dry-run lists a.md');
+    assert.ok(
+        texts.some((t) => /outside the current folder\/pattern filters/.test(t)),
+        'vault-wide preview reports an out-of-scope count (ignored/not-included/exclude)',
+    );
+    assert.ok(!texts.some((t) => t.includes('.trash/')), 'out-of-scope files are counted, not listed as skipped rows');
     assert.ok(texts.some((t) => t.startsWith('Rename (')), 'renames have their own review group');
     assert.ok(texts.some((t) => t.startsWith('Conflicts (')), 'conflicts have their own review group');
     assert.ok(texts.some((t) => t.startsWith('Skipped (')), 'skips have their own review group');
@@ -1423,5 +1429,46 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 26e. onunload：cap 10 逐出最舊通知（不 hide，任其自然到期）；unloaded flag 同時擋下 evicted 與仍被追蹤通知的 Undo 點擊');
 
-    console.log('\nE2E smoke test: 44/44 scenarios passed（真實 production bundle main.js）');
+    // --- 27: Explain this note is read-only ---
+    const explainCmd = plugin._commands.find((c) => c.id === 'explain-active-file');
+    assert.ok(explainCmd, 'explain command registered');
+    const fExplainIgnored = addFile(app, '.trash/explain-me.md', '# Explain Me\n', 'Explain Me');
+    app._activeFile = fExplainIgnored;
+    const renameBeforeExplain = app._renameCalls.length;
+    explainCmd.checkCallback(false);
+    await sleep(50);
+    assert.equal(app._renameCalls.length, renameBeforeExplain, 'explain never renames an ignored note');
+    assert.ok(
+        notices.some((n) => n.includes('.trash/explain-me.md') && /ignored/i.test(n)),
+        'explain reports ignored folder',
+    );
+    const fExplainRename = addFile(app, 'notes/explain-rename.md', '# Explain Rename Target\n', 'Explain Rename Target');
+    app._activeFile = fExplainRename;
+    explainCmd.checkCallback(false);
+    await sleep(50);
+    assert.equal(app._renameCalls.length, renameBeforeExplain, 'explain never writes a would-rename note');
+    assert.ok(
+        notices.some((n) => n.includes('explain-rename.md') && n.includes('Explain Rename Target')),
+        'explain reports the proposed name',
+    );
+    console.log('✓ 27. Explain this note：唯讀，忽略與會改名的筆記都不寫入');
+
+    // --- 28: folder context-menu what-if preview ---
+    const folder = new TFolder();
+    folder.path = 'batch';
+    const folderMenu = new FakeMenu();
+    app._ws['file-menu'](folderMenu, folder, 'file-explorer-context-menu');
+    const folderPreview = folderMenu.items.find((i) => i.title === 'Preview renames in this folder');
+    assert.ok(folderPreview, 'folder menu offers what-if preview');
+    folderPreview.handler();
+    await sleep(120);
+    const folderModal = global.__lastModal;
+    const folderTexts = [...folderModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
+    assert.ok(folderTexts.some((t) => t.includes('batch/')), 'folder preview lists descendants of batch/');
+    assert.ok(!folderTexts.some((t) => t.includes('notes/explain-rename.md')), 'folder preview does not list notes outside the folder');
+    assert.equal(app._renameCalls.length, renameBeforeExplain, 'folder preview is dry-run until Apply');
+    folderModal.close();
+    console.log('✓ 28. 資料夾右鍵 what-if：只預覽該資料夾後代，不套用改名');
+
+    console.log('\nE2E smoke test: 46/46 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

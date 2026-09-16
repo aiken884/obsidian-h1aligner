@@ -113,6 +113,7 @@ function buildModal(items: BatchItem[]): BatchPreviewModal {
         items,
         true,
         false,
+        0,
         async () => {},
     );
 }

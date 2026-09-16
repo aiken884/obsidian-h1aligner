@@ -16,14 +16,33 @@ export interface ScopeSettings {
     excludePatterns: string[];
 }
 
+/** Why a path is out of automatic/batch scope. Same order as `isInScope`. */
+export type ScopeOutReason = 'ignored' | 'not-included' | 'excluded-pattern';
+
+const warnedPatterns = new Set<string>();
+
 function underFolder(path: string, folder: string): boolean {
     const prefix = folder.replace(/\/+$/, '');
     if (!prefix) return false;
     return path === prefix || path.startsWith(prefix + '/');
 }
 
-export function isInScope(path: string, basename: string, scope: ScopeSettings): boolean {
-    if (isIgnoredPath(path, scope.ignoreFolders)) return false;
+/**
+ * Whether `path` lives in `folderPath` or a descendant. Empty, `/`, or `.`
+ * means the whole vault (folder what-if on the vault root).
+ */
+export function isUnderFolder(path: string, folderPath: string): boolean {
+    const prefix = folderPath.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (!prefix || prefix === '/' || prefix === '.') return true;
+    return path === prefix || path.startsWith(prefix + '/');
+}
+
+export function scopeOutReason(
+    path: string,
+    basename: string,
+    scope: ScopeSettings,
+): ScopeOutReason | null {
+    if (isIgnoredPath(path, scope.ignoreFolders)) return 'ignored';
 
     // '/' (or '\') means the vault ROOT layer — files with no folder.
     // Blank entries are ignored so they never switch on whitelist mode with
@@ -40,12 +59,12 @@ export function isInScope(path: string, basename: string, scope: ScopeSettings):
             includeMatched = true;
         }
     }
-    if (hasValidInclude && !includeMatched) return false;
+    if (hasValidInclude && !includeMatched) return 'not-included';
 
     for (const pattern of scope.excludePatterns) {
         if (!pattern) continue;
         try {
-            if (new RegExp(pattern).test(basename)) return false;
+            if (new RegExp(pattern).test(basename)) return 'excluded-pattern';
         } catch {
             // Invalid user regex — the pattern fails OPEN (no protection),
             // so surface it once instead of silently swallowing it.
@@ -55,7 +74,20 @@ export function isInScope(path: string, basename: string, scope: ScopeSettings):
             }
         }
     }
-    return true;
+    return null;
 }
 
-const warnedPatterns = new Set<string>();
+export function isInScope(path: string, basename: string, scope: ScopeSettings): boolean {
+    return scopeOutReason(path, basename, scope) === null;
+}
+
+/** Markdown files in `files` that fail the existing scope filter. */
+export function countOutOfScope(
+    files: Array<{ path: string; basename: string; extension?: string }>,
+    scope: ScopeSettings,
+): number {
+    return files.filter((f) => {
+        if (f.extension && f.extension !== 'md') return false;
+        return scopeOutReason(f.path, f.basename, scope) !== null;
+    }).length;
+}

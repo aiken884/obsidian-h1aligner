@@ -1,4 +1,4 @@
-import { Notice, Plugin, TFile, getLanguage, normalizePath } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
 import { isLockValue } from './heading';
 import {
@@ -10,7 +10,8 @@ import {
     validateExcludePatterns,
 } from './settings';
 import { H1AlignerSettingTab } from './settings-tab';
-import { isInScope } from './scope';
+import { countOutOfScope, isInScope, isUnderFolder, scopeOutReason, type ScopeSettings } from './scope';
+import { explainNote } from './explain-note';
 import { isIgnoredPath } from './ignore';
 import { KeyedDebouncer } from './debounce';
 import { noticeFor, offersUndo } from './notice';
@@ -39,7 +40,7 @@ import { computeAllowTagMove, formatTagMoveDetail } from './tag-move-policy';
  *   5. Delegate to RenameService (serial mutex + guard layers); every
  *      decision is recorded in the session ActivityLog.
  *   6. Notice policy lives in noticeFor(); manual actions always report.
- *   7. Commands: manual rename, batch dry-run preview, undo, show activity.
+ *   7. Commands: manual rename, batch dry-run preview, explain, undo, show activity.
  */
 export default class H1AlignerPlugin extends Plugin {
     settings: H1AlignerSettings = { ...DEFAULT_SETTINGS };
@@ -163,6 +164,15 @@ export default class H1AlignerPlugin extends Plugin {
         // filtered — fires on mobile long-press too.
         this.registerEvent(
             this.app.workspace.on('file-menu', (menu, file) => {
+                if (file instanceof TFolder) {
+                    const folderPath = file.path;
+                    menu.addItem((item) => {
+                        item.setTitle(t('menu.previewFolder'))
+                            .setIcon('list')
+                            .onClick(() => void this.openBatchPreview({ folderPath }));
+                    });
+                    return;
+                }
                 if (!(file instanceof TFile) || file.extension !== 'md') return;
                 const cache = this.app.metadataCache.getFileCache(file);
                 const locked = isLockValue(cache?.frontmatter?.['h1aligner-lock']);
@@ -206,6 +216,19 @@ export default class H1AlignerPlugin extends Plugin {
             id: 'batch-preview-renames',
             name: t('cmd.batchPreview'),
             callback: () => void this.openBatchPreview(),
+        });
+
+        this.addCommand({
+            id: 'explain-active-file',
+            name: t('cmd.explain'),
+            checkCallback: (checking: boolean) => {
+                const file = this.app.workspace.getActiveFile();
+                if (!file || file.extension !== 'md') return false;
+                if (!checking) {
+                    void this.explainActiveFile();
+                }
+                return true;
+            },
         });
 
         this.addCommand({
@@ -319,19 +342,39 @@ export default class H1AlignerPlugin extends Plugin {
         );
     }
 
-    /** Full scope filter (automatic triggers + batch). */
-    private shouldProcess(file: TFile): boolean {
-        if (file.extension !== 'md') return false;
-        return isInScope(file.path, file.basename, {
-            // The config folder (user-configurable; Vault#configDir) is
-            // always ignored regardless of settings.
+    /** Same scope object automatic triggers, batch, and explain use. */
+    private scopeSettings(): ScopeSettings {
+        return {
             ignoreFolders: [
                 this.app.vault.configDir,
                 ...this.settings.ignoreFolders.map(H1AlignerPlugin.normalizeFolderEntry),
             ],
             includeFolders: this.settings.includeFolders.map(H1AlignerPlugin.normalizeFolderEntry),
             excludePatterns: this.settings.excludePatterns,
+        };
+    }
+
+    /** Full scope filter (automatic triggers + batch). */
+    private shouldProcess(file: TFile): boolean {
+        if (file.extension !== 'md') return false;
+        return isInScope(file.path, file.basename, this.scopeSettings());
+    }
+
+    /** Read-only: why this note would or would not be renamed. Never writes. */
+    private async explainActiveFile(): Promise<void> {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== 'md') return;
+        const scopeOut = scopeOutReason(file.path, file.basename, this.scopeSettings());
+        const dryRun = scopeOut
+            ? null
+            : await this.renameService.renameFromH1(file, { dryRun: true });
+        const result = explainNote({
+            path: file.path,
+            basename: file.basename,
+            scopeOut,
+            dryRun,
         });
+        new Notice(result.text);
     }
 
     /** Manual command: only ignoreFolders applies (explicit action = consent). */
@@ -498,22 +541,27 @@ export default class H1AlignerPlugin extends Plugin {
 
     private batchInFlight = false;
 
-    private async openBatchPreview(): Promise<void> {
+    private async openBatchPreview(opts?: { folderPath?: string }): Promise<void> {
         if (this.batchInFlight) {
             new Notice(t('notice.batchRunning'));
             return;
         }
         this.batchInFlight = true;
         try {
-            await this.runBatchPreview();
+            await this.runBatchPreview(opts?.folderPath);
         } finally {
             this.batchInFlight = false;
         }
     }
 
-    private async runBatchPreview(): Promise<void> {
+    private async runBatchPreview(folderPath?: string): Promise<void> {
         const previewFingerprint = this.batchSettingsFingerprint();
-        const files = this.app.vault.getMarkdownFiles().filter((f) => this.shouldProcess(f));
+        const inFolder = this.app.vault
+            .getMarkdownFiles()
+            .filter((f) => (folderPath === undefined ? true : isUnderFolder(f.path, folderPath)));
+        const scope = this.scopeSettings();
+        const outOfScopeCount = countOutOfScope(inFolder, scope);
+        const files = inFolder.filter((f) => isInScope(f.path, f.basename, scope));
         if (files.length > 200) {
             new Notice(t('notice.scanning', { count: files.length }));
         }
@@ -561,6 +609,7 @@ export default class H1AlignerPlugin extends Plugin {
             items,
             this.canApplyBatchPreview(previewFingerprint),
             this.settings.moveTagsToFrontmatter && this.settings.bodyTagHandling !== 'keep',
+            outOfScopeCount,
             async (renamable) => {
                 if (!this.canApplyBatchPreview(previewFingerprint)) {
                     new Notice(this.batchPreviewBlockMessage(previewFingerprint));

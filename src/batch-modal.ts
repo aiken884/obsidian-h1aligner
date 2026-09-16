@@ -32,6 +32,7 @@ export class BatchPreviewModal extends Modal {
         private readonly items: BatchItem[],
         private readonly canApply: boolean,
         private readonly tagsModifyBody: boolean,
+        private readonly outOfScopeCount: number,
         private readonly onApply: (renamable: ApplicableBatchItem[]) => Promise<void>,
     ) {
         super(app);
@@ -58,6 +59,12 @@ export class BatchPreviewModal extends Modal {
         contentEl.createEl('p', {
             text: t('batch.summary', { renamable: renamable.length, total: this.items.length }),
         });
+        if (this.outOfScopeCount > 0) {
+            const oos = contentEl.createEl('p', {
+                text: t('batch.outOfScope', { count: this.outOfScopeCount }),
+            });
+            oos.classList.add('h1aligner-hint');
+        }
         const hint = contentEl.createEl('p', { text: t('batch.hint') });
         hint.classList.add('h1aligner-hint');
         const settingsSnapshot = contentEl.createEl('p', { text: t('batch.settingsSnapshot') });

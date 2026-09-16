@@ -40,12 +40,26 @@ const en = {
     'cmd.undo': 'Undo last rename',
     'cmd.showActivity': 'Show recent activity',
     'cmd.toggleLock': 'Lock or unlock this note',
+    'cmd.explain': 'Explain this note',
     // File context menu
     'menu.lock': 'Lock this note',
     'menu.unlock': 'Unlock this note',
     'menu.renameFromH1': 'Rename from first H1',
+    'menu.previewFolder': 'Preview renames in this folder',
+    // Explain
+    'explain.ignored':
+        'H1Aligner: {path} is in an ignored folder — automatic and manual rename both skip it.',
+    'explain.notIncluded':
+        'H1Aligner: {path} is outside the include-folders whitelist — automatic rename skips it; the manual command can still rename it.',
+    'explain.excludedPattern':
+        'H1Aligner: {path} matches an exclude-filename pattern — automatic rename skips it; the manual command can still rename it.',
+    'explain.wouldRename': 'H1Aligner: {path} would be renamed → {name}',
+    'explain.skip': 'H1Aligner: {path} would not be renamed ({reason})',
+    'explain.error': 'H1Aligner: could not explain {path}: {message}',
     // Batch modal
     'batch.summary': '{renamable} of {total} note(s) would be renamed.',
+    'batch.outOfScope':
+        '{count} note(s) are outside the current folder/pattern filters (not listed below).',
     'batch.hint': 'Targets are re-checked at apply time; notes whose H1 changed meanwhile are skipped.',
     'batch.settingsSnapshot':
         'This preview is tied to the current rename settings. Create a new preview after changing them.',
@@ -214,10 +228,22 @@ const zhTW: Record<LocaleKey, string> = {
     'cmd.undo': 'Undo last rename（復原上一次改名）',
     'cmd.showActivity': 'Show recent activity（顯示活動紀錄）',
     'cmd.toggleLock': 'Lock or unlock this note（鎖定或解除鎖定目前筆記）',
+    'cmd.explain': 'Explain this note（說明這則筆記）',
     'menu.lock': '鎖定此筆記',
     'menu.unlock': '解除鎖定此筆記',
     'menu.renameFromH1': '依第一個 H1 改名',
+    'menu.previewFolder': '預覽這個資料夾的改名',
+    'explain.ignored':
+        'H1Aligner：{path} 位於忽略資料夾 — 自動與手動改名都會跳過。',
+    'explain.notIncluded':
+        'H1Aligner：{path} 不在僅套用白名單內 — 自動改名會跳過；手動指令仍可改名。',
+    'explain.excludedPattern':
+        'H1Aligner：{path} 符合排除檔名 pattern — 自動改名會跳過；手動指令仍可改名。',
+    'explain.wouldRename': 'H1Aligner：{path} 將會改名 → {name}',
+    'explain.skip': 'H1Aligner：{path} 不會被改名（{reason}）',
+    'explain.error': 'H1Aligner：無法說明 {path}：{message}',
     'batch.summary': '{total} 篇筆記中有 {renamable} 篇會被改名。',
+    'batch.outOfScope': '{count} 則筆記在目前的資料夾／pattern 篩選之外（不列在下方）。',
     'batch.hint': '套用時會重新核對目標檔名；預覽後 H1 有變動的筆記會被跳過。',
     'batch.settingsSnapshot': '此預覽綁定目前的改名設定；變更設定後請重新產生預覽。',
     'batch.more': '…還有 {count} 筆會被改名',
@@ -372,10 +398,23 @@ const ja: Record<LocaleKey, string> = {
     'cmd.undo': 'Undo last rename（直前のリネームを取り消す）',
     'cmd.showActivity': 'Show recent activity（アクティビティを表示）',
     'cmd.toggleLock': 'Lock or unlock this note（このノートをロック/ロック解除）',
+    'cmd.explain': 'Explain this note（このノートを説明する）',
     'menu.lock': 'このノートをロック',
     'menu.unlock': 'このノートのロックを解除',
     'menu.renameFromH1': '最初の H1 でリネーム',
+    'menu.previewFolder': 'このフォルダのリネームをプレビュー',
+    'explain.ignored':
+        'H1Aligner：{path} は除外フォルダ内です — 自動・手動リネームはどちらもスキップします。',
+    'explain.notIncluded':
+        'H1Aligner：{path} は対象フォルダのホワイトリスト外です — 自動リネームはスキップしますが、手動コマンドではリネームできます。',
+    'explain.excludedPattern':
+        'H1Aligner：{path} は除外ファイル名パターンに一致します — 自動リネームはスキップしますが、手動コマンドではリネームできます。',
+    'explain.wouldRename': 'H1Aligner：{path} は {name} にリネームされます',
+    'explain.skip': 'H1Aligner：{path} はリネームされません（{reason}）',
+    'explain.error': 'H1Aligner：{path} を説明できません：{message}',
     'batch.summary': '{total} 件のノートのうち {renamable} 件がリネーム対象です。',
+    'batch.outOfScope':
+        '{count} 件のノートは現在のフォルダ／パターン絞り込みの対象外です（下には表示しません）。',
     'batch.hint': '適用時にリネーム先を再確認します。プレビュー後に H1 が変更されたノートはスキップされます。',
     'batch.settingsSnapshot': 'このプレビューは現在のリネーム設定に紐づいています。設定を変更した後は新しいプレビューを作成してください。',
     'batch.more': '…ほか {count} 件がリネーム対象',

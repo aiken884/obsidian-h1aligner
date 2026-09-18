@@ -25,7 +25,8 @@ The Obsidian CLI vault id is always `ObsidianTestVault` (the nested `.../Obsidia
 
 - Obsidian desktop running; `obsidian` CLI available (`obsidian help` to confirm).
 - The feature branch already built and deployed to TestVault (`node scripts/dev-deploy.mjs`) — this skill provisions the *workspace*, not the plugin build. On Mac, that script also writes the **real** vault; if Aiken said not to touch the main vault's plugin, copy `main.js` / `manifest.json` / `styles.css` into TestVault only.
-- Read what this phase actually needs before designing fixtures: `docs/MOBILE-TESTING.md`'s 16-item table for behavioral coverage, plus any per-batch design doc (e.g. `docs/design-lock-command-undo-button-tag-notice.md`) for what's new.
+- Read what this phase actually needs before designing fixtures: `docs/MOBILE-TESTING.md` (items 1–16 for 0.12.0; **17–19 for batch 2** on `feature/0.12.0-batch2`), plus the matching design doc (`docs/design-batch2-explain-oos-folder-preview.md` for batch 2).
+- For batch 2, deploy **that branch's** `main.js` to TestVault only (do not overwrite the real vault's 0.12.0 unless Aiken asks). Disk version stays 0.12.0 — the branch is how you tell builds apart.
 
 ## Procedure
 
@@ -83,6 +84,20 @@ const p = app.plugins.plugins['heading-aligner'];
 p.settings = { ...p.settings, renameTrigger: 'file-open', includeFolders: [], ignoreFolders: ['.trash'], noticeLevel: 'all' };
 await p.saveSettings();
 ```
+
+## Batch 2 extras (items 17–19)
+
+On `feature/0.12.0-batch2` only. Keep the Phase-1 baseline, then add (names in zh-TW):
+
+| Fixture | Role |
+|---|---|
+| `.trash/說明忽略.md` (or any path under ignoreFolders) | #17 ignored — Explain must say ignored; filename unchanged |
+| date-named `daily/YYYY-MM-DD.md` with a non-matching H1 | #17 exclude-pattern + #4 |
+| `鎖定測試筆記.md` with `h1aligner-lock: true` | #17 locked + #5/#16 |
+| `說明會改名.md` with mismatched H1 | #17 would-rename; do **not** open it on file-open trigger or it will actually rename |
+| folder `H1A-SCOPE-sub/` with one mismatched note, plus a sibling folder with another | #18 count + #19 folder preview (sibling must not appear) |
+
+Index note must stay locked. After a scope/include-ignore pass, restore `includeFolders` / `ignoreFolders`.
 
 ## Worked example (2026-09-16, batch-1 + scope-conflict pass)
 

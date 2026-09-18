@@ -5,12 +5,8 @@ Implementation status (2026-09-16): all three features (A, B, C) were implemente
 `feature/0.12.0-batch1` — commits `515dd9b` (A), `c984036` (B), `336c404` (C), each TDD'd and independently
 adversarially reviewed against this document with no blocking issues, plus a wrap-up commit `78e9a04`.
 `npm run lint`, `npm run build`, `npm test` (423), and `npm run test:e2e` (40) were green throughout.
-**Merged to `main`** (fast-forward, `78e9a04`) after Aiken's review; the batch branch has been deleted.
-Real desktop on-device verification (Mac + PC, not the automated suite) also passed 4/4 on all items,
-including the stale-cache race — see `docs/MOBILE-TESTING.md`'s Verification Log. Actual iPhone/Android
-on-device testing and the `0.12.0` version bump/release are separate, still-pending steps per §11 —
-the checklist for that is waiting in "H1Aligner Mobile Verification.md" at the root of Aiken's main vault.
-Target version: H1Aligner (community id `heading-aligner`) 0.12.0
+**Merged to `main`** and **released as 0.12.0** (2026-09-16, tag `0.12.0`). Desktop (Mac + PC) and Aiken's iPhone on-device pass are in `docs/MOBILE-TESTING.md`. Android was not run that cycle.
+Target version: H1Aligner (community id `heading-aligner`) 0.12.0 (shipped).
 Companion: the full-context planning file (including the author's own vault configuration that motivated
 the feature choice) lives outside the repo; this document is the repo-safe, implementation-ready version.
 

@@ -19,9 +19,10 @@ remagraph search --cross-project-label topic:how-to-contact-tower
 
 ## 發版
 
-- 已發布：`0.11.2`。**0.12.0** 合併階段一（lock／通知 Undo／tag-move notice）與設定頁修復；不再使用 `release/0.11.3`。
-- 發版由 Home 執行（`npm version`、tag、GitHub release）。Mac 不必部署或更換 TestVault，除非 Aiken 要求對到正式版。
-- 後續 patch／minor 直接在 `main` 上做。
+- 已發布：**0.12.0**（階段一 lock／通知 Undo／tag-move notice + 設定頁修復）。GitHub：https://github.com/aiken884/obsidian-h1aligner/releases/tag/0.12.0
+- **階段二**（Explain this note、批次 out-of-scope 計數、資料夾 what-if 預覽）在分支 `feature/0.12.0-batch2`。磁碟上的 `manifest.json` / `package.json` 仍是 `0.12.0`，**尚未對外發 0.13.0**。內部測試未完成前不要 bump 版本、不要 merge 進 `main`。
+- 實機清單：`docs/MOBILE-TESTING.md` 項目 17–19。設計：`docs/design-batch2-explain-oos-folder-preview.md`。審查：`docs/review-batch2.md`。
+- 發版由 Home 執行（`npm version`、tag、GitHub release）。Mac 不必部署或更換 TestVault，除非 Aiken 要求。
 
 ## Vaults
 

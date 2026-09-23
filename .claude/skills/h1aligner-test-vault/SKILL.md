@@ -11,7 +11,7 @@ ObsidianTestVault is disposable test data only — reshape it freely (Aiken conf
 
 ## Where this runs
 
-This skill drives the **live Obsidian desktop app**. It is for Mac or PC sessions with GUI Obsidian. Home Linux Grok has no GUI Obsidian — do not try to reset TestVault from Home; coordinate with a Mac/PC agent instead.
+This skill drives the **live Obsidian desktop app**. It is for Mac or PC sessions with GUI Obsidian. Home (the Linux server) has no GUI Obsidian, so no agent running on Home can do this — hand it to a Mac/PC session instead.
 
 | Machine | Test vault disk path | Real vault (never touch) |
 |---|---|---|
@@ -19,7 +19,7 @@ This skill drives the **live Obsidian desktop app**. It is for Mac or PC session
 | PC | *ask Aiken if missing — do not guess* | *ask Aiken* |
 | Home | n/a (no GUI) | n/a |
 
-The Obsidian CLI vault id is always `ObsidianTestVault` (the nested `.../ObsidianTestVault/ObsidianTestVault` folder was flattened on 2026-09-16). `scripts/dev-deploy.mjs` currently lists Mac paths only.
+The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the single flat folder at the path above. `scripts/dev-deploy.mjs` lists Mac paths only.
 
 ## Prerequisites
 
@@ -83,10 +83,6 @@ const p = app.plugins.plugins['heading-aligner'];
 p.settings = { ...p.settings, renameTrigger: 'file-open', includeFolders: [], ignoreFolders: ['.trash'], noticeLevel: 'all' };
 await p.saveSettings();
 ```
-
-## Worked example (2026-09-16, batch-1 + scope-conflict pass)
-
-Reset TestVault from 57 accumulated notes down to the checklist note, applied the Phase-1 baseline above, and created: `daily/2026-09-16.md` (daily-note protection), `Readme.md` (case-collision target), `長標題測試.md` (long-CJK truncation), `鎖定測試筆記.md` (lock + lock/unlock menu), `標籤搬移測試.md` (tag-move notice), `復原測試筆記.md` (Undo + superseded), `隨手筆記一/二/三.md` (Phase-4 disposables for batch preview / alias / activity log), `H1A-SCOPE-sub/衝突測試筆記.md` (include/ignore conflict), plus `00-測試索引.md` tying it together. Ten fixtures instead of the checklist's raw 16-item enumeration, because several notes double up across sequential items.
 
 ## Common mistakes
 

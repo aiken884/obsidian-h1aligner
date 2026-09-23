@@ -2,7 +2,7 @@
 
 ## 發版
 
-- 已發布：`0.11.2`。**0.12.0** 合併階段一（lock／通知 Undo／tag-move notice）與設定頁修復；不再使用 `release/0.11.3`。
+- 已發布：`0.12.0`（合併階段一：lock／通知 Undo／tag-move notice，以及設定頁修復）；不再使用 `release/0.11.3`。
 - 發版由 Home 執行（`npm version`、tag、GitHub release）。Mac 不必部署或更換 TestVault，除非 Aiken 要求對到正式版。
 - 後續 patch／minor 直接在 `main` 上做。
 

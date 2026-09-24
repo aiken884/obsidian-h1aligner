@@ -7,7 +7,7 @@ description: Use when preparing or resetting Obsidian's ObsidianTestVault to man
 
 ## Overview
 
-ObsidianTestVault is disposable test data only — reshape it freely (Aiken confirmed 2026-09-16). This skill resets it to a clean, low-interference baseline (vault settings, plugin settings, note content) and provisions the minimal fixture notes a given phase's checklist needs, driven entirely through the `obsidian` CLI against the live app — no manual clicking, no editing files while Obsidian has them open.
+ObsidianTestVault is disposable test data only — reshape it freely. This skill resets it to a clean, low-interference baseline (vault settings, plugin settings, note content) and provisions the minimal fixture notes a given phase's checklist needs, driven entirely through the `obsidian` CLI against the live app — no manual clicking, no editing files while Obsidian has them open.
 
 ## Where this runs
 
@@ -16,10 +16,10 @@ This skill drives the **live Obsidian desktop app**. It is for Mac or PC session
 | Machine | Test vault disk path | Real vault (never touch) |
 |---|---|---|
 | Mac | `/Users/aikenlin/Obsidian/ObsidianTestVault` | `/Users/aikenlin/Obsidian/ObsidianVault` |
-| PC | *ask Aiken if missing — do not guess* | *ask Aiken* |
+| PC | `C:\Obsidian\ObsidianTestVault` | `C:\Obsidian\ObsidianVault` (also leave `C:\Obsidian\NinaVault` alone) |
 | Home | n/a (no GUI) | n/a |
 
-The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the single flat folder at the path above. `scripts/dev-deploy.mjs` lists Mac paths only.
+The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the single flat folder at the path above. `scripts/dev-deploy.mjs` lists Mac paths only. On PC the `obsidian` CLI is `C:\Program Files\Obsidian\Obsidian.com` (on PATH).
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the si
 2. **Reset the plugin's settings.** `plugin.settings = { ...plugin.settings, ...baseline }; await plugin.saveSettings()`, starting from `DEFAULT_SETTINGS` (`src/settings.ts`) with only the phase's overrides (table below).
 3. **Reset vault-level Obsidian settings.** `community-plugins.json` should list `heading-aligner` only — check `.obsidian/plugins/` for stray folders (e.g. a leftover pre-rename `h1aligner` id) and delete unused ones. `core-plugins.json` stays minimal: `file-explorer`, `properties`, `command-palette`, `editor-status`, `sync` on; everything else off. `app.json`/`appearance.json` stay `{}`.
 4. **Design fixture notes.** For each checklist item in scope, ask "does an existing fixture already exercise this, or does it need its own note?" One note often carries several sequential items (a lock-test note serves both "add the lock" and "lock/unlock context menu"). Write a `00-測試索引.md` index note (numeric prefix sorts first) listing every fixture, what it tests, and the settings baseline in effect — give it `h1aligner-lock: true` in frontmatter (see Common mistakes below for why).
-5. **Verify.** `dev:errors` clean, `app.vault.getMarkdownFiles()` matches the intended list, settings read back correctly. Only screenshot when a *visual* behavior (not just content) needs eyeballing: Mac `cliclick`/`screencapture`; PC use that machine's equivalent. Confirm the capture is the settings window or the editor you meant — a previous pass screenshot the editor while claiming it was Settings.
+5. **Verify.** `dev:errors` clean, `app.vault.getMarkdownFiles()` matches the intended list, settings read back correctly. Only screenshot when a *visual* behavior (not just content) needs eyeballing: Mac `cliclick`/`screencapture`; PC use that machine's equivalent. Confirm the capture shows the window you meant (settings vs. editor) before describing it.
 6. **Report** a short table: fixture → what to do → what to expect, plus the settings baseline used.
 
 ## Baseline settings reference
@@ -62,7 +62,7 @@ Settings-page conflict row (Obsidian 1.13.7): extra nodes created on `group.list
 - One note can serve multiple sequential checklist items — don't multiply notes; the goal is speed, not exhaustive 1:1 coverage.
 - Notes meant for a *later* phase (e.g. manual-only disposables) are safe to pre-create now with `app.vault.create` — creation alone never fires the file-open hook, so they won't be prematurely renamed.
 - Never touch `ObsidianVault` (the real vault) from this skill. Always pass `vault=ObsidianTestVault` explicitly to every `obsidian` CLI call.
-- Index notes (`00-測試索引.md` and similar) must be locked (`h1aligner-lock: true`) **or** the H1 itself must keep the sort prefix. Opening an unlocked index whose H1 does not match the `00-` filename will rename it and drop the prefix (happened 2026-09-16).
+- Index notes (`00-測試索引.md` and similar) must be locked (`h1aligner-lock: true`) **or** the H1 itself must keep the sort prefix. Opening an unlocked index whose H1 does not match the `00-` filename will rename it and drop the prefix.
 
 ## Quick-reference eval snippets
 
@@ -87,7 +87,7 @@ await p.saveSettings();
 ## Common mistakes
 
 - Hard-deleting instead of `vault.trash` — not recoverable if a note turns out to matter.
-- Forgetting to restore `includeFolders`/`ignoreFolders` after a scope test — the next phase silently inherits a narrowed scope (this happened once: a stray `未命名` folder lingered in `includeFolders` from manual exploration and wasn't caught until the next session).
+- Forgetting to restore `includeFolders`/`ignoreFolders` after a scope test — the next phase silently inherits a narrowed scope (including folders added during manual exploration).
 - Running against `ObsidianVault` by mistake — always pass `vault=ObsidianTestVault`.
 - Running this skill from Home (no GUI Obsidian) — hand it to a Mac/PC desktop session.
 - Leaving a stray plugin folder under an old id installed — harmless to Obsidian but it's noise; delete it.

@@ -1,7 +1,7 @@
 # Design Document: Explain this note, out-of-scope batch count, folder what-if preview (batch 2)
 
 Date: 2026-09-16  Status: **Implemented on `feature/0.12.0-batch2`; target release 0.13.0. On-device testing (MOBILE-TESTING #17–#19) pending — required before merging to `main` and bumping the version.**
-Implementation (2026-09-16): `c0d4961` (features) + docs/review. Gate: lint, build, 443 unit tests, 46 E2E (scenarios 27–28). Adversarial review in `docs/review-batch2.md` — no remaining blockers. On-device TestVault / iPhone / Android for batch 2 is **not done**. Disk version stays **0.12.0**; no `0.13.0` until Aiken says so.
+Implementation (2026-09-16): `c0d4961` (features) + docs/review; pre-release fixes 2026-09-29 (§10). Gate: lint (`--max-warnings 0`), build, 465 unit tests, 48 E2E (scenarios 27, 27b, 27c, 28). Adversarial review in `docs/review-batch2.md` (with a 2026-09 re-review section) — no remaining blockers. On-device TestVault / iPhone / Android for batch 2 is **not done**. Disk version stays **0.12.0**; no `0.13.0` until Aiken says so.
 Companion: batch 1 design `docs/design-lock-command-undo-button-tag-notice.md` §1 roadmap.
 
 ## 1. Overview

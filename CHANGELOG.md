@@ -3,6 +3,8 @@
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
 ## Unreleased
+Read-only diagnostics (**Explain this note**, an out-of-scope count in the batch preview, a folder what-if preview), two small fixes to the experimental tag mover and UI-string substitution, and stricter CI (lint warnings fail, release tag must match the version files). Unit tests: 432 → 465; E2E scenarios: 44 → 48. Desktop and mobile on-device verification of items #17–#19 (`docs/MOBILE-TESTING.md`) has **not** been run yet — not a 0.13.0 release candidate until the Verification Log row is filled.
+
 - **Add**: **Explain this note** — a read-only command that reports why the active markdown note would or would not be renamed (ignored folder, include-list miss, exclude pattern, lock, no H1, or the proposed filename). While an invalid exclude-pattern draft pauses all renaming, it reports the pause instead; for a note outside the include list or matching an exclude pattern, it says when the manual command would also skip it (e.g. locked). It never writes.
 - **Add**: the vault-wide dry-run preview shows how many markdown notes sit **outside** ignore/include/exclude (counted, not listed as skipped rows). Apply still acts only on the preview's Rename rows (scope as of the preview), re-checking each row with a fresh dry run.
 - **Add**: right-click a folder → **Preview renames in this folder** — the same dry-run modal, limited to that folder's descendants; it names the folder and words the out-of-scope count as "in this folder".

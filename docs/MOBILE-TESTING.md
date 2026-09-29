@@ -28,7 +28,7 @@ Use **ObsidianTestVault** (the dedicated test vault). Do not run this checklist 
 | 13 | Android case-sensitive behavior | (Android only) Create `note.md` and `Note.md` and test renaming | The collision scan treats them as a conflict (conservatively skipped) — record the actual behavior |
 | 14 | Preserve aliases | Enable "Keep old filename as alias" and then trigger a rename | The old filename appears in the frontmatter aliases; the quick switcher can find the note by its old name |
 | 15 | Rename notice Undo button | Trigger a rename, then tap the **Undo** button on the toast itself (not the command palette) | The toast shows a tappable Undo button; tapping it reverts the rename, closes the toast, and the activity log records source "undo"; tapping an older toast after a newer rename has happened shows "no longer the latest" instead of undoing |
-| 16 | Lock / unlock via context menu | Long-press a note in the file explorer (or right-click on desktop) → **Lock this note** → open the note; then long-press it again *immediately* (before re-indexing) and confirm whatever the menu shows cannot accidentally unlock it; then **Unlock this note** → open the note | Locked: opening the note does not rename it. The menu never offers an action that unlocks a note that is actually still locked, even if its label is briefly stale. Unlocked: opening the note renames it again |
+| 16 | Lock / unlock via context menu | Long-press a note in the file explorer (or right-click on desktop) → **Lock this note** → open the note; then long-press it again *immediately* (before re-indexing) and confirm whatever the menu shows cannot accidentally unlock it; then **Unlock this note** → open the note | Locked: opening the note does not rename it. The menu never offers an action that unlocks a note that is actually still locked, even if its label is briefly stale. Unlocked: opening the note renames it again. The menu also shows **Rename from first H1** for notes outside ignored folders; tapping it renames the note like the manual command. |
 | 17 | Explain this note | On a note that is ignored, one that matches an exclude pattern, one that is locked, and one that would rename: run **Explain this note** | A notice explains the matching reason. The filename does not change. |
 | 18 | Batch out-of-scope count | With ignore/include/exclude excluding some notes, run **Preview all renames (dry run)** | The modal shows a count of notes outside those filters. Those notes are not listed as skipped rows. Apply still only renames in-scope Rename items. |
 | 19 | Folder what-if preview | Long-press / right-click a folder → **Preview renames in this folder** | The modal only lists markdown notes under that folder. Notes in other folders do not appear. Apply still re-verifies. |
@@ -49,9 +49,11 @@ doesn't apply). Do the whole thing in **ObsidianTestVault**, not the real `Obsid
   - A long-CJK note for #3 — H1 of 100+ Chinese characters (e.g. paste a paragraph).
   - 3-4 disposable notes with mismatched H1s for #9/#10 batch preview+apply.
   - One note whose H1 you can freely edit for #6/#6b/#15.
-  - For **batch 2** (#17–#19), on branch `feature/0.12.0-batch2` (not directory 0.12.0): an ignored-folder
-    note, an exclude-pattern daily note, a locked note, a would-rename note, plus a folder that contains
-    some of those and a sibling folder that must **not** appear in the folder preview.
+  - For **batch 2** (#17–#19), on branch `feature/0.12.0-batch2` (not directory 0.12.0): first add a
+    *visible* folder (e.g. `H1A-忽略`) to Ignore folders — the default `.trash` is hidden by Obsidian, so its
+    notes cannot be opened or counted — then prepare a note in that folder, an exclude-pattern daily note, a
+    locked note, a would-rename note, plus a folder that contains some of those and a sibling folder that
+    must **not** appear in the folder preview.
 
 **Phase 0 — Fresh install (#1).** Enable the plugin for the first time. Confirm the onboarding modal
 appears once; pick "Start with manual mode"; confirm the trigger setting became Manual only; restart the
@@ -100,15 +102,8 @@ don't want anything renaming out from under you:
 4. #11: open "Show recent activity" → everything from this whole run so far is listed (time / source /
    result), readable at phone width.
 
-**Phase 5 — Full settings walkthrough (#12), last for 0.12.0.** Touches every settings field, so do it after
-everything else so a half-changed setting can't contaminate an earlier phase: open plugin settings, adjust
-each field and watch the live preview; type an invalid exclusion regex (e.g. `[`) → inline error appears,
-the previous valid rule stays active, and automatic/manual/batch renaming all pause until it's fixed → fix
-it → renaming resumes. Confirm zh-TW strings throughout if Obsidian's language is set to Traditional
-Chinese.
-
-**Phase 6 — Batch 2 diagnostics (#17–#19), only on `feature/0.12.0-batch2`.** Directory 0.12.0 does not
-include these. Trigger = Manual only is safest so opening notes does not rename them out from under Explain:
+**Phase 4b — Batch 2 diagnostics (#17–#19), only on `feature/0.12.0-batch2`.** Directory 0.12.0 does not
+include these. Trigger stays Manual only from Phase 4, so opening notes does not rename them out from under Explain:
 1. #17: run **Explain this note** on (a) an ignored-folder note, (b) a date-named exclude-pattern note,
    (c) a locked note, (d) a mismatched-H1 note that would rename. Each should produce a notice with the
    matching reason; **filenames must not change**.
@@ -118,6 +113,13 @@ include these. Trigger = Manual only is safest so opening notes does not rename 
 3. #19: long-press / right-click a folder → **Preview renames in this folder**. Only markdown under that
    folder is listed; a sibling folder's notes must not appear. Do not Apply unless you intend to; Apply
    still re-verifies.
+
+**Phase 5 — Full settings walkthrough (#12), last.** Touches every settings field, so do it after
+everything else so a half-changed setting can't contaminate an earlier phase: open plugin settings, adjust
+each field and watch the live preview; type an invalid exclusion regex (e.g. `[`) → inline error appears,
+the previous valid rule stays active, and automatic/manual/batch renaming all pause until it's fixed → fix
+it → renaming resumes. Confirm zh-TW strings throughout if Obsidian's language is set to Traditional
+Chinese.
 
 **Wrap-up:** fill in one row of the Verification Log table below per device — date, device/OS, Obsidian
 version, plugin version, and which numbered items passed/failed/were skipped with why.
@@ -130,7 +132,7 @@ version, plugin version, and which numbered items passed/failed/were skipped wit
 | — | Android | — | — | Not run |
 | 2026-07-15 | Pending: iPhone and Android | — | 0.10.0 | Release candidate adds gates #9 and #12; on-device verification has not yet been performed and must not be considered passed. |
 | 2026-08-11 | iPhone (iOS 26.6) + desktop | 1.13.4 (desktop, via obsidian-cli); mobile version not recorded | 0.11.0 → 0.11.1 | Verified the scroll-position-reset fix for the "Move tags to frontmatter" toggle (item #12's live-preview interaction) via screen recording on both mobile and desktop, reproducing the bug before the fix and confirming it was gone after. Not a full run of the checklist above — scoped to this one regression. Android not tested. |
-| 2026-09-16 | Mac (desktop, macOS) | 1.13.7 | dev build @78e9a04 (0.12.0 batch 1, pre-release) | Verified the three new batch-1 features via real Obsidian, driving genuine UI input with cliclick + screencapture (not the automated test harness). Two independent rounds, 4/4 PASS both times: #16 lock/unlock menu including the stale-cache race forced at true 0ms reopen (menu still showed the stale label, click stayed idempotent) and confirmed distinct from the normal ~300ms fresh-cache case; #3-equivalent tag-move notice; #15 undo button including the superseded-toast rejection and the undo-chain (v3/v4) identity check. Desktop only — iPhone not run this cycle, see "H1Aligner Mobile Verification.md" in the vault root for the pending on-device pass. |
-| 2026-09-16 | PC (desktop, Windows) | 1.13.7 | dev build @78e9a04 (0.12.0 batch 1, pre-release) | Independent verification via obsidian CLI eval + a Proxy Menu harness triggering `file-menu` (not the automated test harness). 4/4 PASS, including the stale-cache case at true 0ms. Two harness-only artifacts were confirmed unrelated to the plugin: an incomplete Proxy Menu implementation triggered an unrelated Obsidian-core `setSectionSubmenu` warning, and an overlong eval script caused a CLI IPC parse error (recovered; vault confirmed undamaged). Desktop only — Android not run this cycle, see "H1Aligner Mobile Verification.md" in the vault root for the pending on-device pass. |
+| 2026-09-16 | Mac (desktop, macOS) | 1.13.7 | dev build @78e9a04 (0.12.0 batch 1, pre-release) | Verified the three new batch-1 features via real Obsidian, driving genuine UI input with cliclick + screencapture (not the automated test harness). Two independent rounds, 4/4 PASS both times: #16 lock/unlock menu including the stale-cache race forced at true 0ms reopen (menu still showed the stale label, click stayed idempotent) and confirmed distinct from the normal ~300ms fresh-cache case; #3-equivalent tag-move notice; #15 undo button including the superseded-toast rejection and the undo-chain (v3/v4) identity check. Desktop only — iPhone ran later the same day (see the iPhone row below). |
+| 2026-09-16 | PC (desktop, Windows) | 1.13.7 | dev build @78e9a04 (0.12.0 batch 1, pre-release) | Independent verification via obsidian CLI eval + a Proxy Menu harness triggering `file-menu` (not the automated test harness). 4/4 PASS, including the stale-cache case at true 0ms. Two harness-only artifacts were confirmed unrelated to the plugin: an incomplete Proxy Menu implementation triggered an unrelated Obsidian-core `setSectionSubmenu` warning, and an overlong eval script caused a CLI IPC parse error (recovered; vault confirmed undamaged). Desktop only — Android not run this cycle. |
 | 2026-09-16 | iPhone (Obsidian mobile, Sync from ObsidianTestVault) | mobile (version not recorded) | dev build @2da6432 (batch 1 + settings-page settingEl fix) | Aiken's own on-device pass: no issues found. Settings-page conflict row rendered in red with `H1A-SCOPE-sub` (same copy as desktop 1.13.7). Notes renamed from H1 as expected (`衝突測試筆記`, `鎖定測試筆記`, `復原測試筆記`, `長標題測試`); tag-move test kept its filename (alignment-only path); long-CJK basename 240 UTF-8 bytes within the 255 limit. Trigger had been switched to `both`. `dev:errors` clean; Sync `error:false`. Android still not run this cycle. |
 | pending | iPhone / Android / desktop | — | `feature/0.12.0-batch2` (disk version still 0.12.0) | **Not run.** Batch 2 items #17 Explain this note, #18 out-of-scope count, #19 folder what-if. Internal only — do not treat as a public 0.13.0 candidate until this row is filled. |

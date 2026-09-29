@@ -4,7 +4,7 @@ Published on the Obsidian Community Plugins directory; versioning follows SemVer
 
 ## Unreleased
 - **Add**: **Explain this note** — a read-only command that reports why the active markdown note would or would not be renamed (ignored folder, include-list miss, exclude pattern, lock, no H1, or the proposed filename). While an invalid exclude-pattern draft pauses all renaming, it reports the pause instead; for a note outside the include list or matching an exclude pattern, it says when the manual command would also skip it (e.g. locked). It never writes.
-- **Add**: the vault-wide dry-run preview shows how many markdown notes sit **outside** ignore/include/exclude (counted, not listed as skipped rows). Apply still only acts on in-scope rename items.
+- **Add**: the vault-wide dry-run preview shows how many markdown notes sit **outside** ignore/include/exclude (counted, not listed as skipped rows). Apply still acts only on the preview's Rename rows (scope as of the preview), re-checking each row with a fresh dry run.
 - **Add**: right-click a folder → **Preview renames in this folder** — the same dry-run modal, limited to that folder's descendants; it names the folder and words the out-of-scope count as "in this folder".
 - **Fix**: the experimental "Move tags to frontmatter" tag normalizer left a leading `#` for input such as `# #` (a `#` hiding behind whitespace), breaking its documented "never starts with `#`" contract and making the idempotence property test fail randomly in CI. Leading `#`s and whitespace are now stripped together; only malformed tag strings change.
 - **Fix**: UI strings substitute placeholders in a single pass, so a note path that contains a literal `{reason}` / `{name}` / `{message}` is no longer rewritten in notices.

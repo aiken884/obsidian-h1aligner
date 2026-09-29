@@ -1,6 +1,14 @@
+# Review request: H1Aligner batch 3 design — round 3 (revised)
+
+Round 2 (`revise`) had two blocking points, both about the stale-`title` claim: (1) "the next evaluation corrects it" was not established; (2) the edit-trigger freshness for frontmatter-only edits was not demonstrated. The revised design below (§5 "Source & freshness", §7 tests, §10 log) now states the accepted stale-title behavior explicitly — a rename from a previous title is possible and is not automatically reversed until the next evaluation, which is not `same-name` and renames again; Undo exists; this matches the existing H1 path's reliance on `cache.headings` — and pins the stale → rename → fresh → re-rename sequence and the edit-trigger ordering with deterministic tests, with real-Obsidian ordering left to the on-device checklist. Please review only whether this resolves the blocking points, and whether anything else is now blocking.
+
+Answer: `verdict: approve | revise`; **blocking issues** (only things that make the design wrong or unsafe); non-blocking suggestions.
+
+---
+
 # Design Document: Activity Copy button, frontmatter `title` fallback (batch 3)
 
-Date: 2026-09-30  Status: **PPLX consensus reached in round 3 (§10); being implemented on `feature/0.12.0-batch3` (branched from `feature/0.12.0-batch2`); target release 0.14.0 (after 0.13.0).**
+Date: 2026-09-30  Status: **Revised after PPLX round 1 (§10); proposed on `feature/0.12.0-batch3` (branched from `feature/0.12.0-batch2`); target release 0.14.0 (after 0.13.0). Not implemented until the PPLX consensus in §10 is recorded.**
 Companions: `docs/design-batch2-explain-oos-folder-preview.md`, `docs/design-lock-command-undo-button-tag-notice.md` §1 roadmap.
 
 ## 1. Overview
@@ -79,21 +87,3 @@ New keys (placeholders identical across locales): `activity.copy`, `activity.cop
 ### Round 1 (2026-09-30)
 
 `docs/pplx/2026-09-30-batch3-design-r1-request.md` → `-r1.md` (Sonar, ≤3 tool calls). Verdict **revise** — 3 blocking (all addressed above): (1) cache-only freshness argument → replaced by the per-path parity policy plus stale/unpopulated tests; (2) harness fake cannot prove mobile clipboard → mobile support is claimed only after the on-device check; (3) same-name/loop invariant to be demonstrated → tests added. PPLX's claim that Obsidian's submission page forces `isDesktopOnly` for `navigator.clipboard` was **checked against the page** and is a misreading (the page lists them as Web API alternatives to Node/Electron); no manifest change. Round 2 (`-r2-request.md` → `-r2.md`, Sonar no tools): verdict revise, 2 blocking, both about the stale-title claim — the wording "the next evaluation corrects" was too strong, so §5 now states the accepted behavior explicitly (rename from the previous title is possible and not reversed until the next evaluation; Undo available; parity with the H1 path) and §7 pins the stale → rename → fresh → re-rename sequence and the edit-trigger ordering. Non-blocking: exact-string clipboard assertion adopted. Round-1 non-blocking suggestions adopted: neutral failure notice, direct synchronous call, snapshot/order, `\s` definition, draft changelog under version control, distinct wording for empty-H1 vs no-H1, integration test with alias + tag mover, both previews invalidated. Clock injection out of scope: PPLX agrees.
-
-### Round 3 (2026-09-30)
-
-`-r3-request.md` → `-r3.md` (Sonar, no tools): verdict **approve**, no blocking. Consensus reached. Non-blocking, adopted: the on-device check is a release gate for the edit-trigger ordering assumption (if real Obsidian orders the frontmatter-only edit and the cache update differently, the freshness policy is revisited); the accepted stale-title behavior is stated in user-facing text (README and the setting description mention that a rename uses the cached title and Undo reverts it).
-
-### Decisions
-
-| # | Decision | Final |
-|---|---|---|
-| B1 | Copy format | plain text, row text as displayed, newest first, `\n`-joined; shared pure formatter |
-| B2 | Clipboard | `navigator.clipboard.writeText` directly in the click handler; neutral failure notice; no `execCommand`; mobile support claimed only after device check; manifest unchanged |
-| B3 | Title key / values | fixed `title`; strings only; `\s` runs collapsed; H1 always wins; empty-H1 stays `empty-after-sanitize` |
-| B4 | Title freshness | cache only, parity with H1 path; accepted stale behavior documented and tested |
-| B5 | Setting | `useFrontmatterTitle`, default off, all six plumbing places + two regression tests; included in `batchSettingsFingerprint` |
-| B6 | Branch convention | batch 3 leaves CHANGELOG/package/manifest/versions untouched; notes in `docs/changelog-batch3-draft.md` |
-| B7 | Scope | clock injection excluded (tech debt) |
-
-Changes to released 0.12.0 behavior: none (feature is opt-in, default off).

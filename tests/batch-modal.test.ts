@@ -107,15 +107,25 @@ function makeItem(reason: RenameSkipReason): BatchItem {
     };
 }
 
-function buildModal(items: BatchItem[]): BatchPreviewModal {
+function buildModal(
+    items: BatchItem[],
+    opts: { outOfScope?: number; folderPath?: string } = {},
+): BatchPreviewModal {
     return new BatchPreviewModal(
         {} as unknown as App,
         items,
         true,
         false,
-        0,
+        opts.outOfScope ?? 0,
         async () => {},
+        opts.folderPath,
     );
+}
+
+function renderedText(modal: BatchPreviewModal): string {
+    modal.open();
+    const contentEl = modal.contentEl as unknown as FakeEl;
+    return [...contentEl.walk()].map((e) => e.text).join(' | ');
 }
 
 describe('BatchPreviewModal reason column', () => {
@@ -168,5 +178,34 @@ describe('BatchPreviewModal reason column', () => {
 
         expect(allText).toContain(describeSkipReason('collision'));
         expect(allText).not.toContain('note.md collision');
+    });
+});
+
+describe('BatchPreviewModal out-of-scope and folder scope lines', () => {
+    it('vault-wide preview: shows the count line only when the count is above zero', () => {
+        expect(renderedText(buildModal([], { outOfScope: 3 }))).toContain(
+            '3 note(s) are outside the current folder/pattern filters',
+        );
+        const none = renderedText(buildModal([], { outOfScope: 0 }));
+        expect(none).not.toContain('outside the current folder/pattern filters');
+        expect(none).not.toContain('Previewing notes under');
+    });
+
+    it('folder preview: names the folder and words the count as "in this folder"', () => {
+        const text = renderedText(buildModal([], { outOfScope: 2, folderPath: 'projects/alpha' }));
+        expect(text).toContain('Previewing notes under projects/alpha only.');
+        expect(text).toContain('2 note(s) in this folder are excluded by the ignore/include/exclude settings');
+        expect(text).not.toContain('outside the current folder/pattern filters');
+    });
+
+    it('folder preview: still names the folder when nothing is out of scope', () => {
+        const text = renderedText(buildModal([], { outOfScope: 0, folderPath: 'projects/alpha' }));
+        expect(text).toContain('Previewing notes under projects/alpha only.');
+        expect(text).not.toContain('are excluded by the ignore/include/exclude settings');
+    });
+
+    it('folder preview on the vault root shows the root path as given', () => {
+        const text = renderedText(buildModal([], { outOfScope: 0, folderPath: '/' }));
+        expect(text).toContain('Previewing notes under / only.');
     });
 });

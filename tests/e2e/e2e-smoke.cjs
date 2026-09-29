@@ -1485,6 +1485,11 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     console.log('✓ 27c. Explain this note：排除 pattern ＋ 鎖定的筆記，回報手動指令也會跳過');
 
     // --- 28: folder context-menu what-if preview ---
+    // Own fixtures: a date-named note inside the folder (excluded by the default
+    // pattern, so counted not listed) and a prefix-sharing sibling folder whose
+    // note must not appear (review A-O8).
+    addFile(app, 'batch/2026-03-03.md', '# Dated In Folder\n', 'Dated In Folder');
+    addFile(app, 'batch-old/sibling.md', '# Sibling Folder Note\n', 'Sibling Folder Note');
     const folder = new TFolder();
     folder.path = 'batch';
     const folderMenu = new FakeMenu();
@@ -1497,6 +1502,14 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     const folderTexts = [...folderModal.contentEl.walk()].map((e) => e.text).filter(Boolean);
     assert.ok(folderTexts.some((t) => t.includes('batch/')), 'folder preview lists descendants of batch/');
     assert.ok(!folderTexts.some((t) => t.includes('notes/explain-rename.md')), 'folder preview does not list notes outside the folder');
+    assert.ok(!folderTexts.some((t) => t.includes('batch-old/')), 'folder preview does not list a prefix-sharing sibling folder');
+    assert.ok(folderTexts.some((t) => t.includes('Previewing notes under batch only.')), 'folder preview names the previewed folder');
+    assert.ok(
+        folderTexts.some((t) => /^1 note\(s\) in this folder are excluded by the ignore\/include\/exclude settings/.test(t)),
+        'folder preview counts exactly the in-folder note the exclude pattern filters out, with folder-specific wording',
+    );
+    assert.ok(!folderTexts.some((t) => t.includes('outside the current folder/pattern filters')), 'folder preview does not use the ambiguous vault-wide wording');
+    assert.ok(!folderTexts.some((t) => t.includes('2026-03-03')), 'the counted out-of-scope note is not listed as a row');
     assert.equal(app._renameCalls.length, renameBeforeExplain, 'folder preview is dry-run until Apply');
     folderModal.close();
     console.log('✓ 28. 資料夾右鍵 what-if：只預覽該資料夾後代，不套用改名');

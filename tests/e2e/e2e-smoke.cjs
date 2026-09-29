@@ -1453,6 +1453,22 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     );
     console.log('✓ 27. Explain this note：唯讀，忽略與會改名的筆記都不寫入');
 
+    // --- 27b: Explain reports the invalid-exclude-draft pause (review A-M1) ---
+    plugin.settings.excludePatternsDraft = '[broken';
+    const noticesBefore27b = notices.length;
+    app._activeFile = fExplainRename;
+    explainCmd.checkCallback(false);
+    await sleep(50);
+    const pausedNotices = notices.slice(noticesBefore27b);
+    assert.equal(app._renameCalls.length, renameBeforeExplain, 'explain never writes while renaming is paused');
+    assert.ok(
+        pausedNotices.some((n) => n.includes('explain-rename.md') && /paused/i.test(n) && /invalid exclude pattern/i.test(n)),
+        'explain reports the pause instead of a would-rename',
+    );
+    assert.ok(!pausedNotices.some((n) => n.includes('would be renamed')), 'explain does not claim a rename while paused');
+    delete plugin.settings.excludePatternsDraft;
+    console.log('✓ 27b. Explain this note：排除規則草稿無效時回報「改名已暫停」，不宣稱會改名');
+
     // --- 28: folder context-menu what-if preview ---
     const folder = new TFolder();
     folder.path = 'batch';

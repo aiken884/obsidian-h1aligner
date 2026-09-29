@@ -99,6 +99,45 @@ describe('explainNote', () => {
         expect(noH1.text).toContain('No first H1');
     });
 
+    it('reports the invalid-exclude-draft pause before any scope reason or dry-run', () => {
+        const spy = vi.fn();
+        const dryRun = {
+            skipped: 'none' as const,
+            newName: 'Would Be Wrong',
+            get error() {
+                spy();
+                return undefined;
+            },
+        };
+        for (const scopeOut of [null, 'ignored', 'not-included', 'excluded-pattern'] as const) {
+            const result = explainNote({
+                path: 'notes/draft.md',
+                basename: 'draft',
+                scopeOut,
+                dryRun,
+                paused: true,
+            });
+            expect(result.kind).toBe('paused');
+            expect(result.text).toContain('notes/draft.md');
+            expect(result.text).toMatch(/paused/i);
+            expect(result.text).toMatch(/invalid exclude pattern/i);
+            expect(result.text).not.toContain('Would Be Wrong');
+            expect(result.text).not.toMatch(/can still rename/i);
+        }
+        expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('does not report a pause when the draft is valid', () => {
+        const result = explainNote({
+            path: 'notes/old.md',
+            basename: 'old',
+            scopeOut: null,
+            dryRun: { skipped: 'none', newName: 'Better Title' },
+            paused: false,
+        });
+        expect(result.kind).toBe('would-rename');
+    });
+
     it('does not invent a write: dryRun is only read', () => {
         const spy = vi.fn();
         const dryRun = {

@@ -573,3 +573,65 @@ describe('unknown control keys', () => {
         expect(plugin.saveSettings).not.toHaveBeenCalled();
     });
 });
+
+describe('every declared control key is wired in setControlValue (regression: the silent `default: return`)', () => {
+    interface Control {
+        type: string;
+        key: string;
+        options?: Record<string, string>;
+    }
+
+    function collectControls(items: unknown[]): Control[] {
+        const out: Control[] = [];
+        for (const raw of items) {
+            const item = raw as Record<string, unknown>;
+            if (item.type === 'group' || item.type === 'list') {
+                out.push(...collectControls(item.items as unknown[]));
+            } else if (item.control) {
+                out.push(item.control as Control);
+            }
+        }
+        return out;
+    }
+
+    function alternateValue(c: Control, current: unknown): unknown {
+        switch (c.type) {
+            case 'toggle':
+                return !current;
+            case 'dropdown':
+                return Object.keys(c.options ?? {}).find((k) => k !== current);
+            case 'number':
+                return current === 1234 ? 4321 : 1234;
+            case 'text':
+            case 'textarea':
+                return c.key === 'nameTemplate' ? 'X {{h1}}' : 'Zeta';
+            default:
+                throw new Error(`unhandled control type ${c.type} for ${c.key}`);
+        }
+    }
+
+    it('changing each control through setControlValue changes plugin.settings and saves', async () => {
+        const controls = collectControls(makeTab(makeFakePlugin()).getSettingDefinitions() as unknown[]);
+        expect(controls.length).toBeGreaterThan(10);
+        for (const c of controls) {
+            const plugin = makeFakePlugin();
+            const tab = makeTab(plugin);
+            const before = JSON.stringify(plugin.settings);
+            const current = tab.getControlValue(c.key);
+            await tab.setControlValue(c.key, alternateValue(c, current));
+            expect(JSON.stringify(plugin.settings), `control "${c.key}" did not change settings`).not.toBe(before);
+            expect(plugin.saveSettings, `control "${c.key}" did not save`).toHaveBeenCalled();
+        }
+    });
+
+    it('the frontmatter-title toggle is declared, defaults to off and persists through setControlValue', async () => {
+        const plugin = makeFakePlugin();
+        const tab = makeTab(plugin);
+        const controls = collectControls(tab.getSettingDefinitions() as unknown[]);
+        expect(controls.some((c) => c.type === 'toggle' && c.key === 'useFrontmatterTitle')).toBe(true);
+        expect(tab.getControlValue('useFrontmatterTitle')).toBe(false);
+        await tab.setControlValue('useFrontmatterTitle', true);
+        expect(plugin.settings.useFrontmatterTitle).toBe(true);
+        expect(plugin.saveSettings).toHaveBeenCalledTimes(1);
+    });
+});

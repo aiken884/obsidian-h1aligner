@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    batchSettingsFingerprint,
     conflictingScopeFolders,
     getExcludePatternsDraft,
     normalizeSettings,
@@ -316,4 +317,62 @@ describe('parseMaxFilenameLength', () => {
     it('accepts the 255 boundary', () => {
         expect(parseMaxFilenameLength('255')).toBe(255);
     });
+});
+
+describe('useFrontmatterTitle (batch 3)', () => {
+    it('defaults to off', () => {
+        expect(DEFAULT_SETTINGS.useFrontmatterTitle).toBe(false);
+        expect(normalizeSettings({}).useFrontmatterTitle).toBe(false);
+    });
+
+    it('keeps a stored boolean and rejects other types', () => {
+        expect(normalizeSettings({ useFrontmatterTitle: true }).useFrontmatterTitle).toBe(true);
+        expect(normalizeSettings({ useFrontmatterTitle: false }).useFrontmatterTitle).toBe(false);
+        for (const bad of ['true', 1, null, [], {}]) {
+            expect(normalizeSettings({ useFrontmatterTitle: bad }).useFrontmatterTitle).toBe(false);
+        }
+    });
+
+    it('changes the batch-preview fingerprint, so an old preview cannot apply under new settings', () => {
+        const off = batchSettingsFingerprint(normalizeSettings({ useFrontmatterTitle: false }));
+        const on = batchSettingsFingerprint(normalizeSettings({ useFrontmatterTitle: true }));
+        expect(on).not.toBe(off);
+    });
+});
+
+describe('every setting survives a save/load round trip (regression: normalizeSettings drops unknown keys)', () => {
+    // A Record over every DEFAULT_SETTINGS key: adding a setting without an
+    // entry here is a compile error, so a new key cannot skip this check.
+    const NON_DEFAULT: Record<keyof typeof DEFAULT_SETTINGS, unknown> = {
+        renameTrigger: 'edit',
+        fileOpenDebounceMs: 250,
+        editDebounceMs: 3500,
+        ignoreFolders: ['Archive'],
+        includeFolders: ['Notes'],
+        excludePatterns: ['^Draft'],
+        skipIfFrontmatterLock: false,
+        nameTemplate: '{{date}} {{h1}}',
+        collisionStrategy: 'number',
+        allowCaseOnlyRename: false,
+        trimWhitespace: false,
+        replaceIllegalCharacters: false,
+        illegalReplacementChar: '-',
+        maxFilenameLength: 80,
+        noticeLevel: 'all',
+        preserveOldNameAsAlias: true,
+        onboardingShown: true,
+        moveTagsToFrontmatter: true,
+        bodyTagHandling: 'remove-tag',
+        tagsToIgnoreForMove: ['inbox'],
+        useFrontmatterTitle: true,
+    };
+
+    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof typeof DEFAULT_SETTINGS>) {
+        it(`keeps a non-default ${key}`, () => {
+            const value = NON_DEFAULT[key];
+            expect(value).not.toEqual(DEFAULT_SETTINGS[key]);
+            const out = normalizeSettings({ [key]: value });
+            expect(out[key]).toEqual(value);
+        });
+    }
 });

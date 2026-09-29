@@ -130,6 +130,26 @@ describe('explainNote', () => {
         expect(result.text).toContain('Better Title');
     });
 
+    it('says when the proposed name comes from the frontmatter title', () => {
+        const result = explainNote({
+            path: 'notes/untitled.md',
+            basename: 'untitled',
+            scopeOut: null,
+            dryRun: { skipped: 'none', newName: 'From Title', nameSource: 'title' },
+        });
+        expect(result.kind).toBe('would-rename');
+        expect(result.text).toContain('From Title');
+        expect(result.text).toMatch(/frontmatter title/i);
+
+        const fromH1 = explainNote({
+            path: 'notes/a.md',
+            basename: 'a',
+            scopeOut: null,
+            dryRun: { skipped: 'none', newName: 'From H1' },
+        });
+        expect(fromH1.text).not.toMatch(/frontmatter title/i);
+    });
+
     it('reports locked and no-H1 using the shared skip-reason copy', () => {
         const locked = explainNote({
             path: 'notes/locked.md',

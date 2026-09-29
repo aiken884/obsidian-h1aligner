@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFirstH1, isLockValue } from '../src/heading';
+import { extractFirstH1, isLockValue, normalizeTitleValue } from '../src/heading';
 
 describe('extractFirstH1', () => {
     describe('cache strategy (Q1: Setext via cache for free)', () => {
@@ -231,5 +231,26 @@ describe('extractFirstH1', () => {
             expect(isLockValue('yes')).toBe(false);
             expect(isLockValue(1)).toBe(false);
         });
+    });
+});
+describe('normalizeTitleValue', () => {
+    it('accepts a plain string', () => {
+        expect(normalizeTitleValue('My Title')).toBe('My Title');
+    });
+
+    it('trims and collapses every whitespace run (newlines, tabs, Unicode spaces) to one space', () => {
+        expect(normalizeTitleValue('  A \n B\t\tC\u00a0D\u3000E  ')).toBe('A B C D E');
+        expect(normalizeTitleValue('line one\nline two\n')).toBe('line one line two');
+    });
+
+    it('returns null for empty or whitespace-only strings', () => {
+        expect(normalizeTitleValue('')).toBeNull();
+        expect(normalizeTitleValue('  \n\t ')).toBeNull();
+    });
+
+    it('returns null for every non-string value (numbers are deliberately ignored)', () => {
+        for (const v of [2025, 0, true, false, null, undefined, ['a'], [], { a: 1 }, NaN]) {
+            expect(normalizeTitleValue(v)).toBeNull();
+        }
     });
 });

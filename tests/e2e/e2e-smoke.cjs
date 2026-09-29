@@ -1571,5 +1571,70 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     }
     console.log('✓ 29. 活動紀錄 Copy：寫入與畫面相同的文字（新到舊），成功／被拒／API 不存在三種情況');
 
-    console.log('\nE2E smoke test: 49/49 scenarios passed（真實 production bundle main.js）');
+    // --- 30: frontmatter title fallback (batch 3, feature 8) ---
+    const app8 = makeFakeApp();
+    const plugin8 = new PluginClass(app8, { id: 'heading-aligner' });
+    plugin8._data = { onboardingShown: true, renameTrigger: 'manual', noticeLevel: 'all' };
+    plugin8.onload();
+    await sleep(80);
+    const manualCmd8 = plugin8._commands.find((c) => c.id === 'rename-active-file-from-h1');
+    const explainCmd8 = plugin8._commands.find((c) => c.id === 'explain-active-file');
+    assert.ok(manualCmd8 && explainCmd8, 'setup: manual and explain commands registered');
+    // off (default): a title-only note is skipped
+    const fTitleOff = addFile(app8, 'notes/title-off.md', 'no heading here\n', null, { title: 'Title Off' });
+    app8._activeFile = fTitleOff;
+    manualCmd8.checkCallback(false);
+    await sleep(60);
+    assert.equal(app8._renameCalls.length, 0, 'setting off: a title-only note is not renamed');
+    // turn the setting on through the real settings tab and check it persists
+    await plugin8._settingTab.setControlValue('useFrontmatterTitle', true);
+    assert.equal(plugin8._data.useFrontmatterTitle, true, 'the toggle is saved to data.json');
+    const plugin8b = new PluginClass(makeFakeApp(), { id: 'heading-aligner' });
+    plugin8b._data = JSON.parse(JSON.stringify(plugin8._data));
+    plugin8b.onload();
+    await sleep(80);
+    assert.equal(plugin8b.settings.useFrontmatterTitle, true, 'the setting survives a save → load round trip');
+    // Explain names the source, then the manual command renames from the title
+    const noticesBefore30 = notices.length;
+    explainCmd8.checkCallback(false);
+    await sleep(60);
+    assert.ok(
+        notices.slice(noticesBefore30).some((n) => n.includes('title-off.md') && n.includes('Title Off') && /frontmatter title/i.test(n)),
+        'explain says the name would come from the frontmatter title',
+    );
+    assert.equal(app8._renameCalls.length, 0, 'explain does not rename');
+    manualCmd8.checkCallback(false);
+    await sleep(60);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/title-off.md', to: 'notes/Title Off.md' }, 'manual command renames from the title');
+    // an H1 wins over the title
+    const fBoth8 = addFile(app8, 'notes/both-h1.md', '# Heading Wins\n', 'Heading Wins', { title: 'Title Loses' });
+    app8._activeFile = fBoth8;
+    manualCmd8.checkCallback(false);
+    await sleep(60);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/both-h1.md', to: 'notes/Heading Wins.md' }, 'H1 wins over the title');
+    // an unusable title (array) is skipped
+    const fBad8 = addFile(app8, 'notes/bad-title.md', 'text\n', null, { title: ['a', 'b'] });
+    app8._activeFile = fBad8;
+    const callsBeforeBad8 = app8._renameCalls.length;
+    manualCmd8.checkCallback(false);
+    await sleep(60);
+    assert.equal(app8._renameCalls.length, callsBeforeBad8, 'an array title is not used');
+    // edit trigger: a frontmatter-only edit renames after the debounce, exactly once
+    plugin8.settings.renameTrigger = 'edit';
+    plugin8.settings.editDebounceMs = 100;
+    const fEdit8 = addFile(app8, 'notes/edit-title.md', 'body\n', null, { title: 'Edited Via Title' });
+    app8._activeFile = fEdit8;
+    const callsBeforeEdit8 = app8._renameCalls.length;
+    app8._ws['editor-change'](null, { file: fEdit8 });
+    await sleep(40);
+    assert.equal(app8._renameCalls.length, callsBeforeEdit8, 'debounce still pending');
+    await sleep(120);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/edit-title.md', to: 'notes/Edited Via Title.md' }, 'edit trigger renames from the title');
+    assert.equal(app8._renameCalls.length, callsBeforeEdit8 + 1, 'exactly one rename');
+    app8._ws['editor-change'](null, { file: app8._files.get('notes/Edited Via Title.md').file });
+    await sleep(160);
+    assert.equal(app8._renameCalls.length, callsBeforeEdit8 + 1, 'a second edit is idempotent (same-name), no rename loop');
+    console.log('✓ 30. frontmatter title fallback：預設關閉；設定保存；Explain 標明來源；手動與 edit 觸發都只改名一次；H1 優先；陣列 title 不採用');
+
+    console.log('\nE2E smoke test: 50/50 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

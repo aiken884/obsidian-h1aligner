@@ -2,8 +2,8 @@
  * activity-modal.ts — read-only view of the session ActivityLog.
  * Thin obsidian-coupled shell; the data lives in src/activity-log.ts.
  */
-import { App, Modal } from 'obsidian';
-import type { ActivityLog } from './activity-log';
+import { App, Modal, Notice } from 'obsidian';
+import { formatActivityEntry, formatActivityText, type ActivityLog } from './activity-log';
 import { t } from './i18n';
 
 export class ActivityModal extends Modal {
@@ -22,21 +22,33 @@ export class ActivityModal extends Modal {
             return;
         }
 
+        const formatTime = (ts: number): string => new Date(ts).toLocaleTimeString();
+        const copy = contentEl.createEl('button', { text: t('activity.copy') });
+        copy.addEventListener('click', () => {
+            // Snapshot at click time, and call the clipboard synchronously in
+            // the handler so the user gesture is still active. Every failure
+            // (API missing, sync throw, rejected promise) gets the same
+            // neutral notice — the cause is not guessable from here.
+            const text = formatActivityText(entries, formatTime);
+            const fail = (): void => {
+                new Notice(t('activity.copyFailed'));
+            };
+            try {
+                void navigator.clipboard.writeText(text).then(
+                    () => new Notice(t('activity.copied', { count: entries.length })),
+                    fail,
+                );
+            } catch {
+                fail();
+            }
+        });
+
         const list = contentEl.createDiv();
         list.classList.add('h1aligner-scroll-list');
         for (const e of entries) {
             const row = list.createDiv();
             row.classList.add('h1aligner-row');
-            const time = new Date(e.ts).toLocaleTimeString();
-            // e.detail also carries the experimental tag-move summary
-            // ('+N tags') on a successful rename — it must not be dropped.
-            const result =
-                e.outcome === 'renamed'
-                    ? `→ ${e.newName}${e.detail ? ' (' + e.detail + ')' : ''}`
-                    : `(${e.outcome}${e.detail ? ': ' + e.detail : ''})`;
-            row.createSpan({
-                text: `${time}  [${e.source}]  ${e.path}  ${result}`,
-            });
+            row.createSpan({ text: formatActivityEntry(e, formatTime(e.ts)) });
             if (e.outcome !== 'renamed') row.classList.add('h1aligner-dim');
         }
     }

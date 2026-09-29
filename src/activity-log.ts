@@ -15,6 +15,28 @@ export interface ActivityEntry {
     detail?: string;
 }
 
+/**
+ * One line of the activity view: `time  [source]  path  result`. Shared by the
+ * modal rows and the Copy button so the copied text can never drift from what
+ * is on screen. `detail` also carries the experimental tag-move summary
+ * ('+N tags') on a successful rename — it must not be dropped.
+ */
+export function formatActivityEntry(e: ActivityEntry, time: string): string {
+    const result =
+        e.outcome === 'renamed'
+            ? `→ ${e.newName}${e.detail ? ' (' + e.detail + ')' : ''}`
+            : `(${e.outcome}${e.detail ? ': ' + e.detail : ''})`;
+    return `${time}  [${e.source}]  ${e.path}  ${result}`;
+}
+
+/** Entries in the order given (the log hands them newest first), one per line. */
+export function formatActivityText(
+    entries: readonly ActivityEntry[],
+    formatTime: (ts: number) => string,
+): string {
+    return entries.map((e) => formatActivityEntry(e, formatTime(e.ts))).join('\n');
+}
+
 export class ActivityLog {
     private readonly buffer: ActivityEntry[] = [];
 

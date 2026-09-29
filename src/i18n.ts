@@ -97,6 +97,9 @@ const en = {
     // Activity modal
     'activity.title': 'H1Aligner activity (this session)',
     'activity.empty': 'No rename activity this session yet.',
+    'activity.copy': 'Copy',
+    'activity.copied': 'H1Aligner: copied {count} activity entries',
+    'activity.copyFailed': 'H1Aligner: could not copy to the clipboard',
     // Onboarding modal
     'onboard.title': 'H1Aligner — the one-way contract',
     'onboard.body1':
@@ -286,6 +289,9 @@ const zhTW: Record<LocaleKey, string> = {
     'batch.apply': '套用 {count} 筆改名',
     'activity.title': 'H1Aligner 活動紀錄（本次工作階段）',
     'activity.empty': '本次工作階段尚無改名活動。',
+    'activity.copy': '複製',
+    'activity.copied': 'H1Aligner：已複製 {count} 筆活動紀錄',
+    'activity.copyFailed': 'H1Aligner：無法複製到剪貼簿',
     'onboard.title': 'H1Aligner — 單向契約',
     'onboard.body1':
         '此外掛會把檔名改成與第一個 H1 一致。方向是單向的：H1 永遠是唯一事實來源，手動改的檔名若與 H1 不符，下次觸發時會被改回來。',
@@ -466,6 +472,9 @@ const ja: Record<LocaleKey, string> = {
     'batch.apply': '{count} 件のリネームを適用',
     'activity.title': 'H1Aligner アクティビティ（このセッション）',
     'activity.empty': 'このセッションのリネーム記録はまだありません。',
+    'activity.copy': 'コピー',
+    'activity.copied': 'H1Aligner：{count} 件のアクティビティをコピーしました',
+    'activity.copyFailed': 'H1Aligner：クリップボードにコピーできませんでした',
     'onboard.title': 'H1Aligner — 一方向の原則',
     'onboard.body1':
         'このプラグインはファイル名を最初の H1 に合わせてリネームします。方向は一方向のみ：H1 が常に唯一の基準です。H1 と異なる手動リネームは、次のトリガー時に元へ戻されます。',

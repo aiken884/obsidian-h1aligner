@@ -9,8 +9,8 @@ updates:
         applies-to: version-updates
         patterns: ["*"]
         update-types: ["minor", "patch"]
-    # obsidian typings are pinned to the support floor (minAppVersion) and
-    # bumped deliberately — see RELEASING.md.
+    # obsidian typings are bumped deliberately, not by Dependabot (they may run
+    # ahead of manifest.json's minAppVersion) — see RELEASING.md's pre-release cadence.
     ignore:
       - dependency-name: obsidian
 

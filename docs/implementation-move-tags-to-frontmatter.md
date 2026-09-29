@@ -1,6 +1,6 @@
 # Implementation Document: Move Tags to Frontmatter (Experimental)
 
-Date: 2026-08-07　Status: **Complete, deployed (not yet released)**
+Date: 2026-08-07　Status: **Complete — released in 0.11.0 (2026-08-11)**
 Based on: `docs/design-move-tags-to-frontmatter.md` (consensus version)
 
 ## Completion Status Summary (2026-08-07)
@@ -12,7 +12,7 @@ Based on: `docs/design-move-tags-to-frontmatter.md` (consensus version)
   real click-through application (not dry-run)
 - README/CHANGELOG updated with an Experimental section
 - 293 unit tests, 20 E2E tests, all passing; committed + pushed to `origin/main`
-  (`f5d20ad..4a538e3`, 10 commits), **no version tag applied, not yet released** — the feature
+  (`f5d20ad..4a538e3`, 10 commits), **no version tag applied, not yet released** (later released in 0.11.0, 2026-08-11) — the feature
   is disabled by default, deployed to ObsidianTestVault and the main ObsidianVault for ongoing
   local testing
 - Logged to RemaGraph (`mem-20260807-002`, project `obsidian-h1aligner`)
@@ -32,8 +32,7 @@ Based on: `docs/design-move-tags-to-frontmatter.md` (consensus version)
   growth. Along the way, also fixed 3 pre-existing fake-stub defects in the e2e test tooling
   itself (rename clearing the body content, rename incorrectly clearing the cache,
   `vault.process` not stubbed). Unit tests 326→340, e2e 20→25 scenarios, all passing
-- When formally releasing, follow `RELEASING.md`: `npm version` → push tag → publish draft
-  release
+- Released in 0.11.0 via the `RELEASING.md` flow.
 
 ## pplx Round-2 Revision Highlights
 
@@ -221,5 +220,5 @@ fingerprint: any new setting change → fingerprint changes.
 ## Acceptance Criteria
 
 lint: 0 errors; vitest: all passing, coverage not lower than the current baseline; build
-produces main.js; manually deployed to `/Users/aikenlin/Documents/ObsidianVault` (local only,
-not released).
+produces main.js; manually deployed to the main vault (path at the time: `/Users/aikenlin/Documents/ObsidianVault`; current path:
+`/Users/aikenlin/Obsidian/ObsidianVault`) (local only; released later in 0.11.0).

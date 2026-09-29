@@ -1,6 +1,6 @@
 # Design Document: Explain this note, out-of-scope batch count, folder what-if preview (batch 2)
 
-Date: 2026-09-16  Status: **Implemented on `feature/0.12.0-batch2`; internal testing pending (not a public release).**
+Date: 2026-09-16  Status: **Implemented on `feature/0.12.0-batch2`; target release 0.13.0. On-device testing (MOBILE-TESTING #17–#19) pending — required before merging to `main` and bumping the version.**
 Implementation (2026-09-16): `c0d4961` (features) + docs/review. Gate: lint, build, 443 unit tests, 46 E2E (scenarios 27–28). Adversarial review in `docs/review-batch2.md` — no remaining blockers. On-device TestVault / iPhone / Android for batch 2 is **not done**. Disk version stays **0.12.0**; no `0.13.0` until Aiken says so.
 Companion: batch 1 design `docs/design-lock-command-undo-button-tag-notice.md` §1 roadmap.
 
@@ -90,4 +90,4 @@ New keys (placeholders must match across locales):
 
 ## 9. Non-goals
 
-Public 0.13.0; batch 3; debounce clock injection; on-device iPhone/Android as a **release** gate for this branch.
+Batch 3; debounce clock injection. This document's scope ended at internal testing; releasing this branch as 0.13.0 still goes through `RELEASING.md`'s release-candidate gate, including MOBILE-TESTING #17–#19 on device.

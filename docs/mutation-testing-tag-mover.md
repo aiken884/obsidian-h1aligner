@@ -1,6 +1,7 @@
 # Mutation testing notes — src/tag-mover.ts
 
 Date: 2026-08-08
+Measured on 2026-08-08 (b857eec). `src/tag-mover.ts` changed afterwards in 844705c (2026-08-09) — re-run `npm run test:mutation` before quoting these numbers.
 
 ## Results
 

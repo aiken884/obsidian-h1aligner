@@ -28,8 +28,9 @@ outcome), both covered by existing tests. Total: roughly 140 lines of `src/`.
 ### Roadmap (three batches)
 
 - **Batch 1 (this document):** A, B, C.
-- Batch 2 (separate design later): an "Explain this note" read-only command; an out-of-scope count in the
-  batch preview; a folder context-menu what-if preview.
+- Batch 2: designed in `docs/design-batch2-explain-oos-folder-preview.md`, implemented on `feature/0.12.0-batch2`
+  (target 0.13.0; on-device testing pending): an "Explain this note" read-only command; an out-of-scope count in
+  the batch preview; a folder context-menu what-if preview.
 - Batch 3 (separate design later): a Copy button in the activity modal; frontmatter `title` as a fallback
   source when there is no H1 (opt-in).
 

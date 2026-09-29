@@ -1,8 +1,8 @@
 # Design Document: Move Tags to Frontmatter (Experimental)
 
-Date: 2026-08-07  Status: **Complete, deployed (unreleased)** — consensus version; execution status is tracked
-in the summary at the top of `docs/implementation-move-tags-to-frontmatter.md`
-Target version: H1Aligner (community id `heading-aligner`) v0.9.0 and later
+Date: 2026-08-07  Status: **Released in 0.11.0 (2026-08-11) — experimental, off by default**; execution history is in
+`docs/implementation-move-tags-to-frontmatter.md`
+Target version: H1Aligner (community id `heading-aligner`) 0.11.0 (shipped)
 
 ## 1. Feature Overview
 

@@ -68,6 +68,7 @@ Additionally count markdown files in the **candidate set** (whole vault, or fold
 - `file-menu`: if `file instanceof TFolder`, add **Preview renames in this folder**. Do not add lock/rename items on folders.
 - Candidate markdown files: `getMarkdownFiles().filter((f) => isUnderFolder(f.path, folder.path))`. Then split in-scope vs out-of-scope as in §5. Open the same `BatchPreviewModal`. Apply callback is the existing re-verify + `renameFromH1` (not dry-run) path — **no second apply implementation**.
 - `openBatchPreview` / `runBatchPreview` take an optional `folderPath`. Vault-wide command passes nothing.
+- The modal receives the same `folderPath` (vault-relative, rendered as text). When set it shows a first hint line (`batch.folderScope`) and uses the folder-specific count sentence (`batch.outOfScopeFolder`) so the count cannot be read as "outside this folder" (decision D4, §10). The vault-wide modal is unchanged.
 
 ## 7. i18n (en / zh-TW / ja)
 
@@ -79,15 +80,17 @@ New keys (placeholders must match across locales):
 - `explain.wouldRename` (`{path}`, `{name}`)
 - `explain.skip` (`{path}`, `{reason}`)
 - `explain.error` (`{path}`, `{message}`)
-- `batch.outOfScope` (`{count}`)
+- `explain.paused` (`{path}`); `explain.notIncludedManualSkip`, `explain.excludedPatternManualSkip` (`{path}`, `{reason}`) — added by the 2026-09 review (§10)
+- `batch.outOfScope` (`{count}`); `batch.folderScope` (`{folder}`), `batch.outOfScopeFolder` (`{count}`) — the latter two for the folder preview only
 
 ## 8. Tests
 
 - Unit: `scopeOutReason` order (ignore beats include; exclude after include); `isInScope` still matches today's cases.
 - Unit: `explainNote` for in-scope would-rename, locked, ignored, exclude-pattern, no-H1; ignored path does not need a dry-run object; `paused` wins over every scope reason and never reads the dry run; include/exclude misses say "manual would also skip" when the dry run skips.
 - Unit: out-of-scope count equals files that fail the existing scope filter; those files are not in the in-scope list.
+- Unit (`batch-modal.test.ts`): the count line appears only when the count is above zero; the folder preview names the folder and uses the folder-specific count sentence.
 - Unit: `isUnderFolder` prefix-safety.
-- E2E against production `main.js`: explain command does not push `_renameCalls`; with an invalid exclude-pattern draft it reports the pause, not a would-rename (27b); a locked excluded note says the manual command would also skip (27c); batch modal shows out-of-scope copy; folder menu preview lists only descendants.
+- E2E against production `main.js`: explain command does not push `_renameCalls`; with an invalid exclude-pattern draft it reports the pause, not a would-rename (27b); a locked excluded note says the manual command would also skip (27c); batch modal shows out-of-scope copy; folder menu preview lists only descendants, names the folder, counts the in-folder note the exclude pattern filters out (not listed), and omits a prefix-sharing sibling folder (28).
 
 ## 9. Non-goals
 

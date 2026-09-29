@@ -34,6 +34,8 @@ export class BatchPreviewModal extends Modal {
         private readonly tagsModifyBody: boolean,
         private readonly outOfScopeCount: number,
         private readonly onApply: (renamable: ApplicableBatchItem[]) => Promise<void>,
+        /** Vault-relative folder when opened from a folder's context menu; undefined for the vault-wide preview. */
+        private readonly folderPath?: string,
     ) {
         super(app);
     }
@@ -59,9 +61,17 @@ export class BatchPreviewModal extends Modal {
         contentEl.createEl('p', {
             text: t('batch.summary', { renamable: renamable.length, total: this.items.length }),
         });
+        if (this.folderPath !== undefined) {
+            const scope = contentEl.createEl('p', {
+                text: t('batch.folderScope', { folder: this.folderPath }),
+            });
+            scope.classList.add('h1aligner-hint');
+        }
         if (this.outOfScopeCount > 0) {
             const oos = contentEl.createEl('p', {
-                text: t('batch.outOfScope', { count: this.outOfScopeCount }),
+                text: t(this.folderPath === undefined ? 'batch.outOfScope' : 'batch.outOfScopeFolder', {
+                    count: this.outOfScopeCount,
+                }),
             });
             oos.classList.add('h1aligner-hint');
         }

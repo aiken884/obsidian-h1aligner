@@ -66,6 +66,9 @@ const en = {
     'batch.summary': '{renamable} of {total} note(s) would be renamed.',
     'batch.outOfScope':
         '{count} note(s) are outside the current folder/pattern filters (not listed below).',
+    'batch.folderScope': 'Previewing notes under {folder} only.',
+    'batch.outOfScopeFolder':
+        '{count} note(s) in this folder are excluded by the ignore/include/exclude settings (not listed below).',
     'batch.hint': 'Targets are re-checked at apply time; notes whose H1 changed meanwhile are skipped.',
     'batch.settingsSnapshot':
         'This preview is tied to the current rename settings. Create a new preview after changing them.',
@@ -256,6 +259,8 @@ const zhTW: Record<LocaleKey, string> = {
     'explain.error': 'H1Aligner：無法說明 {path}：{message}',
     'batch.summary': '{total} 篇筆記中有 {renamable} 篇會被改名。',
     'batch.outOfScope': '{count} 則筆記在目前的資料夾／pattern 篩選之外（不列在下方）。',
+    'batch.folderScope': '只預覽 {folder} 底下的筆記。',
+    'batch.outOfScopeFolder': '這個資料夾中有 {count} 則筆記被忽略／僅套用／排除設定排除（不列在下方）。',
     'batch.hint': '套用時會重新核對目標檔名；預覽後 H1 有變動的筆記會被跳過。',
     'batch.settingsSnapshot': '此預覽綁定目前的改名設定；變更設定後請重新產生預覽。',
     'batch.more': '…還有 {count} 筆會被改名',
@@ -433,6 +438,9 @@ const ja: Record<LocaleKey, string> = {
     'batch.summary': '{total} 件のノートのうち {renamable} 件がリネーム対象です。',
     'batch.outOfScope':
         '{count} 件のノートは現在のフォルダ／パターン絞り込みの対象外です（下には表示しません）。',
+    'batch.folderScope': '{folder} 以下のノートのみをプレビューしています。',
+    'batch.outOfScopeFolder':
+        'このフォルダ内の {count} 件のノートは除外／対象フォルダ／除外パターン設定の対象外です（下には表示しません）。',
     'batch.hint': '適用時にリネーム先を再確認します。プレビュー後に H1 が変更されたノートはスキップされます。',
     'batch.settingsSnapshot': 'このプレビューは現在のリネーム設定に紐づいています。設定を変更した後は新しいプレビューを作成してください。',
     'batch.more': '…ほか {count} 件がリネーム対象',

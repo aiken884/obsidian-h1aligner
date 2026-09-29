@@ -31,7 +31,7 @@ Use **ObsidianTestVault** (the dedicated test vault). Do not run this checklist 
 | 16 | Lock / unlock via context menu | Long-press a note in the file explorer (or right-click on desktop) → **Lock this note** → open the note; then long-press it again *immediately* (before re-indexing) and confirm whatever the menu shows cannot accidentally unlock it; then **Unlock this note** → open the note | Locked: opening the note does not rename it. The menu never offers an action that unlocks a note that is actually still locked, even if its label is briefly stale. Unlocked: opening the note renames it again. The menu also shows **Rename from first H1** for notes outside ignored folders; tapping it renames the note like the manual command. |
 | 17 | Explain this note | On a note that is ignored, one that matches an exclude pattern, one that is locked, and one that would rename: run **Explain this note**; then type an invalid exclude pattern (e.g. `[`) in settings and run it again on the would-rename note | A notice explains the matching reason. With the invalid pattern, it says renaming is paused (not "would be renamed"). The filename does not change. |
 | 18 | Batch out-of-scope count | With ignore/include/exclude excluding some notes, run **Preview all renames (dry run)** | The modal shows a count of notes outside those filters. Those notes are not listed as skipped rows. Apply still only renames in-scope Rename items. |
-| 19 | Folder what-if preview | Long-press / right-click a folder → **Preview renames in this folder** | The modal only lists markdown notes under that folder. Notes in other folders do not appear. Apply still re-verifies. |
+| 19 | Folder what-if preview | Long-press / right-click a folder → **Preview renames in this folder** | The modal says which folder it previews and only lists markdown notes under that folder; notes filtered out by your settings are counted ("in this folder … excluded"), not listed. Notes in other folders do not appear. Apply still re-verifies. |
 
 ## Suggested Run Order (single efficient pass)
 
@@ -112,7 +112,8 @@ include these. Trigger stays Manual only from Phase 4, so opening notes does not
    count of notes outside those filters; they must not appear as skipped rows. Apply still only hits
    in-scope Rename items.
 3. #19: long-press / right-click a folder → **Preview renames in this folder**. Only markdown under that
-   folder is listed; a sibling folder's notes must not appear. Do not Apply unless you intend to; Apply
+   folder is listed, the top line names the folder, filtered-out notes are only counted ("in this folder …
+   excluded"), and a sibling folder's notes must not appear. Do not Apply unless you intend to; Apply
    still re-verifies.
 
 **Phase 5 — Full settings walkthrough (#12), last.** Touches every settings field, so do it after

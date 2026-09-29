@@ -670,6 +670,7 @@ export default class H1AlignerPlugin extends Plugin {
                 if (failed) parts.push(t('notice.batchFailed', { count: failed }));
                 new Notice(parts.join(', '));
             },
+            folderPath,
         ).open();
     }
 

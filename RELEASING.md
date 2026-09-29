@@ -34,20 +34,19 @@ You never edit them by hand: `npm version` keeps all three in sync (see below).
 
 ## Release-candidate gate
 
-Run these checks against the exact release-candidate worktree before creating a
-commit or tag:
+Run these checks against the exact release-candidate tree before creating the version commit or tag:
 
 ```bash
-git diff --check
+git fetch origin
+git diff --check $(git merge-base origin/main HEAD)...HEAD   # everything since main, not only unstaged edits
 npm ci
-npm run lint
+npm run lint -- --max-warnings 0   # obsidianmd command/sentence-case/manifest rules are warn-level
 npm run build
 npm test
 npm run test:e2e
 ```
 
-- Confirm `manifest.json`, `package.json`, `versions.json`, and `CHANGELOG.md`
-  describe the same version.
+- Before `npm version`: `manifest.json`, `package.json`, and `versions.json` still show the previous release, and `CHANGELOG.md` already has the new `## X.Y.Z — YYYY-MM-DD` section (Release flow step 3). After `npm version`: all four describe X.Y.Z.
 - Perform the desktop smoke test in a real vault, including upgrade behavior
   from the previous release.
 - For UI changes, complete the iPhone and Android scenarios in
@@ -58,25 +57,32 @@ npm run test:e2e
 ## Release flow
 
 ```bash
-# 1. Clean state
-git status                    # working tree must be clean, on main
+# 0. If the release lives on a feature branch (e.g. feature/0.12.0-batch2): merge origin/main
+#    into that branch first, resolve conflicts, and pass the gate and the on-device checklist there.
+# 1. Clean state, up to date with origin
+git fetch origin
+git switch main
+git merge --ff-only origin/main
+git merge --ff-only <feature-branch>   # only when releasing a feature branch
+git status                             # clean, on main
 
-# 2. Full release-candidate gate
-npm ci
-npm run lint
-npm run build
-npm test
-npm run test:e2e
+# 2. Full release-candidate gate (see above; lint with --max-warnings 0)
 
-# 3. Smoke-test in a real vault
-#    Copy main.js + manifest.json + styles.css into <vault>/.obsidian/plugins/heading-aligner/
-#    Reload Obsidian, enable the plugin, verify behaviour on a few files
+# 3. Release notes: turn "## Unreleased" in CHANGELOG.md into "## X.Y.Z — YYYY-MM-DD"
+#    (summary line, per-item test counts, on-device status), update the README test
+#    counts if they changed, and commit "docs: 準備 X.Y.Z 發版說明"
 
-# 4. Bump the version (updates package.json + manifest.json + versions.json,
-#    commits, and creates the un-prefixed tag X.Y.Z)
+# 4. Smoke-test in a real vault — needs GUI Obsidian (Mac/PC, not Home):
+#    copy main.js + manifest.json + styles.css over the previous release in
+#    <vault>/.obsidian/plugins/heading-aligner/, reload Obsidian, confirm settings
+#    survived the upgrade, verify behaviour on a few files, and record it in
+#    docs/MOBILE-TESTING.md's Verification Log
+
+# 5. Bump the version (updates package.json + manifest.json + versions.json,
+#    commits, and creates the un-prefixed annotated tag X.Y.Z)
 npm version patch             # or: minor / major
 
-# 5. Push the commit and the tag
+# 6. Push the commit and the tag
 git push origin main
 git push origin X.Y.Z
 ```
@@ -110,8 +116,7 @@ Submission process (current as of 2026 — via the community.obsidian.md website
    plugins using Node/Electron APIs must set `isDesktopOnly: true` (✅ this plugin uses zero Node APIs, `false` has been verified);
    command IDs must not include the plugin ID prefix (✅).
 5. If corrections are needed: after making changes, publish a new release (with an incremented version) to re-trigger the checks.
-6. After passing the automated checks, the submission moves to manual review (timeline varies, on the order of several weeks). Once approved, the plugin appears in the
-   Community plugins browser.
+6. After passing the automated checks (Scorecard), the plugin is listed in the Community plugins browser right away; the directory and `community-plugins.json` mark it "has not been manually reviewed by Obsidian staff". Manual review by Obsidian staff is not a prerequisite for listing.
 
 ### Subsequent version updates and re-review
 
@@ -127,5 +132,5 @@ Post-release promotion (optional): the forum's Share & Showcase section, the Dis
 - [ ] Fresh vault: install via Community plugins (or BRAT pre-listing), enable, verify a basic rename works.
 - [ ] Existing vault: ensure no breakage on update.
 - [ ] Check the GitHub Release page shows `main.js` + `manifest.json` + `styles.css` as assets.
-- [ ] Update README badge counts if the test suite grew.
+- [ ] Confirm README's test counts (the "Engineered like it matters" paragraph and the `npm test` / `npm run test:e2e` comments under Development) match the released suite — they are updated in Release flow step 3.
 - [ ] Check the developer dashboard (`community.obsidian.md/developer/plugins/heading-aligner`) Reviews section for the new commit; if it's stuck on `Pending`, click **Review branch** (see "Subsequent version updates and re-review" above).

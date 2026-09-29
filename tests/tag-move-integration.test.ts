@@ -433,5 +433,9 @@ describe('title fallback + alias-preserve + tag move together (design §7)', () 
         const second = await svc.renameFromH1(file as never, { allowTagMove: false });
         expect(second.skipped).toBe('same-name');
         expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
+        // An unrestricted pass (manual / file-open, where tag moves are allowed) still never renames again.
+        const third = await svc.renameFromH1(file as never);
+        expect(third.skipped).toBe('same-name');
+        expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
     });
 });

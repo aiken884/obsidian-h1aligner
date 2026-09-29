@@ -1635,6 +1635,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     await sleep(160);
     assert.equal(app8._renameCalls.length, callsBeforeEdit8 + 1, 'a second edit is idempotent (same-name), no rename loop');
     // cache ordering (design §5/§7): the cache changes BEFORE the debounce fires → the fresh title is used
+    const callsBeforeOrder8 = app8._renameCalls.length;
     const fOrder8 = addFile(app8, 'notes/order-a.md', 'body\n', null, { title: 'Order Old' });
     app8._activeFile = fOrder8;
     app8._ws['editor-change'](null, { file: fOrder8 });
@@ -1642,6 +1643,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     app8._files.get('notes/order-a.md').cache.frontmatter.title = 'Order Fresh';
     await sleep(140);
     assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-a.md', to: 'notes/Order Fresh.md' }, 'cache updated before the debounce fires → the fresh title is used');
+    assert.equal(app8._renameCalls.length, callsBeforeOrder8 + 1, 'exactly one rename for the cache-ordering note');
     // cache changes only AFTER the rename (stale at evaluation time): renamed from the previous title, then the next evaluation renames again (not same-name)
     const fOrder8b = addFile(app8, 'notes/order-b.md', 'body\n', null, { title: 'Order Stale' });
     app8._activeFile = fOrder8b;

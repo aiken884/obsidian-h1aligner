@@ -4,6 +4,10 @@ Date: 2026-09-30
 Against: `docs/design-batch3-activity-copy-frontmatter-title.md`, branch `feature/0.12.0-batch3` @ `817defb` (diff vs `feature/0.12.0-batch2`)
 Method: three read-only reviewers (no file or git writes), one per perspective — spec conformance, program correctness / product invariants, Obsidian community-plugin rules and mobile. Fixes were made by the main session only.
 
+## Round 2 (fix diff `817defb..5420ba2` only)
+
+One read-only reviewer: no blocking or major findings; E2E 31 and E2E 30's cache ordering confirmed non-vacuous. Minor items applied: E2E 30 now asserts the exact number of renames for the cache-ordering note, and the tag-move integration test also runs an unrestricted third pass (still `same-name`, one `renameFile` call). The reviewer noted that the second half of the cache-ordering test only simulates a stale cache — real Obsidian ordering stays with MOBILE-TESTING #22.
+
 ## Round 1
 
 | # | Perspective | Finding | Severity | Status |
@@ -26,4 +30,4 @@ Correctness reviewer found no invariant violated (H1 wins, off = no change, no c
 
 ## Verdict
 
-No blocking findings in round 1; the two major test gaps were closed. **Approve for internal testing on this branch.** Not a release approval: 0.14.0 needs `RELEASING.md`'s gate including MOBILE-TESTING #20–#23 on device (in particular the clipboard behavior per platform and the real-Obsidian event/cache ordering for #22).
+No blocking findings in round 1; the two major test gaps were closed. **Approve for internal testing on this branch.** Not a release approval: the release that ships batch 3 (planned as 0.14.0, after 0.13.0) needs `RELEASING.md`'s gate including MOBILE-TESTING #20–#23 on device (in particular the clipboard behavior per platform and the real-Obsidian event/cache ordering for #22).

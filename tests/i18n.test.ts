@@ -54,6 +54,19 @@ describe('locale tables', () => {
 });
 
 describe('t', () => {
+    it('substitutes placeholders in a single pass — braces inside a value are not re-expanded', () => {
+        const text = t('explain.skip', { path: 'notes/{reason}.md', reason: 'locked' });
+        expect(text).toBe('H1Aligner: notes/{reason}.md would not be renamed (locked)');
+        const wrongOrder = t('explain.skip', { reason: 'locked', path: 'notes/{reason}.md' });
+        expect(wrongOrder).toBe(text);
+    });
+
+    it('leaves an unknown {placeholder} untouched and ignores unused vars', () => {
+        expect(t('explain.skip', { path: 'a.md', extra: 'x' })).toBe(
+            'H1Aligner: a.md would not be renamed ({reason})',
+        );
+    });
+
     it('returns the en string in a Node environment (no localStorage)', () => {
         expect(t('notice.nothingToUndo')).toBe('H1Aligner: nothing to undo');
     });

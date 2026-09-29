@@ -36,6 +36,13 @@ describe('normalizeTagName', () => {
         expect(normalizeTagName('#a/b/c')).toBe('a/b/c');
     });
 
+    it('strips leading #s and whitespace together, so no # survives at the start ("# #")', () => {
+        expect(normalizeTagName('# #')).toBe('');
+        expect(normalizeTagName('# #foo')).toBe('foo');
+        expect(normalizeTagName(' # ## bar ')).toBe('bar');
+        expect(normalizeTagName('#a # b')).toBe('a # b'); // only the leading run is stripped
+    });
+
     it('strips ALL leading #s, not just one (hand-typed "##tag")', () => {
         expect(normalizeTagName('##weird')).toBe('weird');
         expect(normalizeTagName('###triple')).toBe('triple');
@@ -215,6 +222,11 @@ describe('movableTags', () => {
 });
 
 describe('mergeTagsIntoList', () => {
+    it('never keeps a leading # from a "# #" style entry', () => {
+        expect(mergeTagsIntoList(['# #'], [])).toEqual([]);
+        expect(mergeTagsIntoList(['# #foo'], ['# #Foo'])).toEqual(['foo']);
+    });
+
     it('merges into an existing array, dedup case-insensitive, first casing wins', () => {
         expect(mergeTagsIntoList(['Test', 'keep'], ['#test', '#New'])).toEqual(['Test', 'keep', 'New']);
     });

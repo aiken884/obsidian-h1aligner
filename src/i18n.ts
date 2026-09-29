@@ -55,6 +55,10 @@ const en = {
         'H1Aligner: {path} is outside the include-folders whitelist — automatic rename skips it; the manual command can still rename it.',
     'explain.excludedPattern':
         'H1Aligner: {path} matches an exclude-filename pattern — automatic rename skips it; the manual command can still rename it.',
+    'explain.notIncludedManualSkip':
+        'H1Aligner: {path} is outside the include-folders whitelist — automatic rename skips it, and the manual command would also skip it ({reason}).',
+    'explain.excludedPatternManualSkip':
+        'H1Aligner: {path} matches an exclude-filename pattern — automatic rename skips it, and the manual command would also skip it ({reason}).',
     'explain.wouldRename': 'H1Aligner: {path} would be renamed → {name}',
     'explain.skip': 'H1Aligner: {path} would not be renamed ({reason})',
     'explain.error': 'H1Aligner: could not explain {path}: {message}',
@@ -243,6 +247,10 @@ const zhTW: Record<LocaleKey, string> = {
         'H1Aligner：{path} 不在僅套用白名單內 — 自動改名會跳過；手動指令仍可改名。',
     'explain.excludedPattern':
         'H1Aligner：{path} 符合排除檔名 pattern — 自動改名會跳過；手動指令仍可改名。',
+    'explain.notIncludedManualSkip':
+        'H1Aligner：{path} 不在僅套用白名單內 — 自動改名會跳過，手動指令也會跳過（{reason}）。',
+    'explain.excludedPatternManualSkip':
+        'H1Aligner：{path} 符合排除檔名 pattern — 自動改名會跳過，手動指令也會跳過（{reason}）。',
     'explain.wouldRename': 'H1Aligner：{path} 將會改名 → {name}',
     'explain.skip': 'H1Aligner：{path} 不會被改名（{reason}）',
     'explain.error': 'H1Aligner：無法說明 {path}：{message}',
@@ -415,6 +423,10 @@ const ja: Record<LocaleKey, string> = {
         'H1Aligner：{path} は対象フォルダのホワイトリスト外です — 自動リネームはスキップしますが、手動コマンドではリネームできます。',
     'explain.excludedPattern':
         'H1Aligner：{path} は除外ファイル名パターンに一致します — 自動リネームはスキップしますが、手動コマンドではリネームできます。',
+    'explain.notIncludedManualSkip':
+        'H1Aligner：{path} は対象フォルダのホワイトリスト外です — 自動リネームはスキップし、手動コマンドでもスキップされます（{reason}）。',
+    'explain.excludedPatternManualSkip':
+        'H1Aligner：{path} は除外ファイル名パターンに一致します — 自動リネームはスキップし、手動コマンドでもスキップされます（{reason}）。',
     'explain.wouldRename': 'H1Aligner：{path} は {name} にリネームされます',
     'explain.skip': 'H1Aligner：{path} はリネームされません（{reason}）',
     'explain.error': 'H1Aligner：{path} を説明できません：{message}',

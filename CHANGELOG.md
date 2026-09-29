@@ -3,7 +3,7 @@
 Published on the Obsidian Community Plugins directory; versioning follows SemVer.
 
 ## Unreleased
-- **Add**: **Explain this note** — a read-only command that reports why the active markdown note would or would not be renamed (ignored folder, include-list miss, exclude pattern, lock, no H1, or the proposed filename). While an invalid exclude-pattern draft pauses all renaming, it reports the pause instead. It never writes.
+- **Add**: **Explain this note** — a read-only command that reports why the active markdown note would or would not be renamed (ignored folder, include-list miss, exclude pattern, lock, no H1, or the proposed filename). While an invalid exclude-pattern draft pauses all renaming, it reports the pause instead; for a note outside the include list or matching an exclude pattern, it says when the manual command would also skip it (e.g. locked). It never writes.
 - **Add**: the vault-wide dry-run preview shows how many markdown notes sit **outside** ignore/include/exclude (counted, not listed as skipped rows). Apply still only acts on in-scope rename items.
 - **Add**: right-click a folder → **Preview renames in this folder** — the same dry-run modal, limited to that folder's descendants.
 

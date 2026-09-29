@@ -36,11 +36,16 @@ export function explainNote(input: {
     if (scopeOut === 'ignored') {
         return { kind: 'out-of-scope', text: t('explain.ignored', { path }) };
     }
-    if (scopeOut === 'not-included') {
-        return { kind: 'out-of-scope', text: t('explain.notIncluded', { path }) };
-    }
-    if (scopeOut === 'excluded-pattern') {
-        return { kind: 'out-of-scope', text: t('explain.excludedPattern', { path }) };
+    if (scopeOut === 'not-included' || scopeOut === 'excluded-pattern') {
+        // The dry run never consults scope, so it is exactly what the manual
+        // command would do: if it would skip, "manual can still rename" is false.
+        // A missing or failed dry run keeps the plain scope text (still true).
+        const manualSkips = dryRun && !dryRun.error && dryRun.skipped !== 'none';
+        const key = scopeOut === 'not-included'
+            ? (manualSkips ? 'explain.notIncludedManualSkip' : 'explain.notIncluded')
+            : (manualSkips ? 'explain.excludedPatternManualSkip' : 'explain.excludedPattern');
+        const reason = manualSkips ? describeSkipReason(dryRun.skipped) : '';
+        return { kind: 'out-of-scope', text: t(key, { path, reason }) };
     }
     if (!dryRun) {
         return {

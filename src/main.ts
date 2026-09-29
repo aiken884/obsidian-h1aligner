@@ -370,7 +370,9 @@ export default class H1AlignerPlugin extends Plugin {
         const scopeOut = paused
             ? null
             : scopeOutReason(file.path, file.basename, this.scopeSettings());
-        const dryRun = paused || scopeOut
+        // Ignored notes never get a dry run. Include/exclude misses do: the manual
+        // command ignores those filters, so the dry run says whether it would rename.
+        const dryRun = paused || scopeOut === 'ignored'
             ? null
             : await this.renameService.renameFromH1(file, { dryRun: true });
         const result = explainNote({

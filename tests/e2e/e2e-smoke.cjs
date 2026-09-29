@@ -1545,7 +1545,7 @@ function addTaggedFile(app, p, h1, body, tagNames) {
         assert.equal(written29.length, 1, 'Copy writes once to the clipboard');
         assert.equal(written29[0], ok29.rows.map(rowText29).join('\n'), 'copied text equals the visible rows, newest first, newline-joined');
         assert.ok(
-            notices.slice(noticesBefore29).some((n) => n === `H1Aligner: copied ${ok29.rows.length} activity entries`),
+            notices.slice(noticesBefore29).some((n) => n === `H1Aligner: activity log copied (${ok29.rows.length})`),
             'success notice reports the entry count',
         );
         ok29.m.close();
@@ -1634,7 +1634,65 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     app8._ws['editor-change'](null, { file: app8._files.get('notes/Edited Via Title.md').file });
     await sleep(160);
     assert.equal(app8._renameCalls.length, callsBeforeEdit8 + 1, 'a second edit is idempotent (same-name), no rename loop');
+    // cache ordering (design §5/§7): the cache changes BEFORE the debounce fires → the fresh title is used
+    const fOrder8 = addFile(app8, 'notes/order-a.md', 'body\n', null, { title: 'Order Old' });
+    app8._activeFile = fOrder8;
+    app8._ws['editor-change'](null, { file: fOrder8 });
+    await sleep(40);
+    app8._files.get('notes/order-a.md').cache.frontmatter.title = 'Order Fresh';
+    await sleep(140);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-a.md', to: 'notes/Order Fresh.md' }, 'cache updated before the debounce fires → the fresh title is used');
+    // cache changes only AFTER the rename (stale at evaluation time): renamed from the previous title, then the next evaluation renames again (not same-name)
+    const fOrder8b = addFile(app8, 'notes/order-b.md', 'body\n', null, { title: 'Order Stale' });
+    app8._activeFile = fOrder8b;
+    app8._ws['editor-change'](null, { file: fOrder8b });
+    await sleep(140);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-b.md', to: 'notes/Order Stale.md' }, 'stale cache at evaluation time → renamed from the previous title');
+    app8._files.get('notes/Order Stale.md').cache.frontmatter.title = 'Order Corrected';
+    app8._ws['editor-change'](null, { file: app8._files.get('notes/Order Stale.md').file });
+    await sleep(160);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/Order Stale.md', to: 'notes/Order Corrected.md' }, 'the next evaluation with the fresh cache renames again (not same-name)');
     console.log('✓ 30. frontmatter title fallback：預設關閉；設定保存；Explain 標明來源；手動與 edit 觸發都只改名一次；H1 優先；陣列 title 不採用');
 
-    console.log('\nE2E smoke test: 50/50 scenarios passed（真實 production bundle main.js）');
+    // --- 31: the title setting invalidates an open batch AND folder preview ---
+    const app9 = makeFakeApp();
+    const plugin9 = new PluginClass(app9, { id: 'heading-aligner' });
+    plugin9._data = { onboardingShown: true, renameTrigger: 'manual' };
+    plugin9.onload();
+    await sleep(80);
+    addFile(app9, 'pv/one.md', '# Preview One Target\n', 'Preview One Target');
+    const batchCmd9 = plugin9._commands.find((c) => c.id === 'batch-preview-renames');
+    const applyOf9 = (m) => [...m.contentEl.walk()].find((e) => e.tag === 'button' && e.text.startsWith('Apply'));
+    batchCmd9.callback();
+    await sleep(120);
+    const batchModal9 = global.__lastModal;
+    const batchApply9 = applyOf9(batchModal9);
+    assert.ok(batchApply9, 'setup: batch preview offers Apply');
+    plugin9.settings.useFrontmatterTitle = true;
+    const noticesBeforeBatch9 = notices.length;
+    batchApply9.listeners.click[0]();
+    await sleep(100);
+    assert.ok(app9._files.has('pv/one.md'), 'batch Apply refused after the title setting changed');
+    assert.ok(notices.slice(noticesBeforeBatch9).some((n) => n.includes('settings changed since this preview')), 'batch preview explains why Apply stopped');
+    batchModal9.close();
+    plugin9.settings.useFrontmatterTitle = false;
+    const folder9 = new TFolder();
+    folder9.path = 'pv';
+    const menu9 = new FakeMenu();
+    app9._ws['file-menu'](menu9, folder9, 'file-explorer-context-menu');
+    menu9.items.find((i) => i.title === 'Preview renames in this folder').handler();
+    await sleep(120);
+    const folderModal9 = global.__lastModal;
+    const folderApply9 = applyOf9(folderModal9);
+    assert.ok(folderApply9, 'setup: folder preview offers Apply');
+    plugin9.settings.useFrontmatterTitle = true;
+    const noticesBeforeFolder9 = notices.length;
+    folderApply9.listeners.click[0]();
+    await sleep(100);
+    assert.ok(app9._files.has('pv/one.md'), 'folder Apply refused after the title setting changed');
+    assert.ok(notices.slice(noticesBeforeFolder9).some((n) => n.includes('settings changed since this preview')), 'folder preview explains why Apply stopped');
+    folderModal9.close();
+    console.log('✓ 31. 開啟 title 設定會讓已開啟的批次預覽與資料夾預覽失效（Apply 被拒）');
+
+    console.log('\nE2E smoke test: 51/51 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

@@ -399,3 +399,39 @@ function cacheForBody(body: string) {
         tags: [...body.matchAll(/#[a-z]+/g)].map((m) => cacheTag(body, m[0])),
     };
 }
+
+describe('title fallback + alias-preserve + tag move together (design §7)', () => {
+    it('renames exactly once, keeps the title, and the follow-up edit-trigger pass is a no-op', async () => {
+        const body = 'Some text #alpha and #beta here';
+        const settings: H1AlignerSettings = {
+            ...DEFAULT_SETTINGS,
+            useFrontmatterTitle: true,
+            preserveOldNameAsAlias: true,
+            moveTagsToFrontmatter: true,
+        };
+        const { app, getFm } = makeApp(body);
+        app.metadataCache.getFileCache.mockReturnValue({
+            headings: [],
+            frontmatter: { title: 'From Title' },
+            tags: [cacheTag(body, '#alpha'), cacheTag(body, '#beta')],
+        });
+        const svc = new RenameService(app as never, () => settings);
+        const file = makeFile('untitled');
+        const first = await svc.renameFromH1(file as never);
+        expect(first.skipped).toBe('none');
+        expect(first.newName).toBe('From Title');
+        expect(first.nameSource).toBe('title');
+        expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
+        expect(getFm().tags).toEqual(['alpha', 'beta']);
+        expect(getFm().aliases).toEqual(['untitled']);
+        expect(getFm().title).toBeUndefined(); // the fake fm only holds what the plugin wrote: it never writes title
+
+        // The write-backs must not cause another rename on the next (edit-trigger) evaluation.
+        file.basename = 'From Title';
+        file.name = 'From Title.md';
+        file.path = 'From Title.md';
+        const second = await svc.renameFromH1(file as never, { allowTagMove: false });
+        expect(second.skipped).toBe('same-name');
+        expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
+    });
+});

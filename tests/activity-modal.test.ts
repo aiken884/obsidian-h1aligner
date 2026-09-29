@@ -89,11 +89,16 @@ vi.mock('obsidian', () => {
 const notices = (): string[] => (globalThis as unknown as { __notices: string[] }).__notices;
 
 afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     notices().length = 0;
 });
 
 function openWithTwoEntries(): { copy: FakeEl; expected: string } {
+    // Pin the time text so the expected string is a literal, not derived from the code under test.
+    vi.spyOn(Date.prototype, 'toLocaleTimeString').mockImplementation(function (this: Date) {
+        return `T${this.getTime()}`;
+    });
     const log = new ActivityLog();
     log.record({ ts: 1, path: 'a.md', source: 'file-open', outcome: 'renamed', newName: 'Alpha' });
     log.record({ ts: 2, path: 'b.md', source: 'manual', outcome: 'no-h1' });
@@ -101,8 +106,7 @@ function openWithTwoEntries(): { copy: FakeEl; expected: string } {
     modal.open();
     const contentEl = modal.contentEl as unknown as FakeEl;
     const copy = contentEl.children.find((c) => c.tag === 'button') as FakeEl;
-    const t = (ts: number): string => new Date(ts).toLocaleTimeString();
-    const expected = `${t(2)}  [manual]  b.md  (no-h1)\n${t(1)}  [file-open]  a.md  → Alpha`;
+    const expected = 'T2  [manual]  b.md  (no-h1)\nT1  [file-open]  a.md  → Alpha';
     return { copy, expected };
 }
 
@@ -124,7 +128,7 @@ describe('ActivityModal Copy button', () => {
         expect(writeText).toHaveBeenCalledWith(expected);
         await Promise.resolve();
         await Promise.resolve();
-        expect(notices()).toEqual(['H1Aligner: copied 2 activity entries']);
+        expect(notices()).toEqual(['H1Aligner: activity log copied (2)']);
     });
 
     it('shows the failure notice when the write is rejected', async () => {

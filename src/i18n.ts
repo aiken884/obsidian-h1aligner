@@ -100,7 +100,7 @@ const en = {
     'activity.title': 'H1Aligner activity (this session)',
     'activity.empty': 'No rename activity this session yet.',
     'activity.copy': 'Copy',
-    'activity.copied': 'H1Aligner: copied {count} activity entries',
+    'activity.copied': 'H1Aligner: activity log copied ({count})',
     'activity.copyFailed': 'H1Aligner: could not copy to the clipboard',
     // Onboarding modal
     'onboard.title': 'H1Aligner — the one-way contract',
@@ -158,7 +158,7 @@ const en = {
         'Rename "linker.md" to "Linker.md" when only the capitalisation differs. Turn off to keep the file tree still.',
     'set.fmTitle.name': 'Use frontmatter title when there is no H1',
     'set.fmTitle.desc':
-        'Off: notes without a first H1 are skipped. On: such notes are renamed from the "title" property in their frontmatter (text only). Applies only when there is no usable first H1 — a first H1 always wins. The title is read from Obsidian\'s cache, so right after you change it a rename can still use the previous title; Undo reverts it.',
+        'Off: notes without a first H1 are skipped. On: such notes are renamed from the "title" property in their frontmatter (text only). Applies only when there is no usable first H1 — a first H1 always wins. The title is read from Obsidian\'s cache, so right after you change it a rename can still use the previous title. A later trigger corrects it; if none happens, Undo reverts the rename.',
     'set.alias.name': 'Preserve old name as alias',
     'set.alias.desc':
         'After a rename, append the previous filename to the note\'s frontmatter aliases so the old name still works in the quick switcher. Aliases are not removed on undo.',
@@ -348,7 +348,7 @@ const zhTW: Record<LocaleKey, string> = {
         '當只有大小寫不同時仍改名（如 "linker.md" → "Linker.md"）。關閉可讓檔案樹保持安定。',
     'set.fmTitle.name': '沒有 H1 時使用 frontmatter 的 title',
     'set.fmTitle.desc':
-        '關閉：沒有第一個 H1 的筆記會被跳過。開啟：這類筆記改用 frontmatter 的 "title" 屬性（純文字）取檔名。只在沒有可用的第一個 H1 時才會生效，有 H1 一律以 H1 為準。title 是從 Obsidian 的快取讀取，剛修改 title 的當下改名可能仍用舊的 title；可用復原還原。',
+        '關閉：沒有第一個 H1 的筆記會被跳過。開啟：這類筆記改用 frontmatter 的 "title" 屬性（純文字）取檔名。只在沒有可用的第一個 H1 時才會生效，有 H1 一律以 H1 為準。title 是從 Obsidian 的快取讀取，剛修改 title 的當下改名可能仍用舊的 title；之後再次觸發會修正，若沒有再觸發，可用復原還原這次改名。',
     'set.alias.name': '將舊檔名保留為別名',
     'set.alias.desc':
         '改名後把舊檔名加入筆記 frontmatter 的 aliases，讓舊名稱仍可在快速切換器搜尋到。復原改名時不會移除別名。',
@@ -537,7 +537,7 @@ const ja: Record<LocaleKey, string> = {
         '大文字小文字だけが異なる場合もリネームします（例：「linker.md」→「Linker.md」）。オフにするとファイルツリーの揺れを防げます。',
     'set.fmTitle.name': 'H1 がないときは frontmatter の title を使う',
     'set.fmTitle.desc':
-        'オフ：最初の H1 がないノートはスキップします。オン：そのようなノートを frontmatter の "title" プロパティ（テキストのみ）でリネームします。使える最初の H1 がない場合にのみ適用され、H1 があれば常に H1 が優先されます。title は Obsidian のキャッシュから読むため、変更直後は以前の title でリネームされることがあります。元に戻すで取り消せます。',
+        'オフ：最初の H1 がないノートはスキップします。オン：そのようなノートを frontmatter の "title" プロパティ（テキストのみ）でリネームします。使える最初の H1 がない場合にのみ適用され、H1 があれば常に H1 が優先されます。title は Obsidian のキャッシュから読むため、変更直後は以前の title でリネームされることがあります。その後のトリガーで修正されます。再トリガーがない場合は、元に戻すでこのリネームを取り消せます。',
     'set.alias.name': '旧ファイル名をエイリアスとして保存',
     'set.alias.desc':
         'リネーム後、旧ファイル名をノートのフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消してもエイリアスは削除されません。',

@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **524 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **50 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push to `main` and every pull request. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **525 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **51 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push to `main` and every pull request. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -79,7 +79,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are auto-renamed. Separate several with commas or semicolons (e.g. `/, notes`). `/` means the vault root layer (root files only). The manual command is not limited by this whitelist (Ignore still applies). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). Invalid drafts are kept separate and pause new renames until fixed. The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed — set it by hand, or use the command / right-click context menu. |
-| Use frontmatter title when there is no H1 | ❌ off | For notes **without a usable first H1**, use the text of the frontmatter `title` property as the name instead of skipping the note. A first H1 always wins; only text titles count (arrays, numbers and empty values are ignored). The title is read from Obsidian's cache like the H1, so right after editing it a rename can still use the previous title — the next trigger corrects it, and **Undo** reverts it. |
+| Use frontmatter title when there is no H1 | ❌ off | For notes **without a usable first H1**, use the text of the frontmatter `title` property as the name instead of skipping the note. A first H1 always wins; only text titles count (arrays, numbers and empty values are ignored). The title is read from Obsidian's cache like the H1, so right after editing it a rename can still use the previous title — a later trigger corrects it, and if none happens **Undo** reverts the rename. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
 | When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
 | Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
@@ -195,9 +195,9 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 524 unit tests (vitest, incl. property-based)
+npm test               # 525 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 50 E2E scenarios against the built bundle
+npm run test:e2e       # 51 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 

@@ -43,7 +43,7 @@ H1Aligner lets you decide *when* filenames are allowed to move. Edit-triggered r
   Only renames the note you just switched away from. The file you are currently looking at never moves under your cursor, which makes this the gentlest option for people who hate it when tabs jump around.
 
 - **Manual only**
-  Nothing ever renames itself. You drive every change through the command palette or your own hotkeys — perfect if you want H1Aligner's safety features and preview tools, but prefer to pull the trigger yourself.
+  Nothing ever renames itself. You drive every change yourself — from the command palette, your own hotkeys, or the file's right-click / long-press menu (**Rename from first H1**) — perfect if you want H1Aligner's safety features and preview tools, but prefer to pull the trigger yourself.
 
 ### Guardrails first
 
@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **443 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **46 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **443 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **46 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push to `main` and every pull request. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -63,12 +63,12 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 
 | Command | What it does |
 |---|---|
-| **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. |
+| **Rename active file from first H1** | On-demand rename. Bypasses trigger mode and include/exclude scope (an explicit action is consent), still honours ignored folders and locks. Always reports its outcome. Also in the file's right-click / long-press menu as **Rename from first H1** (not shown for notes in ignored folders). |
 | **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Notes excluded by ignore/include/exclude are **counted** (not listed as skipped rows). Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. Right-click a **folder** for the same preview scoped to that folder. |
 | **Explain this note** | Read-only: says why the active markdown note would or would not be renamed (ignored folder, include miss, exclude pattern, lock, no H1, or the proposed name). Does not rename, write, or lock. |
 | **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry — or tap **Undo** on the notice itself, right after a successful rename. |
 | **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
-| **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as two explicit items, **Lock this note** / **Unlock this note** — never a toggle there, so a stale menu label can never accidentally unlock a note that is actually locked. |
+| **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as one explicit item — **Lock this note** or **Unlock this note**, chosen from the cached lock state — never a toggle: clicking it is idempotent, so a stale menu label can never accidentally unlock a note that is actually locked. |
 
 ## Settings
 
@@ -207,6 +207,9 @@ src/
   template.ts          # filename template renderer (pure)
   rename-service.ts    # serial rename queue + guard layers + dry run + aliases
   tag-mover.ts          # experimental tag→frontmatter: filtering, merge, body rewrite (pure)
+  tag-move-policy.ts   # tag-move typing guard + activity detail formatting (pure)
+  skip-reason.ts       # shared localized skip-reason text (batch modal + notices)
+  explain-note.ts      # "Explain this note" text from scope + dry-run outcome (pure)
   settings.ts          # schema + defaults + validation + migration
   settings-tab.ts      # SettingTab UI + live preview
   batch-modal.ts       # dry-run preview modal
@@ -220,11 +223,11 @@ docs/MOBILE-TESTING.md              # real-device checklist (iPhone / Android)
 docs/mutation-testing-tag-mover.md  # Stryker results + ground-truth verification notes
 ```
 
-All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs build + both suites on every push. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.
+All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian-coupled files are thin shells exercised by the E2E suite. CI runs lint, build, and both suites on every push to `main` and every pull request. See [CHANGELOG.md](./CHANGELOG.md) for version history and [RELEASING.md](./RELEASING.md) for the release flow.
 
 ## Privacy
 
-H1Aligner runs entirely on your device. It makes **zero network requests** and collects **zero telemetry** — the production bundle's only import is the Obsidian API itself. The vault-wide file listing shown in the community directory's capability disclosure comes from one place: the *Preview all renames (dry run)* command, which must enumerate your notes to tell you what would be renamed. Those paths are used in-memory for that preview and nothing else; the session activity log also lives in memory only and vanishes when Obsidian closes.
+H1Aligner runs entirely on your device. It makes **zero network requests** and collects **zero telemetry** — the production bundle's only import is the Obsidian API itself. The vault-wide file listing shown in the community directory's capability disclosure comes from one place: the batch preview — the *Preview all renames (dry run)* command and the folder right-click *Preview renames in this folder* — which must enumerate your notes to tell you what would be renamed (and how many sit outside your filters). Those paths are used in-memory for that preview and nothing else; the session activity log also lives in memory only and vanishes when Obsidian closes.
 
 ## Support
 

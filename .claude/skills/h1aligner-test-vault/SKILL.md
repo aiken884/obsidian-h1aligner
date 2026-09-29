@@ -100,6 +100,19 @@ On `feature/0.12.0-batch2` only. Keep the Phase-1 baseline, then add (names in z
 
 Index note must stay locked. After a scope/include-ignore pass, restore `includeFolders` / `ignoreFolders`.
 
+## Batch 3 extras (items 20–23)
+
+On `feature/0.12.0-batch3` only. Add to the Phase-1 baseline (names in zh-TW):
+
+| Fixture | Role |
+|---|---|
+| `標題測試.md` — frontmatter `title: 標題測試用名稱`, body without any `# H1` | #21 rename from title (setting on) / skipped (setting off); #22 edit the title with Trigger = edit |
+| `H1優先.md` — `title: 不該被採用` plus `# H1 優先的標題` | #21 H1 wins over the title |
+| `標題是清單.md` — `title: [甲, 乙]`, no H1 | #21 unusable title is skipped |
+| (no new note) a few renamed/skipped notes so **Show recent activity** has rows | #20 Copy |
+
+The title setting is off by default: turn it on for #21–#22 and back off afterwards. Trigger stays Manual only except while running #22.
+
 ## Common mistakes
 
 - Hard-deleting instead of `vault.trash` — not recoverable if a note turns out to matter.

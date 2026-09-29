@@ -53,7 +53,7 @@ Designed for people who care more about predictability than magic.
 
 ### Engineered like it matters
 
-H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **465 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **48 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push to `main` and every pull request. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
+H1Aligner is built with the level of care you'd expect from a tool that touches every filename in your vault. It ships with **524 automated tests** (including property-based fuzzing of the sanitiser and the experimental tag-mover across thousands of random inputs each), **50 end-to-end scenarios** driven against the real production bundle, mutation testing on the highest-risk logic to verify the tests actually catch regressions (not just execute the code), and continuous integration on every push to `main` and every pull request. It is verified on desktop and mobile, localised in **English, Traditional Chinese and Japanese** following your Obsidian language setting, and it is free and open source, MIT-licensed.
 
 ---
 
@@ -67,7 +67,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | **Preview all renames (dry run)** | Scans the vault within scope and groups results into Rename, Conflicts, Errors, and Skipped. Notes excluded by ignore/include/exclude are **counted** (not listed as skipped rows). Only Rename items can be applied; targets are re-verified at apply time and changed rename settings require a new preview. Right-click a **folder** for the same preview scoped to that folder. |
 | **Explain this note** | Read-only: says why the active markdown note would or would not be renamed (ignored folder, include miss, exclude pattern, lock, no H1, or the proposed name), or that renaming is paused until an invalid exclude pattern is fixed. Does not rename, write, or lock. |
 | **Undo last rename** | Reverts the most recent rename this session (up to 20 levels). Verifies file identity, so it never reverts a stranger that took over the old path. A failed undo keeps its history entry for retry — or tap **Undo** on the notice itself, right after a successful rename. |
-| **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. |
+| **Show recent activity** | Session log of every rename decision — trigger source, outcome, skip reason. In-memory only, no telemetry. A **Copy** button in the window puts the same text (newest first, one line per entry) on the system clipboard; nothing is copied until you press it, and if the clipboard is unavailable you get a notice and can still select the text by hand. |
 | **Lock or unlock this note** | Toggles `h1aligner-lock` on the active note, decided from its real frontmatter (never a stale cache). The right-click file menu offers the same thing as one explicit item — **Lock this note** or **Unlock this note**, chosen from the cached lock state — never a toggle: clicking it is idempotent, so a stale menu label can never accidentally unlock a note that is actually locked. |
 
 ## Settings
@@ -79,6 +79,7 @@ H1Aligner is built with the level of care you'd expect from a tool that touches 
 | Include only these folders | *(empty)* | Allowlist mode — when non-empty, only notes inside these folders are auto-renamed. Separate several with commas or semicolons (e.g. `/, notes`). `/` means the vault root layer (root files only). The manual command is not limited by this whitelist (Ignore still applies). |
 | Exclude filename patterns | `^\d{4}-\d{2}-\d{2}$` | One regex per line, tested against the note name (unanchored — use `^`/`$` for exact names). Invalid drafts are kept separate and pause new renames until fixed. The default protects date-named daily notes. |
 | Respect frontmatter lock | ✅ on | Notes with `h1aligner-lock: true` are never renamed — set it by hand, or use the command / right-click context menu. |
+| Use frontmatter title when there is no H1 | ❌ off | For notes **without a usable first H1**, use the text of the frontmatter `title` property as the name instead of skipping the note. A first H1 always wins; only text titles count (arrays, numbers and empty values are ignored). The title is read from Obsidian's cache like the H1, so right after editing it a rename can still use the previous title — the next trigger corrects it, and **Undo** reverts it. |
 | Filename template | `{{h1}}` | Tokens: `{{h1}}` (required), `{{date}}` (file creation date), `{{date:FORMAT}}` with `YYYY/MM/DD/HH/mm/ss`. Creation date keeps renames idempotent. |
 | When the target name is taken | Skip | Or append the first free ` 1`, ` 2`, … |
 | Allow case-only renames | ✅ on | Turn off to skip `linker.md → Linker.md` style flips. |
@@ -115,7 +116,8 @@ trigger: file-open (100ms) | editor-change (local typing only, 2s —
        + basename exclude patterns (daily-notes date pattern by default)
         └─ RenameService.renameFromH1(file)
             ├─ L0 frontmatter lock (`h1aligner-lock: true`) → skip
-            ├─ extract first H1
+            ├─ extract first H1 (no usable H1 and the opt-in title setting on
+            │  → the frontmatter `title` text stands in for it)
             │     ├─ MetadataCache (preferred — covers Setext for free)
             │     └─ linear scan fallback (ATX only; BOM-aware,
             │        CommonMark-conformant code-fence + closing-# rules)
@@ -135,7 +137,7 @@ trigger: file-open (100ms) | editor-change (local typing only, 2s —
             │     └─ cap at 255 UTF-8 bytes incl. extension
             │        (APFS / ext4 / NTFS NAME_MAX)
             ├─ guard layers
-            │     ├─ L1 no H1                  → skip
+            │     ├─ L1 no H1 (or title)       → skip
             │     ├─ L2 empty after sanitize   → skip
             │     ├─ L3 same as current name   → skip (idempotent);
             │     │     'case-only' skip when that policy is off
@@ -193,9 +195,9 @@ Requires Obsidian 1.13.0+. Works on desktop and mobile (`isDesktopOnly: false`, 
 npm run dev            # watch-mode build
 npm run build          # type-check + production build
 npm run lint           # official obsidianmd eslint ruleset (community-scan clean)
-npm test               # 465 unit tests (vitest, incl. property-based)
+npm test               # 524 unit tests (vitest, incl. property-based)
 npm run test:coverage  # + v8 coverage report
-npm run test:e2e       # 48 E2E scenarios against the built bundle
+npm run test:e2e       # 50 E2E scenarios against the built bundle
 npm run test:mutation  # Stryker mutation testing (src/tag-mover.ts) — see docs/mutation-testing-tag-mover.md
 ```
 
@@ -227,7 +229,7 @@ All logic lives in pure modules with zero Obsidian runtime imports; the Obsidian
 
 ## Privacy
 
-H1Aligner runs entirely on your device. It makes **zero network requests** and collects **zero telemetry** — the production bundle's only import is the Obsidian API itself. The vault-wide file listing shown in the community directory's capability disclosure comes from one place: the batch preview — the *Preview all renames (dry run)* command and the folder right-click *Preview renames in this folder* — which must enumerate your notes to tell you what would be renamed (and how many sit outside your filters). Those paths are used in-memory for that preview and nothing else; the session activity log also lives in memory only and vanishes when Obsidian closes.
+H1Aligner runs entirely on your device. It makes **zero network requests** and collects **zero telemetry** — the production bundle's only import is the Obsidian API itself. The vault-wide file listing shown in the community directory's capability disclosure comes from one place: the batch preview — the *Preview all renames (dry run)* command and the folder right-click *Preview renames in this folder* — which must enumerate your notes to tell you what would be renamed (and how many sit outside your filters). Those paths are used in-memory for that preview and nothing else; the session activity log also lives in memory only and vanishes when Obsidian closes. The recent-activity window's **Copy** button writes the on-screen log text (note paths and new names) to your clipboard only when you press it.
 
 ## Support
 

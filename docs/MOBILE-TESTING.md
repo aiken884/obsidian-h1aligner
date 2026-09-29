@@ -33,6 +33,11 @@ Use **ObsidianTestVault** (the dedicated test vault). Do not run this checklist 
 | 18 | Batch out-of-scope count | With ignore/include/exclude excluding some notes, run **Preview all renames (dry run)** | The modal shows a count of notes outside those filters. Those notes are not listed as skipped rows. Apply still only renames in-scope Rename items. |
 | 19 | Folder what-if preview | Long-press / right-click a folder → **Preview renames in this folder** | The modal says which folder it previews and only lists markdown notes under that folder; notes filtered out by your settings are counted ("in this folder … excluded"), not listed. Notes in other folders do not appear. Apply still re-verifies. |
 
+| 20 | Activity Copy button | Rename or skip a few notes, open **Show recent activity**, tap **Copy**, then paste into another note or app | The button copies the same lines as the window shows (newest first, one line per entry) and a notice says how many entries were copied. If the platform refuses, a "could not copy" notice appears and nothing crashes. **Record per platform whether copy works** — mobile clipboard support is only claimed once this passes on device. |
+| 21 | Frontmatter title fallback | Settings → Naming → turn on **Use frontmatter title when there is no H1**. Make a note with `title: My Title` in frontmatter and no `# H1`; run **Rename active file from first H1** (Trigger: Manual only) | The note is renamed to `My Title.md`. With the setting off, the same note is skipped (no H1). A note that has an H1 uses the H1, not the title. **Explain this note** on the title-only note says the name comes from the frontmatter title. |
+| 22 | Title fallback with the edit trigger | Trigger = edit (or both); on a note with no H1, change the frontmatter `title` and stop typing | After the edit pause the note is renamed once from the *new* title. **Record whether it ever used the previous title** — real Obsidian's event/cache ordering is the assumption this checks. |
+| 23 | Setting persists and upgrade | Turn the title setting on, restart Obsidian; separately, load a `data.json` written by 0.12.0 (or 0.13.0) into this build | The setting is still on after restart; an older `data.json` loads with the setting off and no other setting changed. |
+
 ## Suggested Run Order (single efficient pass)
 
 Items are grouped into phases so trigger/notice settings are changed as few times as possible. Run this
@@ -116,7 +121,14 @@ include these. Trigger stays Manual only from Phase 4, so opening notes does not
    excluded"), and a sibling folder's notes must not appear. Do not Apply unless you intend to; Apply
    still re-verifies.
 
-**Phase 5 — Full settings walkthrough (#12), last.** Touches every settings field, so do it after
+**Phase 4c — Batch 3 (#20–#23), only on `feature/0.12.0-batch3`.** Directory 0.12.0 / 0.13.0 do not include these. Keep Trigger = Manual only except for #22:
+1. #20: with a few rows in **Show recent activity**, tap **Copy** and paste elsewhere; compare with the window. Also try it once with the clipboard unavailable if the platform allows (otherwise note "not testable").
+2. #21: turn on the title setting; run the manual command on a title-only note, an H1+title note and a note whose title is a list (`title: [a, b]`, must be skipped); run **Explain this note** on the title-only note.
+3. #22: Trigger = edit; edit the frontmatter title of a no-H1 note and wait; then set the trigger back to Manual only.
+4. #23: restart Obsidian and confirm the setting persisted; if a 0.12.0/0.13.0 `data.json` is available, load it and confirm nothing else changed.
+Turn the title setting back off when done.
+
+**Phase 5 — Full settings walkthrough (#12), last.** Touches every settings field (including the title toggle on batch 3), so do it after
 everything else so a half-changed setting can't contaminate an earlier phase: open plugin settings, adjust
 each field and watch the live preview; type an invalid exclusion regex (e.g. `[`) → inline error appears,
 the previous valid rule stays active, and automatic/manual/batch renaming all pause until it's fixed → fix
@@ -138,3 +150,4 @@ version, plugin version, and which numbered items passed/failed/were skipped wit
 | 2026-09-16 | PC (desktop, Windows) | 1.13.7 | dev build @78e9a04 (0.12.0 batch 1, pre-release) | Independent verification via obsidian CLI eval + a Proxy Menu harness triggering `file-menu` (not the automated test harness). 4/4 PASS, including the stale-cache case at true 0ms. Two harness-only artifacts were confirmed unrelated to the plugin: an incomplete Proxy Menu implementation triggered an unrelated Obsidian-core `setSectionSubmenu` warning, and an overlong eval script caused a CLI IPC parse error (recovered; vault confirmed undamaged). Desktop only — Android not run this cycle. |
 | 2026-09-16 | iPhone (Obsidian mobile, Sync from ObsidianTestVault) | mobile (version not recorded) | dev build @2da6432 (batch 1 + settings-page settingEl fix) | Aiken's own on-device pass: no issues found. Settings-page conflict row rendered in red with `H1A-SCOPE-sub` (same copy as desktop 1.13.7). Notes renamed from H1 as expected (`衝突測試筆記`, `鎖定測試筆記`, `復原測試筆記`, `長標題測試`); tag-move test kept its filename (alignment-only path); long-CJK basename 240 UTF-8 bytes within the 255 limit. Trigger had been switched to `both`. `dev:errors` clean; Sync `error:false`. Android still not run this cycle. |
 | pending | iPhone / Android / desktop | — | `feature/0.12.0-batch2` (disk version still 0.12.0) | **Not run.** Batch 2 items #17 Explain this note, #18 out-of-scope count, #19 folder what-if. Internal only — do not treat as a public 0.13.0 candidate until this row is filled. |
+| pending | iPhone / Android / desktop | — | `feature/0.12.0-batch3` (disk version still 0.12.0) | **Not run.** Batch 3 items #20 activity Copy, #21–#22 frontmatter title fallback, #23 persistence/upgrade. Internal only — not a 0.14.0 candidate until this row is filled. |

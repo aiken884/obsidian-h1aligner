@@ -1,6 +1,6 @@
 # Design Document: Activity Copy button, frontmatter `title` fallback (batch 3)
 
-Date: 2026-09-30  Status: **PPLX consensus reached in round 3 (§10); being implemented on `feature/0.12.0-batch3` (branched from `feature/0.12.0-batch2`); target release 0.14.0 (after 0.13.0).**
+Date: 2026-09-30  Status: **PPLX consensus reached in round 3 (§10); implemented on `feature/0.12.0-batch3` (features 7 and 8 done; adversarial review and on-device testing pending — required before merging to `main` and bumping the version) (branched from `feature/0.12.0-batch2`); target release 0.14.0 (after 0.13.0).**
 Companions: `docs/design-batch2-explain-oos-folder-preview.md`, `docs/design-lock-command-undo-button-tag-notice.md` §1 roadmap.
 
 ## 1. Overview

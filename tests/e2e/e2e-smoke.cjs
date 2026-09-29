@@ -727,10 +727,15 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     assert.ok(modal, 'batch modal opened');
     const texts = [...modal.contentEl.walk()].map((e) => e.text).filter(Boolean);
     assert.ok(texts.some((t) => t.includes('batch/a.md → Alpha Report.md')), 'dry-run lists a.md');
-    assert.ok(
-        texts.some((t) => /outside the current folder\/pattern filters/.test(t)),
-        'vault-wide preview reports an out-of-scope count (ignored/not-included/exclude)',
-    );
+    const oosLine = texts.find((t) => /note\(s\) are outside the current folder\/pattern filters/.test(t));
+    assert.ok(oosLine, 'vault-wide preview reports an out-of-scope count (ignored/not-included/exclude)');
+    // Asserting the number (not just the sentence) is what catches an out-of-scope note
+    // leaking into the rows: the Skipped group shows counts, never paths.
+    const expectedOos = app.vault
+        .getMarkdownFiles()
+        .filter((f) => f.path.startsWith('.trash/') || /^\d{4}-\d{2}-\d{2}$/.test(f.basename)).length;
+    assert.ok(expectedOos >= 1, 'setup: the vault holds out-of-scope notes');
+    assert.equal(Number.parseInt(oosLine, 10), expectedOos, 'the out-of-scope count equals the ignored + date-named notes in the vault');
     assert.ok(!texts.some((t) => t.includes('.trash/')), 'out-of-scope files are counted, not listed as skipped rows');
     assert.ok(texts.some((t) => t.startsWith('Rename (')), 'renames have their own review group');
     assert.ok(texts.some((t) => t.startsWith('Conflicts (')), 'conflicts have their own review group');

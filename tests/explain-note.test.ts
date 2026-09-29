@@ -26,6 +26,13 @@ describe('scopeOutReason', () => {
         expect(scopeOutReason('notes/a.md', 'a', s)).toBe(null);
     });
 
+    it('returns not-included (not excluded-pattern) when include misses and an exclude pattern also matches', () => {
+        const s = { ...base, includeFolders: ['notes'], excludePatterns: ['^\\d{4}-\\d{2}-\\d{2}$'] };
+        expect(scopeOutReason('other/2026-07-03.md', '2026-07-03', s)).toBe('not-included');
+        // Inside the whitelist the same basename is caught by the exclude pattern.
+        expect(scopeOutReason('notes/2026-07-03.md', '2026-07-03', s)).toBe('excluded-pattern');
+    });
+
     it('returns excluded-pattern for a matching basename', () => {
         const s = { ...base, excludePatterns: ['^\\d{4}-\\d{2}-\\d{2}$'] };
         expect(scopeOutReason('daily/2026-07-03.md', '2026-07-03', s)).toBe('excluded-pattern');

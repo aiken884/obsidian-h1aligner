@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    type H1AlignerSettings,
     batchSettingsFingerprint,
     conflictingScopeFolders,
     getExcludePatternsDraft,
@@ -343,7 +344,7 @@ describe('useFrontmatterTitle (batch 3)', () => {
 describe('every setting survives a save/load round trip (regression: normalizeSettings drops unknown keys)', () => {
     // A Record over every DEFAULT_SETTINGS key: adding a setting without an
     // entry here is a compile error, so a new key cannot skip this check.
-    const NON_DEFAULT: Record<keyof typeof DEFAULT_SETTINGS, unknown> = {
+    const NON_DEFAULT: Record<Exclude<keyof H1AlignerSettings, 'excludePatternsDraft'>, unknown> = {
         renameTrigger: 'edit',
         fileOpenDebounceMs: 250,
         editDebounceMs: 3500,
@@ -367,7 +368,7 @@ describe('every setting survives a save/load round trip (regression: normalizeSe
         useFrontmatterTitle: true,
     };
 
-    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof typeof DEFAULT_SETTINGS>) {
+    for (const key of Object.keys(DEFAULT_SETTINGS) as Array<keyof typeof NON_DEFAULT>) {
         it(`keeps a non-default ${key}`, () => {
             const value = NON_DEFAULT[key];
             expect(value).not.toEqual(DEFAULT_SETTINGS[key]);

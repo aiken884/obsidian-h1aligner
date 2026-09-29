@@ -14,6 +14,8 @@ export interface ExplainDryRun {
     skipped: RenameSkipReason;
     newName: string | null;
     error?: { message?: string } | null;
+    /** 'title' when the proposed name comes from the frontmatter title fallback. */
+    nameSource?: 'title';
 }
 
 export interface ExplainResult {
@@ -71,6 +73,9 @@ export function explainNote(input: {
     const name = dryRun.newName && dryRun.newName.length > 0 ? dryRun.newName : input.basename;
     return {
         kind: 'would-rename',
-        text: t('explain.wouldRename', { path, name }),
+        text: t(dryRun.nameSource === 'title' ? 'explain.wouldRenameFromTitle' : 'explain.wouldRename', {
+            path,
+            name,
+        }),
     };
 }

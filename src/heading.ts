@@ -72,6 +72,19 @@ export function hasFrontmatterLock(content: string): boolean {
     return false;
 }
 
+/**
+ * Frontmatter `title` as a filename source (opt-in fallback when a note has no
+ * usable H1). Only a string counts: whitespace runs (JS `\s`, so newlines and
+ * Unicode spaces too) collapse to one space and the ends are trimmed; empty,
+ * non-string (array, number, boolean, object, null) → null. Numbers are
+ * ignored deliberately — `title: 2025` is a YAML number; quote it to use it.
+ */
+export function normalizeTitleValue(v: unknown): string | null {
+    if (typeof v !== 'string') return null;
+    const s = v.replace(/\s+/g, ' ').trim();
+    return s.length > 0 ? s : null;
+}
+
 export function extractFirstH1(
     cache: CachedMetadata | null | undefined,
     content?: string,

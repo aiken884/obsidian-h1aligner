@@ -121,6 +121,11 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                         control: { type: 'text', key: 'nameTemplate', placeholder: '{{h1}}' },
                     },
                     {
+                        name: t('set.fmTitle.name'),
+                        desc: t('set.fmTitle.desc'),
+                        control: { type: 'toggle', key: 'useFrontmatterTitle' },
+                    },
+                    {
                         name: t('set.collision.name'),
                         desc: t('set.collision.desc'),
                         control: {
@@ -333,6 +338,10 @@ export class H1AlignerSettingTab extends PluginSettingTab {
                 return;
             case 'allowCaseOnlyRename':
                 s.allowCaseOnlyRename = Boolean(value);
+                await this.plugin.saveSettings();
+                return;
+            case 'useFrontmatterTitle':
+                s.useFrontmatterTitle = Boolean(value);
                 await this.plugin.saveSettings();
                 return;
             case 'preserveOldNameAsAlias':

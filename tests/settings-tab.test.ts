@@ -144,6 +144,7 @@ describe('getSettingDefinitions', () => {
             'includeFolders',
             'skipIfFrontmatterLock',
             'nameTemplate',
+            'useFrontmatterTitle',
             'collisionStrategy',
             'allowCaseOnlyRename',
             'preserveOldNameAsAlias',

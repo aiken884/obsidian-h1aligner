@@ -60,6 +60,8 @@ const en = {
     'explain.excludedPatternManualSkip':
         'H1Aligner: {path} matches an exclude-filename pattern — automatic rename skips it, and the manual command would also skip it ({reason}).',
     'explain.wouldRename': 'H1Aligner: {path} would be renamed → {name}',
+    'explain.wouldRenameFromTitle':
+        'H1Aligner: {path} has no H1 — it would be renamed → {name} (name taken from the frontmatter title)',
     'explain.skip': 'H1Aligner: {path} would not be renamed ({reason})',
     'explain.error': 'H1Aligner: could not explain {path}: {message}',
     // Batch modal
@@ -154,6 +156,9 @@ const en = {
     'set.caseOnly.name': 'Allow case-only renames',
     'set.caseOnly.desc':
         'Rename "linker.md" to "Linker.md" when only the capitalisation differs. Turn off to keep the file tree still.',
+    'set.fmTitle.name': 'Use frontmatter title when there is no H1',
+    'set.fmTitle.desc':
+        'Off: notes without a first H1 are skipped. On: such notes are renamed from the "title" property in their frontmatter (text only). Applies only when there is no usable first H1 — a first H1 always wins. The title is read from Obsidian\'s cache, so right after you change it a rename can still use the previous title; Undo reverts it.',
     'set.alias.name': 'Preserve old name as alias',
     'set.alias.desc':
         'After a rename, append the previous filename to the note\'s frontmatter aliases so the old name still works in the quick switcher. Aliases are not removed on undo.',
@@ -258,6 +263,8 @@ const zhTW: Record<LocaleKey, string> = {
     'explain.excludedPatternManualSkip':
         'H1Aligner：{path} 符合排除檔名 pattern — 自動改名會跳過，手動指令也會跳過（{reason}）。',
     'explain.wouldRename': 'H1Aligner：{path} 將會改名 → {name}',
+    'explain.wouldRenameFromTitle':
+        'H1Aligner：{path} 沒有 H1 — 將會改名 → {name}（名稱取自 frontmatter 的 title）',
     'explain.skip': 'H1Aligner：{path} 不會被改名（{reason}）',
     'explain.error': 'H1Aligner：無法說明 {path}：{message}',
     'batch.summary': '{total} 篇筆記中有 {renamable} 篇會被改名。',
@@ -339,6 +346,9 @@ const zhTW: Record<LocaleKey, string> = {
     'set.caseOnly.name': '允許僅大小寫差異的改名',
     'set.caseOnly.desc':
         '當只有大小寫不同時仍改名（如 "linker.md" → "Linker.md"）。關閉可讓檔案樹保持安定。',
+    'set.fmTitle.name': '沒有 H1 時使用 frontmatter 的 title',
+    'set.fmTitle.desc':
+        '關閉：沒有第一個 H1 的筆記會被跳過。開啟：這類筆記改用 frontmatter 的 "title" 屬性（純文字）取檔名。只在沒有可用的第一個 H1 時才會生效，有 H1 一律以 H1 為準。title 是從 Obsidian 的快取讀取，剛修改 title 的當下改名可能仍用舊的 title；可用復原還原。',
     'set.alias.name': '將舊檔名保留為別名',
     'set.alias.desc':
         '改名後把舊檔名加入筆記 frontmatter 的 aliases，讓舊名稱仍可在快速切換器搜尋到。復原改名時不會移除別名。',
@@ -439,6 +449,8 @@ const ja: Record<LocaleKey, string> = {
     'explain.excludedPatternManualSkip':
         'H1Aligner：{path} は除外ファイル名パターンに一致します — 自動リネームはスキップし、手動コマンドでもスキップされます（{reason}）。',
     'explain.wouldRename': 'H1Aligner：{path} は {name} にリネームされます',
+    'explain.wouldRenameFromTitle':
+        'H1Aligner：{path} には H1 がありません — {name} にリネームされます（名前は frontmatter の title から取得）',
     'explain.skip': 'H1Aligner：{path} はリネームされません（{reason}）',
     'explain.error': 'H1Aligner：{path} を説明できません：{message}',
     'batch.summary': '{total} 件のノートのうち {renamable} 件がリネーム対象です。',
@@ -523,6 +535,9 @@ const ja: Record<LocaleKey, string> = {
     'set.caseOnly.name': '大文字小文字のみの変更を許可',
     'set.caseOnly.desc':
         '大文字小文字だけが異なる場合もリネームします（例：「linker.md」→「Linker.md」）。オフにするとファイルツリーの揺れを防げます。',
+    'set.fmTitle.name': 'H1 がないときは frontmatter の title を使う',
+    'set.fmTitle.desc':
+        'オフ：最初の H1 がないノートはスキップします。オン：そのようなノートを frontmatter の "title" プロパティ（テキストのみ）でリネームします。使える最初の H1 がない場合にのみ適用され、H1 があれば常に H1 が優先されます。title は Obsidian のキャッシュから読むため、変更直後は以前の title でリネームされることがあります。元に戻すで取り消せます。',
     'set.alias.name': '旧ファイル名をエイリアスとして保存',
     'set.alias.desc':
         'リネーム後、旧ファイル名をノートのフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消してもエイリアスは削除されません。',

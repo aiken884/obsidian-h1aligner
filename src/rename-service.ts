@@ -27,7 +27,7 @@
  * touching the vault (used by the batch preview).
  */
 import type { App, TFile } from 'obsidian';
-import { extractFirstH1, hasFrontmatterLock, isLockValue } from './heading';
+import { extractFirstH1, hasFrontmatterLock, isLockValue, normalizeTitleValue } from './heading';
 import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
@@ -54,6 +54,8 @@ export interface RenameOutcome {
     skipped: RenameSkipReason;
     newName: string | null;
     error?: Error;
+    /** Set to 'title' when the name came from the frontmatter title fallback; absent = first H1. */
+    nameSource?: 'title';
     /** Experimental tag move: tags this run would/did process (honest count). */
     movedTags?: number;
     /** Experimental tag move: candidates skipped because their cached offsets went stale. */
@@ -350,9 +352,18 @@ export class RenameService {
                     return { skipped: 'locked', newName: null };
                 }
             }
-            const { h1 } = extractFirstH1(cache, content);
+            const extracted = extractFirstH1(cache, content).h1;
+            // Opt-in fallback: only when there is NO usable H1 (an H1 that
+            // exists but sanitizes to empty is decided below, never replaced
+            // by the title). Read from the same cache entry the H1 path trusts.
+            const titleName =
+                !extracted && settings.useFrontmatterTitle
+                    ? normalizeTitleValue(cache?.frontmatter?.title)
+                    : null;
+            const h1 = extracted ?? titleName;
+            const nameSource = extracted ? undefined : titleName ? ('title' as const) : undefined;
 
-            // L1: No H1
+            // L1: No H1 (and no usable title when the fallback is on)
             if (!h1) {
                 return { skipped: 'no-h1', newName: null };
             }
@@ -414,7 +425,7 @@ export class RenameService {
 
             const newPath = dir + finalBase + '.' + ext;
             if (dryRun) {
-                return { skipped: 'none', newName: finalBase };
+                return { skipped: 'none', newName: finalBase, ...(nameSource ? { nameSource } : {}) };
             }
 
             // Execute — fileManager.renameFile updates backlinks atomically
@@ -428,7 +439,7 @@ export class RenameService {
             this.history?.push(record);
             // NOTE: the optional old-name alias write happens in renameFromH1,
             // after the tag move, so it cannot shift the tag offsets first.
-            return { skipped: 'none', newName: finalBase, record };
+            return { skipped: 'none', newName: finalBase, record, ...(nameSource ? { nameSource } : {}) };
         } catch (err) {
             return {
                 skipped: 'none',

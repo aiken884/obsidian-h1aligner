@@ -59,6 +59,11 @@ export interface H1AlignerSettings {
     bodyTagHandling: BodyTagHandling;
     /** Tag names (no '#') never moved; compared case-insensitively. */
     tagsToIgnoreForMove: string[];
+    /**
+     * When a note has no usable first H1, name it from its frontmatter
+     * `title` instead of skipping it. Off by default; an H1 always wins.
+     */
+    useFrontmatterTitle: boolean;
 }
 
 export const DEFAULT_SETTINGS: H1AlignerSettings = {
@@ -84,6 +89,7 @@ export const DEFAULT_SETTINGS: H1AlignerSettings = {
     moveTagsToFrontmatter: false,
     bodyTagHandling: 'keep',
     tagsToIgnoreForMove: [],
+    useFrontmatterTitle: false,
 };
 
 /**
@@ -108,6 +114,7 @@ export function batchSettingsFingerprint(settings: H1AlignerSettings): string {
         moveTagsToFrontmatter: settings.moveTagsToFrontmatter,
         bodyTagHandling: settings.bodyTagHandling,
         tagsToIgnoreForMove: settings.tagsToIgnoreForMove,
+        useFrontmatterTitle: settings.useFrontmatterTitle,
     });
 }
 
@@ -211,6 +218,7 @@ export function normalizeSettings(raw: unknown): H1AlignerSettings {
         out.preserveOldNameAsAlias = r.preserveOldNameAsAlias;
     }
     if (typeof r.onboardingShown === 'boolean') out.onboardingShown = r.onboardingShown;
+    if (typeof r.useFrontmatterTitle === 'boolean') out.useFrontmatterTitle = r.useFrontmatterTitle;
 
     // Experimental: move tags to frontmatter
     if (typeof r.moveTagsToFrontmatter === 'boolean') {

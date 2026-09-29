@@ -40,7 +40,7 @@ Run these checks against the exact release-candidate tree before creating the ve
 git fetch origin
 git diff --check $(git merge-base origin/main HEAD)...HEAD   # everything since main, not only unstaged edits
 npm ci
-npm run lint -- --max-warnings 0   # obsidianmd command/sentence-case/manifest rules are warn-level
+npm run lint     # runs eslint with --max-warnings 0: obsidianmd command/sentence-case/manifest rules are warn-level
 npm run build
 npm test
 npm run test:e2e
@@ -66,7 +66,7 @@ git merge --ff-only origin/main
 git merge --ff-only <feature-branch>   # only when releasing a feature branch
 git status                             # clean, on main
 
-# 2. Full release-candidate gate (see above; lint with --max-warnings 0)
+# 2. Full release-candidate gate (see above; `npm run lint` already fails on warnings)
 
 # 3. Release notes: turn "## Unreleased" in CHANGELOG.md into "## X.Y.Z — YYYY-MM-DD"
 #    (summary line, per-item test counts, on-device status), update the README test
@@ -87,7 +87,9 @@ git push origin main
 git push origin X.Y.Z
 ```
 
-Pushing the tag triggers `.github/workflows/release.yml`, which builds the
+Pushing the tag triggers `.github/workflows/release.yml`, which first checks that the tag equals the
+`manifest.json` / `package.json` versions and has a `versions.json` entry
+(`scripts/check-release-version.mjs`), then builds the
 plugin, runs the tests, and creates a **draft GitHub release** with `main.js`,
 `manifest.json` and `styles.css` attached as individual assets.
 

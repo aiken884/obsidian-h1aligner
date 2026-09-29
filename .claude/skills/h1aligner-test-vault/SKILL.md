@@ -95,6 +95,7 @@ On `feature/0.12.0-batch2` only. Keep the Phase-1 baseline, then add (names in z
 | date-named `daily/YYYY-MM-DD.md` with a non-matching H1 | #17 exclude-pattern + #4 |
 | `鎖定測試筆記.md` with `h1aligner-lock: true` | #17 locked + #5/#16 |
 | `說明會改名.md` with mismatched H1 | #17 would-rename; do **not** open it on file-open trigger or it will actually rename |
+| (no new note) temporarily type `[` into Exclude patterns, restore afterwards | #17 (e) paused — Explain on `說明會改名.md` must say renaming is paused, not "would be renamed" |
 | folder `H1A-SCOPE-sub/` with one mismatched note and one date-named note (excluded by the default pattern), plus a sibling folder `H1A-SCOPE-sub-old/` with another mismatched note | #18 count + #19 folder preview (the date-named note is counted, not listed; the sibling must not appear) |
 
 Index note must stay locked. After a scope/include-ignore pass, restore `includeFolders` / `ignoreFolders`.

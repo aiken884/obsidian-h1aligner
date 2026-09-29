@@ -1486,5 +1486,5 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     folderModal.close();
     console.log('✓ 28. 資料夾右鍵 what-if：只預覽該資料夾後代，不套用改名');
 
-    console.log('\nE2E smoke test: 46/46 scenarios passed（真實 production bundle main.js）');
+    console.log('\nE2E smoke test: 47/47 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

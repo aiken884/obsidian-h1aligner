@@ -364,8 +364,13 @@ export default class H1AlignerPlugin extends Plugin {
     private async explainActiveFile(): Promise<void> {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== 'md') return;
-        const scopeOut = scopeOutReason(file.path, file.basename, this.scopeSettings());
-        const dryRun = scopeOut
+        // Same order as triggerRename: an invalid exclude-pattern draft pauses
+        // every rename path, so report that before scope or a dry run.
+        const paused = this.hasInvalidExcludePatterns();
+        const scopeOut = paused
+            ? null
+            : scopeOutReason(file.path, file.basename, this.scopeSettings());
+        const dryRun = paused || scopeOut
             ? null
             : await this.renameService.renameFromH1(file, { dryRun: true });
         const result = explainNote({
@@ -373,6 +378,7 @@ export default class H1AlignerPlugin extends Plugin {
             basename: file.basename,
             scopeOut,
             dryRun,
+            paused,
         });
         new Notice(result.text);
     }

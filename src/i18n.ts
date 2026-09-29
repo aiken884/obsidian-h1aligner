@@ -47,6 +47,8 @@ const en = {
     'menu.renameFromH1': 'Rename from first H1',
     'menu.previewFolder': 'Preview renames in this folder',
     // Explain
+    'explain.paused':
+        'H1Aligner: renaming is paused until the invalid exclude pattern in settings is fixed — {path} will not be renamed automatically, manually, or by batch apply.',
     'explain.ignored':
         'H1Aligner: {path} is in an ignored folder — automatic and manual rename both skip it.',
     'explain.notIncluded':
@@ -233,6 +235,8 @@ const zhTW: Record<LocaleKey, string> = {
     'menu.unlock': '解除鎖定此筆記',
     'menu.renameFromH1': '依第一個 H1 改名',
     'menu.previewFolder': '預覽這個資料夾的改名',
+    'explain.paused':
+        'H1Aligner：設定中的排除規則有無效項目，改名已暫停 — 修正之前，{path} 不會被自動、手動或批次套用改名。',
     'explain.ignored':
         'H1Aligner：{path} 位於忽略資料夾 — 自動與手動改名都會跳過。',
     'explain.notIncluded':
@@ -403,6 +407,8 @@ const ja: Record<LocaleKey, string> = {
     'menu.unlock': 'このノートのロックを解除',
     'menu.renameFromH1': '最初の H1 でリネーム',
     'menu.previewFolder': 'このフォルダのリネームをプレビュー',
+    'explain.paused':
+        'H1Aligner：設定の除外パターンに無効なものがあるため、リネームは一時停止中です — 修正するまで {path} は自動・手動・一括適用のいずれでもリネームされません。',
     'explain.ignored':
         'H1Aligner：{path} は除外フォルダ内です — 自動・手動リネームはどちらもスキップします。',
     'explain.notIncluded':

@@ -29,7 +29,7 @@ Use **ObsidianTestVault** (the dedicated test vault). Do not run this checklist 
 | 14 | Preserve aliases | Enable "Keep old filename as alias" and then trigger a rename | The old filename appears in the frontmatter aliases; the quick switcher can find the note by its old name |
 | 15 | Rename notice Undo button | Trigger a rename, then tap the **Undo** button on the toast itself (not the command palette) | The toast shows a tappable Undo button; tapping it reverts the rename, closes the toast, and the activity log records source "undo"; tapping an older toast after a newer rename has happened shows "no longer the latest" instead of undoing |
 | 16 | Lock / unlock via context menu | Long-press a note in the file explorer (or right-click on desktop) → **Lock this note** → open the note; then long-press it again *immediately* (before re-indexing) and confirm whatever the menu shows cannot accidentally unlock it; then **Unlock this note** → open the note | Locked: opening the note does not rename it. The menu never offers an action that unlocks a note that is actually still locked, even if its label is briefly stale. Unlocked: opening the note renames it again. The menu also shows **Rename from first H1** for notes outside ignored folders; tapping it renames the note like the manual command. |
-| 17 | Explain this note | On a note that is ignored, one that matches an exclude pattern, one that is locked, and one that would rename: run **Explain this note** | A notice explains the matching reason. The filename does not change. |
+| 17 | Explain this note | On a note that is ignored, one that matches an exclude pattern, one that is locked, and one that would rename: run **Explain this note**; then type an invalid exclude pattern (e.g. `[`) in settings and run it again on the would-rename note | A notice explains the matching reason. With the invalid pattern, it says renaming is paused (not "would be renamed"). The filename does not change. |
 | 18 | Batch out-of-scope count | With ignore/include/exclude excluding some notes, run **Preview all renames (dry run)** | The modal shows a count of notes outside those filters. Those notes are not listed as skipped rows. Apply still only renames in-scope Rename items. |
 | 19 | Folder what-if preview | Long-press / right-click a folder → **Preview renames in this folder** | The modal only lists markdown notes under that folder. Notes in other folders do not appear. Apply still re-verifies. |
 
@@ -106,7 +106,8 @@ don't want anything renaming out from under you:
 include these. Trigger stays Manual only from Phase 4, so opening notes does not rename them out from under Explain:
 1. #17: run **Explain this note** on (a) an ignored-folder note, (b) a date-named exclude-pattern note,
    (c) a locked note, (d) a mismatched-H1 note that would rename. Each should produce a notice with the
-   matching reason; **filenames must not change**.
+   matching reason; **filenames must not change**. Then (e) type `[` into Exclude patterns and run it on the
+   note from (d): the notice must say renaming is paused, not "would be renamed". Fix the pattern afterwards.
 2. #18: with ignore/include/exclude excluding some notes, run **Preview all renames (dry run)**. Confirm a
    count of notes outside those filters; they must not appear as skipped rows. Apply still only hits
    in-scope Rename items.

@@ -41,12 +41,13 @@ Folder membership is `isUnderFolder(path, folderPath)`: empty, `/`, or `.` means
 
 - Command id: `explain-active-file`. Name: `Explain this note`.
 - `checkCallback`: active file exists and `extension === 'md'`. **Ignored notes are eligible** — that is the point of the command. Unlike the rename command, do not use `manualEligible`.
+- **First**, if the exclude-pattern draft is invalid (`hasInvalidExcludePatterns()`), every rename path is paused: report that (`explain.paused`) and skip scope and the dry run — same order as `triggerRename` (decision D1, §10).
 - Build `scopeOutReason` with the same `scopeSettings()` as `shouldProcess` (config dir always ignored).
 - If out of scope: **do not** call `renameFromH1`. Notice text:
   - ignored → automatic **and** manual skip
   - not-included / excluded-pattern → automatic skip; **manual command can still rename**
 - If in scope: `renameFromH1(file, { dryRun: true })`. Map skip reasons through `describeSkipReason`. Would-rename uses the proposed basename. Errors use the error message. Never call without `dryRun: true`.
-- Pure helper `explainNote({ path, basename, scopeOut, dryRun })` → `{ kind, text }` so tests do not mock the unit under test.
+- Pure helper `explainNote({ path, basename, scopeOut, dryRun, paused })` → `{ kind, text }` so tests do not mock the unit under test.
 
 ## 5. Feature B — Out-of-scope count
 
@@ -83,10 +84,10 @@ New keys (placeholders must match across locales):
 ## 8. Tests
 
 - Unit: `scopeOutReason` order (ignore beats include; exclude after include); `isInScope` still matches today's cases.
-- Unit: `explainNote` for in-scope would-rename, locked, ignored, exclude-pattern, no-H1; ignored path does not need a dry-run object.
+- Unit: `explainNote` for in-scope would-rename, locked, ignored, exclude-pattern, no-H1; ignored path does not need a dry-run object; `paused` wins over every scope reason and never reads the dry run.
 - Unit: out-of-scope count equals files that fail the existing scope filter; those files are not in the in-scope list.
 - Unit: `isUnderFolder` prefix-safety.
-- E2E against production `main.js`: explain command does not push `_renameCalls`; batch modal shows out-of-scope copy; folder menu preview lists only descendants.
+- E2E against production `main.js`: explain command does not push `_renameCalls`; with an invalid exclude-pattern draft it reports the pause, not a would-rename (27b); batch modal shows out-of-scope copy; folder menu preview lists only descendants.
 
 ## 9. Non-goals
 

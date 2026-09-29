@@ -1,8 +1,9 @@
 /**
  * explain-note.ts — pure copy for "Explain this note".
  *
- * Inputs are a scope-out reason (same policy as isInScope) and an optional
- * dry-run outcome. No Obsidian import; never implies a write.
+ * Inputs are the invalid-exclude-draft pause, a scope-out reason (same policy
+ * as isInScope) and an optional dry-run outcome. No Obsidian import; never
+ * implies a write.
  */
 import type { ScopeOutReason } from './scope';
 import type { RenameSkipReason } from './rename-service';
@@ -16,7 +17,7 @@ export interface ExplainDryRun {
 }
 
 export interface ExplainResult {
-    kind: 'out-of-scope' | 'would-rename' | 'skip' | 'error';
+    kind: 'paused' | 'out-of-scope' | 'would-rename' | 'skip' | 'error';
     text: string;
 }
 
@@ -25,8 +26,13 @@ export function explainNote(input: {
     basename: string;
     scopeOut: ScopeOutReason | null;
     dryRun: ExplainDryRun | null;
+    /** Invalid exclude-pattern draft: every rename path is paused (checked first, like triggerRename). */
+    paused?: boolean;
 }): ExplainResult {
     const { path, scopeOut, dryRun } = input;
+    if (input.paused) {
+        return { kind: 'paused', text: t('explain.paused', { path }) };
+    }
     if (scopeOut === 'ignored') {
         return { kind: 'out-of-scope', text: t('explain.ignored', { path }) };
     }

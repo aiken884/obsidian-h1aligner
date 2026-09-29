@@ -67,6 +67,50 @@ describe('explainNote', () => {
         expect(excl.text).toMatch(/manual command can still rename/i);
     });
 
+    it('says the manual command would also skip when the dry-run skips (not-included / excluded-pattern)', () => {
+        const miss = explainNote({
+            path: 'other/locked.md',
+            basename: 'locked',
+            scopeOut: 'not-included',
+            dryRun: { skipped: 'locked', newName: null },
+        });
+        expect(miss.kind).toBe('out-of-scope');
+        expect(miss.text).toMatch(/include-folders whitelist/i);
+        expect(miss.text).toMatch(/manual command would also skip/i);
+        expect(miss.text).toContain('Frontmatter lock');
+        expect(miss.text).not.toMatch(/can still rename/i);
+
+        const excl = explainNote({
+            path: 'daily/2026-07-03.md',
+            basename: '2026-07-03',
+            scopeOut: 'excluded-pattern',
+            dryRun: { skipped: 'no-h1', newName: null },
+        });
+        expect(excl.kind).toBe('out-of-scope');
+        expect(excl.text).toMatch(/exclude-filename pattern/i);
+        expect(excl.text).toMatch(/manual command would also skip/i);
+        expect(excl.text).toContain('No first H1');
+    });
+
+    it('keeps "manual can still rename" when the dry-run would rename or errors', () => {
+        const renames = explainNote({
+            path: 'other/a.md',
+            basename: 'a',
+            scopeOut: 'not-included',
+            dryRun: { skipped: 'none', newName: 'A Title' },
+        });
+        expect(renames.text).toMatch(/manual command can still rename/i);
+
+        const errored = explainNote({
+            path: 'daily/2026-07-03.md',
+            basename: '2026-07-03',
+            scopeOut: 'excluded-pattern',
+            dryRun: { skipped: 'none', newName: null, error: { message: 'boom' } },
+        });
+        expect(errored.kind).toBe('out-of-scope');
+        expect(errored.text).toMatch(/manual command can still rename/i);
+    });
+
     it('reports would-rename from the dry-run basename', () => {
         const result = explainNote({
             path: 'notes/old.md',

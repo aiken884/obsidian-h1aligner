@@ -1469,6 +1469,21 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     delete plugin.settings.excludePatternsDraft;
     console.log('✓ 27b. Explain this note：排除規則草稿無效時回報「改名已暫停」，不宣稱會改名');
 
+    // --- 27c: out-of-scope note the manual command would also skip (review A-O4) ---
+    const fExplainLockedDaily = addFile(app, 'notes/2026-02-02.md', '# Locked Daily Title\n', 'Locked Daily Title', { 'h1aligner-lock': true });
+    const noticesBefore27c = notices.length;
+    app._activeFile = fExplainLockedDaily;
+    explainCmd.checkCallback(false);
+    await sleep(50);
+    const lockedDailyNotices = notices.slice(noticesBefore27c);
+    assert.equal(app._renameCalls.length, renameBeforeExplain, 'explain never writes an excluded locked note');
+    assert.ok(
+        lockedDailyNotices.some((n) => n.includes('2026-02-02.md') && /exclude-filename pattern/i.test(n) && /manual command would also skip/i.test(n)),
+        'explain says the manual command would also skip a locked excluded note',
+    );
+    assert.ok(!lockedDailyNotices.some((n) => /can still rename/i.test(n)), 'explain does not promise a manual rename that would be skipped');
+    console.log('✓ 27c. Explain this note：排除 pattern ＋ 鎖定的筆記，回報手動指令也會跳過');
+
     // --- 28: folder context-menu what-if preview ---
     const folder = new TFolder();
     folder.path = 'batch';
@@ -1486,5 +1501,5 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     folderModal.close();
     console.log('✓ 28. 資料夾右鍵 what-if：只預覽該資料夾後代，不套用改名');
 
-    console.log('\nE2E smoke test: 47/47 scenarios passed（真實 production bundle main.js）');
+    console.log('\nE2E smoke test: 48/48 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

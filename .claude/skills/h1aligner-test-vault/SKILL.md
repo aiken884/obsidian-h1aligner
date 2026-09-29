@@ -24,9 +24,9 @@ The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the si
 ## Prerequisites
 
 - Obsidian desktop running; `obsidian` CLI available (`obsidian help` to confirm).
-- The feature branch already built and deployed to TestVault (`node scripts/dev-deploy.mjs`) — this skill provisions the *workspace*, not the plugin build. On Mac, that script also writes the **real** vault; if Aiken said not to touch the main vault's plugin, copy `main.js` / `manifest.json` / `styles.css` into TestVault only.
+- The build under test deployed to TestVault **only** — this skill provisions the *workspace*, not the plugin build. Build the branch/commit under test, then copy `main.js` / `manifest.json` / `styles.css` into TestVault's `.obsidian/plugins/heading-aligner/` (Mac `/Users/aikenlin/Obsidian/ObsidianTestVault`, PC `C:\Obsidian\ObsidianTestVault`). Do **not** run `scripts/dev-deploy.mjs` for unreleased branches — it also writes the real vault. Append ` [dev build <short-hash> <branch>]` to `description` in TestVault's copy of `manifest.json` (never `version`).
 - Read what this phase actually needs before designing fixtures: `docs/MOBILE-TESTING.md` (items 1–16 for 0.12.0; **17–19 for batch 2** on `feature/0.12.0-batch2`), plus the matching design doc (`docs/design-batch2-explain-oos-folder-preview.md` for batch 2).
-- For batch 2, deploy **that branch's** `main.js` to TestVault only (do not overwrite the real vault's 0.12.0 unless Aiken asks). Disk version stays 0.12.0 — the branch is how you tell builds apart.
+- Disk version stays at the last release until `npm version`; the description marker is how you tell builds apart — record the same hash in the Verification Log.
 
 ## Procedure
 
@@ -91,11 +91,11 @@ On `feature/0.12.0-batch2` only. Keep the Phase-1 baseline, then add (names in z
 
 | Fixture | Role |
 |---|---|
-| `.trash/說明忽略.md` (or any path under ignoreFolders) | #17 ignored — Explain must say ignored; filename unchanged |
+| `H1A-忽略/說明忽略.md` — add the visible folder `H1A-忽略` to `ignoreFolders` for this pass (`.trash` is hidden from Obsidian, so its notes cannot be opened or counted), restore afterwards | #17 ignored — Explain must say ignored; filename unchanged; also counted in #18 |
 | date-named `daily/YYYY-MM-DD.md` with a non-matching H1 | #17 exclude-pattern + #4 |
 | `鎖定測試筆記.md` with `h1aligner-lock: true` | #17 locked + #5/#16 |
 | `說明會改名.md` with mismatched H1 | #17 would-rename; do **not** open it on file-open trigger or it will actually rename |
-| folder `H1A-SCOPE-sub/` with one mismatched note, plus a sibling folder with another | #18 count + #19 folder preview (sibling must not appear) |
+| folder `H1A-SCOPE-sub/` with one mismatched note and one date-named note (excluded by the default pattern), plus a sibling folder `H1A-SCOPE-sub-old/` with another mismatched note | #18 count + #19 folder preview (the date-named note is counted, not listed; the sibling must not appear) |
 
 Index note must stay locked. After a scope/include-ignore pass, restore `includeFolders` / `ignoreFolders`.
 

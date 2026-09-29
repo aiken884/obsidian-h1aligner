@@ -1519,5 +1519,57 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     folderModal.close();
     console.log('✓ 28. 資料夾右鍵 what-if：只預覽該資料夾後代，不套用改名');
 
-    console.log('\nE2E smoke test: 48/48 scenarios passed（真實 production bundle main.js）');
+    // --- 29: activity modal Copy button (batch 3, feature 7) ---
+    const copyActCmd = plugin._commands.find((c) => c.id === 'show-activity');
+    const openActivity29 = async () => {
+        copyActCmd.callback();
+        await sleep(20);
+        const m = global.__lastModal;
+        const rows = [...m.contentEl.walk()].filter((e) => e.classList && e.classList.contains && e.classList.contains('h1aligner-row'));
+        const btn = [...m.contentEl.walk()].find((e) => e.tag === 'button' && e.text === 'Copy');
+        return { m, rows, btn };
+    };
+    const rowText29 = (row) => row.children.map((c) => c.text).join('');
+    const originalNavigator29 = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    const setNavigator29 = (value) => Object.defineProperty(globalThis, 'navigator', { value, configurable: true, writable: true });
+    try {
+        // success: exact newest-first text, count in the notice
+        const written29 = [];
+        setNavigator29({ clipboard: { writeText: (txt) => { written29.push(txt); return Promise.resolve(); } } });
+        const ok29 = await openActivity29();
+        assert.ok(ok29.btn, 'activity modal offers a Copy button when there are entries');
+        assert.ok(ok29.rows.length > 0, 'setup: activity has rows');
+        const noticesBefore29 = notices.length;
+        ok29.btn.listeners.click[0]();
+        await sleep(20);
+        assert.equal(written29.length, 1, 'Copy writes once to the clipboard');
+        assert.equal(written29[0], ok29.rows.map(rowText29).join('\n'), 'copied text equals the visible rows, newest first, newline-joined');
+        assert.ok(
+            notices.slice(noticesBefore29).some((n) => n === `H1Aligner: copied ${ok29.rows.length} activity entries`),
+            'success notice reports the entry count',
+        );
+        ok29.m.close();
+        // rejection
+        setNavigator29({ clipboard: { writeText: () => Promise.reject(new Error('denied')) } });
+        const rej29 = await openActivity29();
+        const noticesBeforeRej29 = notices.length;
+        rej29.btn.listeners.click[0]();
+        await sleep(20);
+        assert.ok(notices.slice(noticesBeforeRej29).some((n) => n === 'H1Aligner: could not copy to the clipboard'), 'a rejected write shows the failure notice');
+        rej29.m.close();
+        // clipboard API missing
+        setNavigator29({});
+        const none29 = await openActivity29();
+        const noticesBeforeNone29 = notices.length;
+        none29.btn.listeners.click[0]();
+        await sleep(20);
+        assert.ok(notices.slice(noticesBeforeNone29).some((n) => n === 'H1Aligner: could not copy to the clipboard'), 'a missing clipboard API shows the failure notice without throwing');
+        none29.m.close();
+    } finally {
+        if (originalNavigator29) Object.defineProperty(globalThis, 'navigator', originalNavigator29);
+        else delete globalThis.navigator;
+    }
+    console.log('✓ 29. 活動紀錄 Copy：寫入與畫面相同的文字（新到舊），成功／被拒／API 不存在三種情況');
+
+    console.log('\nE2E smoke test: 49/49 scenarios passed（真實 production bundle main.js）');
 })().catch((e) => { console.error('SMOKE TEST FAILED:', e); process.exit(1); });

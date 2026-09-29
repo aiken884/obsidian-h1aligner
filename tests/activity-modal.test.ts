@@ -11,7 +11,7 @@
  * ActivityLog itself is a pure module (no obsidian import), so the real
  * class is used directly rather than faked.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { App } from 'obsidian';
 import { ActivityModal } from '../src/activity-modal';
 import { ActivityLog } from '../src/activity-log';
@@ -21,6 +21,7 @@ interface FakeEl {
     text: string;
     children: FakeEl[];
     addedClasses: string[];
+    listeners: Record<string, Array<() => void>>;
     walk(): Generator<FakeEl>;
 }
 
@@ -31,6 +32,10 @@ vi.mock('obsidian', () => {
         children: FakeElImpl[] = [];
         addedClasses: string[] = [];
         classList = { add: (...cls: string[]) => this.addedClasses.push(...cls) };
+        listeners: Record<string, Array<() => void>> = {};
+        addEventListener(evt: string, cb: () => void): void {
+            (this.listeners[evt] = this.listeners[evt] ?? []).push(cb);
+        }
         constructor(tag = 'div', opts?: { text?: string }) {
             this.tag = tag;
             this.text = opts?.text ?? '';
@@ -70,7 +75,87 @@ vi.mock('obsidian', () => {
 
     class App {}
 
-    return { Modal, App };
+    const notices: string[] = [];
+    class Notice {
+        constructor(message: string) {
+            notices.push(message);
+        }
+    }
+    (globalThis as Record<string, unknown>).__notices = notices;
+
+    return { Modal, App, Notice };
+});
+
+const notices = (): string[] => (globalThis as unknown as { __notices: string[] }).__notices;
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    notices().length = 0;
+});
+
+function openWithTwoEntries(): { copy: FakeEl; expected: string } {
+    const log = new ActivityLog();
+    log.record({ ts: 1, path: 'a.md', source: 'file-open', outcome: 'renamed', newName: 'Alpha' });
+    log.record({ ts: 2, path: 'b.md', source: 'manual', outcome: 'no-h1' });
+    const modal = new ActivityModal({} as unknown as App, log);
+    modal.open();
+    const contentEl = modal.contentEl as unknown as FakeEl;
+    const copy = contentEl.children.find((c) => c.tag === 'button') as FakeEl;
+    const t = (ts: number): string => new Date(ts).toLocaleTimeString();
+    const expected = `${t(2)}  [manual]  b.md  (no-h1)\n${t(1)}  [file-open]  a.md  → Alpha`;
+    return { copy, expected };
+}
+
+describe('ActivityModal Copy button', () => {
+    it('is absent when the log is empty', () => {
+        const modal = new ActivityModal({} as unknown as App, new ActivityLog());
+        modal.open();
+        const contentEl = modal.contentEl as unknown as FakeEl;
+        expect([...contentEl.walk()].some((e) => e.tag === 'button')).toBe(false);
+    });
+
+    it('writes exactly the newest-first row text to the clipboard and reports the count', async () => {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        vi.stubGlobal('navigator', { clipboard: { writeText } });
+        const { copy, expected } = openWithTwoEntries();
+        expect(copy.text).toBe('Copy');
+        copy.listeners.click[0]();
+        expect(writeText).toHaveBeenCalledTimes(1);
+        expect(writeText).toHaveBeenCalledWith(expected);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(notices()).toEqual(['H1Aligner: copied 2 activity entries']);
+    });
+
+    it('shows the failure notice when the write is rejected', async () => {
+        const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+        vi.stubGlobal('navigator', { clipboard: { writeText } });
+        const { copy } = openWithTwoEntries();
+        copy.listeners.click[0]();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(notices()).toEqual(['H1Aligner: could not copy to the clipboard']);
+    });
+
+    it('shows the failure notice (and does not throw) when the clipboard API is missing', () => {
+        vi.stubGlobal('navigator', {});
+        const { copy } = openWithTwoEntries();
+        expect(() => copy.listeners.click[0]()).not.toThrow();
+        expect(notices()).toEqual(['H1Aligner: could not copy to the clipboard']);
+    });
+
+    it('shows the failure notice when writeText throws synchronously', () => {
+        vi.stubGlobal('navigator', {
+            clipboard: {
+                writeText: () => {
+                    throw new Error('sync');
+                },
+            },
+        });
+        const { copy } = openWithTwoEntries();
+        expect(() => copy.listeners.click[0]()).not.toThrow();
+        expect(notices()).toEqual(['H1Aligner: could not copy to the clipboard']);
+    });
 });
 
 describe('ActivityModal', () => {
@@ -95,8 +180,8 @@ describe('ActivityModal', () => {
         modal.open();
 
         const contentEl = modal.contentEl as unknown as FakeEl;
-        expect(contentEl.children.map((c) => c.tag)).toEqual(['h3', 'div']);
-        const list = contentEl.children[1];
+        expect(contentEl.children.map((c) => c.tag)).toEqual(['h3', 'button', 'div']);
+        const list = contentEl.children[2];
         expect(list.children.length).toBe(2);
 
         // entries() reverses to newest-first: b.md (no-h1) then a.md (renamed).

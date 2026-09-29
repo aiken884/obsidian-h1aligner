@@ -37,17 +37,24 @@ export function foldName(name: string): string {
     return name.toLowerCase();
 }
 
+/** Remove a leading run of '#' and whitespace, then trim the end. */
+function stripLeadingHashes(s: string): string {
+    return s.replace(/^[\s#]+/, '').trim();
+}
+
 /**
  * Canonical tag-name normalization, shared by the ignore-list match and the
- * frontmatter dedup so the two can never disagree: trim, strip all leading
- * '#'s, trim again, then fold. Trim must come first — a leading space would
- * otherwise defeat the '#' strip and leak '#' into comparisons; stripping
- * ALL leading '#'s (not just one) matters for malformed input like a
- * hand-typed "##tag" in frontmatter — a single strip would leave one behind.
+ * frontmatter dedup so the two can never disagree: strip the whole leading
+ * run of '#'s and whitespace, trim, then fold. Whitespace and '#' are stripped
+ * together — a leading space would otherwise defeat the '#' strip, and a
+ * '#' hiding behind whitespace ("# #") would survive a strip-then-trim-then-
+ * strip sequence and leak '#' into comparisons. Stripping ALL leading '#'s
+ * (not just one) matters for malformed input like a hand-typed "##tag" in
+ * frontmatter — a single strip would leave one behind.
  * Nested tags keep their '/' and compare by full name.
  */
 export function normalizeTagName(s: string): string {
-    return foldName(s.trim().replace(/^#+/, '').trim());
+    return foldName(stripLeadingHashes(s));
 }
 
 /**
@@ -116,7 +123,7 @@ export function mergeTagsIntoList(existing: unknown, incoming: string[]): string
     const out: string[] = [];
     const seen = new Set<string>();
     const push = (raw: string): void => {
-        const cleaned = raw.trim().replace(/^#+/, '').trim();
+        const cleaned = stripLeadingHashes(raw);
         if (!cleaned) return;
         const key = normalizeTagName(cleaned);
         if (seen.has(key)) return;

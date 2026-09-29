@@ -584,9 +584,11 @@ export function t(key: LocaleKey, vars?: Record<string, string | number>): strin
     const table = LOCALES[activeLocale];
     let s: string = table[key] ?? en[key] ?? key;
     if (vars) {
-        for (const [k, v] of Object.entries(vars)) {
-            s = s.split(`{${k}}`).join(String(v));
-        }
+        // Single pass: a substituted value is never re-scanned, so a path that
+        // contains a literal "{name}" cannot be rewritten by a later variable.
+        s = s.replace(/\{([a-zA-Z]+)\}/g, (match, key: string) =>
+            Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : match,
+        );
     }
     return s;
 }

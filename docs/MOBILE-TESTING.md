@@ -112,7 +112,7 @@ include these. Trigger stays Manual only from Phase 4, so opening notes does not
    count of notes outside those filters; they must not appear as skipped rows. Apply still only hits
    in-scope Rename items.
 3. #19: long-press / right-click a folder → **Preview renames in this folder**. Only markdown under that
-   folder is listed, the top line names the folder, filtered-out notes are only counted ("in this folder …
+   folder is listed, the first hint line (right under the summary) names the folder, filtered-out notes are only counted ("in this folder …
    excluded"), and a sibling folder's notes must not appear. Do not Apply unless you intend to; Apply
    still re-verifies.
 

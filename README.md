@@ -156,7 +156,7 @@ Backlinks update automatically because the plugin uses `app.fileManager.renameFi
 
 **Daily notes are protected by default.** Date-named notes (`2026-07-03.md`) are never auto-renamed thanks to the default exclude pattern. Remove it if you actually want that.
 
-**Undo is session-scoped.** Up to 20 renames, newest first, this session only. If the H1 still differs from the restored name and an automatic trigger is active, the next trigger renames it again — lock the note or fix the H1 to make the old name stick. When a rename shows a notice, that notice itself carries an **Undo** button for about 8 seconds — no command palette required. A toast that a later rename has superseded (of the same or a different file) refuses to undo and tells you to use the command instead, so an old toast can never revert the wrong thing.
+**Undo is session-scoped.** Up to 20 renames, newest first, this session only. Undo restores the filename only: an old-name alias or moved tags that the same rename wrote to frontmatter stay in place. If the H1 still differs from the restored name and an automatic trigger is active, the next trigger renames it again — lock the note or fix the H1 to make the old name stick. When a rename shows a notice, that notice itself carries an **Undo** button for about 8 seconds — no command palette required. A toast that a later rename has superseded (of the same or a different file) refuses to undo and tells you to use the command instead, so an old toast can never revert the wrong thing.
 
 ## ⚠️ Do not pair with these plugins
 

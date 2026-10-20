@@ -113,6 +113,19 @@ On `feature/0.12.0-batch3` only. Add to the Phase-1 baseline (names in zh-TW):
 
 The title setting is off by default: turn it on for #21–#22 and back off afterwards. Trigger stays Manual only except while running #22.
 
+## Driving GUI checks through the CLI (no computer-use MCP)
+
+Aiken's rule (2026-10-20): verify the checklist's desktop items by driving the live Obsidian with `obsidian eval` (plus `dev:screenshot` for visual-only items), not by installing a desktop-control MCP. Always `vault=ObsidianTestVault`. Report what the UI *actually rendered* (notice text, modal `innerText`), not what the code says.
+
+- **Commands**: `app.commands.executeCommandById('heading-aligner:explain-active-file')` (also `batch-preview-renames`); open a note first with `app.workspace.getLeaf().openFile(file)`.
+- **Notices**: install the observer snippet above, clear `window.__h1a.notices`, run the command, wait ~1s, read it. The observer double-counts some notices — dedupe with `new Set(...)` and cross-check `document.querySelectorAll('.notice').length` before calling anything a duplicate.
+- **Modals**: read `document.querySelector('.modal').innerText`; open every `details` first to see collapsed sections; close with the button whose text is 關閉. **Never click 套用 / Apply** unless the checklist says to.
+- **Folder context menu (#19)**: dispatch a `contextmenu` MouseEvent on `.nav-folder-title[data-path="<folder>"]`, then click the `.menu-item` whose text is 預覽這個資料夾的改名.
+- **Settings page**: do **not** call `app.setting.open()` / click the gear from eval — it never shows a modal and afterwards notices stop rendering until `obsidian reload`. Instead render the tab into a detached host: `const tab = app.setting.pluginTabs.find(t => t.id === 'heading-aligner'); const host = document.body.appendChild(document.createElement('div')); tab.containerEl = host; tab.display();`, then set a field's `.value` and dispatch an `input` event (Exclude patterns is the 6th `.setting-item`, index 5; its validation text is `#h1aligner-exclude-pattern-validation`, use `textContent`). Restore the original value in a `finally`, then `host.remove()`.
+- **Settings values**: read back `plugin.settings` after each change. Restore `ignoreFolders` / `excludePatterns` when done and confirm `excludePatternsDraft` is undefined.
+- If notices or modals stop appearing, run `obsidian reload vault=ObsidianTestVault` (plugin settings persist in `data.json`) and reinstall the observer.
+- Still needs a human: anything that depends on real pointer/keyboard feel, mobile, or Obsidian Sync.
+
 ## Common mistakes
 
 - Hard-deleting instead of `vault.trash` — not recoverable if a note turns out to matter.

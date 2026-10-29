@@ -142,7 +142,7 @@ const en = {
     'set.exclude.announcement.valid': 'Exclude patterns are valid. Renaming is available.',
     'set.lock.name': 'Respect frontmatter lock',
     'set.lock.desc':
-        'Skip notes whose frontmatter contains "h1aligner-lock: true". Lets you exempt individual notes.',
+        'Skip notes whose frontmatter contains "h1aligner-lock: true".',
     // Settings — naming
     'set.naming.heading': 'Naming',
     'set.template.name': 'Filename template',
@@ -158,10 +158,10 @@ const en = {
         'Rename "linker.md" to "Linker.md" when only the capitalisation differs. Turn off to keep the file tree still.',
     'set.fmTitle.name': 'Use frontmatter title when there is no H1',
     'set.fmTitle.desc':
-        'Off: notes without a first H1 are skipped. On: such notes are renamed from the "title" property in their frontmatter (text only). Applies only when there is no usable first H1 — a first H1 always wins. The title is read from Obsidian\'s cache, so right after you change it a rename can still use the previous title. A later trigger corrects it; if none happens, Undo reverts the rename.',
+        'Notes without a first H1 are renamed from their frontmatter "title" (text only); a first H1 always wins. The title comes from Obsidian\'s cache, so a rename right after editing it may use the old title — a later trigger corrects it, or Undo reverts it.',
     'set.alias.name': 'Preserve old name as alias',
     'set.alias.desc':
-        'After a rename, append the previous filename to the note\'s frontmatter aliases so the old name still works in the quick switcher. Aliases are not removed on undo.',
+        'Adds the previous filename to frontmatter aliases so the old name still works in the quick switcher. Not removed on undo.',
     'set.trim.name': 'Trim whitespace',
     'set.trim.desc': 'Strip leading and trailing whitespace from the H1 text.',
     'set.replace.name': 'Replace illegal characters',
@@ -181,7 +181,7 @@ const en = {
     'set.notif.heading': 'Notifications',
     'set.notice.name': 'Notice level',
     'set.notice.desc':
-        'For automatic renames. Off: silent. Errors only: report failures. All: also announce successful renames — and, when tag moving is enabled, tag writes to frontmatter. The manual command and batch apply always report.',
+        'Applies to automatic renames only; the manual command and batch apply always report. "All" also announces tag moves to frontmatter.',
     'set.notice.off': 'Off (quiet)',
     'set.notice.errors': 'Errors only',
     'set.notice.all': 'All renames',
@@ -207,7 +207,7 @@ const en = {
     'set.tagmove.body.removeTag': 'Remove whole tag',
     'set.tagmove.ignore.name': 'Tags to ignore',
     'set.tagmove.ignore.desc':
-        'Tag names (without #) that are never moved — one per line, or comma-separated. Nested tags match by full name; matching ignores case. Entries are stored without a leading #.',
+        'One per line or comma-separated; a leading # is optional. Nested tags match by full name; case is ignored.',
     // {count} is an integer
     'batch.tagCount': '+{count} tags',
     'batch.tagCountBody': '+{count} tags (body will be modified)',
@@ -334,7 +334,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.exclude.announcement.invalid': '排除規則有錯誤，已暫停改名。',
     'set.exclude.announcement.valid': '排除規則有效，可進行改名。',
     'set.lock.name': '尊重 frontmatter 鎖',
-    'set.lock.desc': '跳過 frontmatter 含 "h1aligner-lock: true" 的筆記，可逐篇排除。',
+    'set.lock.desc': '跳過 frontmatter 含 "h1aligner-lock: true" 的筆記。',
     'set.naming.heading': '命名規則',
     'set.template.name': '檔名模板',
     'set.template.desc':
@@ -348,10 +348,10 @@ const zhTW: Record<LocaleKey, string> = {
         '當只有大小寫不同時仍改名（如 "linker.md" → "Linker.md"）。關閉可讓檔案樹保持安定。',
     'set.fmTitle.name': '沒有 H1 時使用 frontmatter 的 title',
     'set.fmTitle.desc':
-        '關閉：沒有第一個 H1 的筆記會被跳過。開啟：這類筆記改用 frontmatter 的 "title" 屬性（純文字）取檔名。只在沒有可用的第一個 H1 時才會生效，有 H1 一律以 H1 為準。title 是從 Obsidian 的快取讀取，剛修改 title 的當下改名可能仍用舊的 title；之後再次觸發會修正，若沒有再觸發，可用復原還原這次改名。',
+        '沒有第一個 H1 的筆記改用 frontmatter 的 "title"（純文字）取檔名；有 H1 一律以 H1 為準。title 是從 Obsidian 的快取讀取，剛修改的當下改名可能仍用舊 title，之後再次觸發會修正，或用復原還原。',
     'set.alias.name': '將舊檔名保留為別名',
     'set.alias.desc':
-        '改名後把舊檔名加入筆記 frontmatter 的 aliases，讓舊名稱仍可在快速切換器搜尋到。復原改名時不會移除別名。',
+        '把舊檔名加入 frontmatter 的 aliases，讓舊名稱仍可在快速切換器搜尋到。復原時不會移除。',
     'set.trim.name': '修剪空白',
     'set.trim.desc': '移除 H1 文字前後的空白。',
     'set.replace.name': '取代非法字元',
@@ -370,7 +370,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.notif.heading': '通知',
     'set.notice.name': '通知層級',
     'set.notice.desc':
-        '僅影響自動改名。「關閉」完全安靜；「僅錯誤」只回報失敗；「全部」連同成功改名一併通知 — 若有啟用移動 tag 功能，寫入 frontmatter 的 tag 也會一併通知。手動指令與批次套用一律回報。',
+        '僅影響自動改名；手動指令與批次套用一律回報。「全部」也會通知 tag 移至 frontmatter。',
     'set.notice.off': '關閉（安靜）',
     'set.notice.errors': '僅錯誤',
     'set.notice.all': '全部改名',
@@ -394,7 +394,7 @@ const zhTW: Record<LocaleKey, string> = {
     'set.tagmove.body.removeTag': '整個移除',
     'set.tagmove.ignore.name': '忽略的 tag',
     'set.tagmove.ignore.desc':
-        '這些 tag 永不搬移，一行一個或用逗號分隔皆可（不含 #）。巢狀 tag 以全名比對；比對不分大小寫。儲存時會去除開頭的 #。',
+        '一行一個或用逗號分隔，開頭的 # 可有可無。巢狀 tag 以全名比對，不分大小寫。',
     'batch.tagCount': '+{count} 個 tag',
     'batch.tagCountBody': '+{count} 個 tag（內文將被修改）',
 };
@@ -523,7 +523,7 @@ const ja: Record<LocaleKey, string> = {
     'set.exclude.announcement.valid': '除外パターンは有効です。リネームできます。',
     'set.lock.name': 'フロントマターのロックを尊重',
     'set.lock.desc':
-        'フロントマターに「h1aligner-lock: true」があるノートをスキップします。ノート単位で除外できます。',
+        'フロントマターに「h1aligner-lock: true」があるノートをスキップします。',
     'set.naming.heading': '命名規則',
     'set.template.name': 'ファイル名テンプレート',
     'set.template.desc':
@@ -537,10 +537,10 @@ const ja: Record<LocaleKey, string> = {
         '大文字小文字だけが異なる場合もリネームします（例：「linker.md」→「Linker.md」）。オフにするとファイルツリーの揺れを防げます。',
     'set.fmTitle.name': 'H1 がないときは frontmatter の title を使う',
     'set.fmTitle.desc':
-        'オフ：最初の H1 がないノートはスキップします。オン：そのようなノートを frontmatter の "title" プロパティ（テキストのみ）でリネームします。使える最初の H1 がない場合にのみ適用され、H1 があれば常に H1 が優先されます。title は Obsidian のキャッシュから読むため、変更直後は以前の title でリネームされることがあります。その後のトリガーで修正されます。再トリガーがない場合は、元に戻すでこのリネームを取り消せます。',
+        '最初の H1 がないノートは frontmatter の "title"（テキストのみ）でリネームします。H1 があれば常に H1 が優先されます。title は Obsidian のキャッシュから読むため、変更直後は以前の title でリネームされることがあります。その後のトリガーで修正されるか、元に戻すで取り消せます。',
     'set.alias.name': '旧ファイル名をエイリアスとして保存',
     'set.alias.desc':
-        'リネーム後、旧ファイル名をノートのフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消してもエイリアスは削除されません。',
+        '旧ファイル名をフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消しても削除されません。',
     'set.trim.name': '空白のトリム',
     'set.trim.desc': 'H1 テキストの前後の空白を除去します。',
     'set.replace.name': '使用できない文字の置換',
@@ -559,7 +559,7 @@ const ja: Record<LocaleKey, string> = {
     'set.notif.heading': '通知',
     'set.notice.name': '通知レベル',
     'set.notice.desc':
-        '自動リネームのみに適用。「オフ」は通知なし。「エラーのみ」は失敗のみ報告。「すべて」は成功したリネームも通知します — タグ移動機能が有効な場合は、frontmatter へのタグ書き込みも通知します。手動コマンドと一括適用は常に報告されます。',
+        '自動リネームのみに適用。手動コマンドと一括適用は常に報告されます。「すべて」はタグの frontmatter への移動も通知します。',
     'set.notice.off': 'オフ（静か）',
     'set.notice.errors': 'エラーのみ',
     'set.notice.all': 'すべてのリネーム',
@@ -583,7 +583,7 @@ const ja: Record<LocaleKey, string> = {
     'set.tagmove.body.removeTag': 'タグ全体を削除',
     'set.tagmove.ignore.name': '無視するタグ',
     'set.tagmove.ignore.desc':
-        'これらのタグは移動されません（# なし、1 行に 1 つ、またはカンマ区切り）。ネストしたタグは完全名で照合し、大文字小文字は区別しません。保存時に先頭の # は除去されます。',
+        '1 行に 1 つ、またはカンマ区切り。先頭の # は付けても付けなくても構いません。ネストしたタグは完全名で照合し、大文字小文字は区別しません。',
     'batch.tagCount': '+{count} タグ',
     'batch.tagCountBody': '+{count} タグ（本文が変更されます）',
 };

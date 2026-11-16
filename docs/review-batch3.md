@@ -51,3 +51,5 @@ No blocking findings in round 1; the two major test gaps were closed. **Approve 
 **建議項（不擋發版）**：「剪貼簿失敗時可手動選取文字」在手機上未驗證，#20 加一步或改寫文案；設計文件狀態列、MOBILE-TESTING「disk version」、本檔最終狀態對齊；e18240e 設定說明精簡補進 CHANGELOG；Setext H1 遇快取過期的小邊界（有 Undo，不擋）。
 
 **改變結論的條件**：合併並重產 lock、HEAD 上 `npm ci` 與閘門全綠；#20–#23 與升級 smoke test 在 Mac／PC／iPhone 通過並寫入 Verification Log；CHANGELOG 補齊 → 改為「可發版」。#20 在某平台失敗 → 先如實改文案。#22 顯示會用舊 title 改名 → 重新評估快取策略，不可發版。
+
+**決定紀錄（2026-11-16，Aiken）**：(a) 開發依賴升級與 0.14.0 功能版一起發；理由＝發布產物逐位元組不變、合併後最終提交閘門全綠（`npm ci`、lint、build、單元測試 525、E2E 51/51、audit 0）。(b) Android 比照 0.13.0 再豁免一次，由 Aiken 決定；須在發版說明與 Verification Log 註明 Android 未驗證，並保留風險：Copy 在 Android WebView 若失敗，使用者會先遇到。最終狀態已涵蓋 deps 升級與 e18240e（設定說明文字精簡）。

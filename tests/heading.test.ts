@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractFirstH1, isLockValue, normalizeTitleValue } from '../src/heading';
+import { extractFirstH1, extractFrontmatterTitle, isLockValue, normalizeTitleValue } from '../src/heading';
 
 describe('extractFirstH1', () => {
     describe('cache strategy (Q1: Setext via cache for free)', () => {
@@ -251,6 +251,41 @@ describe('normalizeTitleValue', () => {
     it('returns null for every non-string value (numbers are deliberately ignored)', () => {
         for (const v of [2025, 0, true, false, null, undefined, ['a'], [], { a: 1 }, NaN]) {
             expect(normalizeTitleValue(v)).toBeNull();
+        }
+    });
+});
+
+
+describe('extractFrontmatterTitle', () => {
+    // Stand-in parser: returns whatever the test says the YAML parsed to.
+    const parseTo = (v: unknown) => () => v;
+    it('parses the leading block and normalizes the title', () => {
+        const seen: string[] = [];
+        const parse = (y: string) => {
+            seen.push(y);
+            return { title: '  A   B ' };
+        };
+        expect(extractFrontmatterTitle('---\ntitle: x\ntags: a\n---\nbody', parse)).toBe('A B');
+        expect(seen).toEqual(['title: x\ntags: a']);
+    });
+    it('handles BOM and CRLF', () => {
+        expect(extractFrontmatterTitle('\ufeff---\r\ntitle: x\r\n---\r\n', parseTo({ title: 'T' }))).toBe('T');
+    });
+    it('returns null without a leading block, with an unclosed block, or for empty content', () => {
+        expect(extractFrontmatterTitle('body\n---\ntitle: x\n---', parseTo({ title: 'T' }))).toBeNull();
+        expect(extractFrontmatterTitle('---\ntitle: x\nbody', parseTo({ title: 'T' }))).toBeNull();
+        expect(extractFrontmatterTitle('', parseTo({ title: 'T' }))).toBeNull();
+        expect(extractFrontmatterTitle(undefined, parseTo({ title: 'T' }))).toBeNull();
+    });
+    it('returns null when the parser throws or yields a non-mapping', () => {
+        expect(extractFrontmatterTitle('---\n: [\n---\n', () => { throw new Error('bad yaml'); })).toBeNull();
+        expect(extractFrontmatterTitle('---\na\n---\n', parseTo('str'))).toBeNull();
+        expect(extractFrontmatterTitle('---\na\n---\n', parseTo(['title']))).toBeNull();
+        expect(extractFrontmatterTitle('---\n---\n', parseTo(null))).toBeNull();
+    });
+    it('only a string title counts', () => {
+        for (const v of [2025, true, null, ['a'], { x: 1 }, '', '  ']) {
+            expect(extractFrontmatterTitle('---\nt\n---\n', parseTo({ title: v }))).toBeNull();
         }
     });
 });

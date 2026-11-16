@@ -5,6 +5,13 @@
     overflow-y: auto;
 }
 
+.h1aligner-activity-list {
+    /* Modal content is user-select: none by default; keep the rows selectable
+       so they can be copied by hand when the Copy button's clipboard fails. */
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 .h1aligner-row {
     padding: 2px 0;
     word-break: break-all;

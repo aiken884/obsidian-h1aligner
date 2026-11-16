@@ -85,6 +85,39 @@ export function normalizeTitleValue(v: unknown): string | null {
     return s.length > 0 ? s : null;
 }
 
+/**
+ * Frontmatter `title` read from RAW file content (never metadataCache, which
+ * can lag the file by a few ms after an auto-save). Locates the leading
+ * `---` block with the same dialect as the lock scan and hands the YAML to
+ * `parse` (Obsidian's `parseYaml`, injected so this stays pure). A missing
+ * block, a parse error or a non-mapping result → null; the value then goes
+ * through normalizeTitleValue.
+ */
+export function extractFrontmatterTitle(
+    content: string | undefined,
+    parse: (yaml: string) => unknown,
+): string | null {
+    if (typeof content !== 'string' || content.length === 0) return null;
+    const text = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+    const lines = text.split(/\r?\n/);
+    if (!FRONTMATTER_FENCE.test(lines[0] ?? '')) return null;
+    let end = -1;
+    for (let i = 1; i < lines.length; i++) {
+        if (FRONTMATTER_END.test(lines[i])) {
+            end = i;
+            break;
+        }
+    }
+    if (end === -1) return null;
+    try {
+        const fm = parse(lines.slice(1, end).join('\n'));
+        if (fm === null || typeof fm !== 'object' || Array.isArray(fm)) return null;
+        return normalizeTitleValue((fm as Record<string, unknown>).title);
+    } catch {
+        return null;
+    }
+}
+
 export function extractFirstH1(
     cache: CachedMetadata | null | undefined,
     content?: string,

@@ -41,6 +41,7 @@ interface FakeApp {
     metadataCache: { getFileCache: ReturnType<typeof vi.fn> };
     vault: {
         cachedRead: ReturnType<typeof vi.fn>;
+        read: ReturnType<typeof vi.fn>;
         getAbstractFileByPath: ReturnType<typeof vi.fn>;
         process: ReturnType<typeof vi.fn>;
     };
@@ -57,6 +58,7 @@ function makeApp(initialBody = ''): { app: FakeApp; getBody: () => string; getFm
         metadataCache: { getFileCache: vi.fn().mockReturnValue(null) },
         vault: {
             cachedRead: vi.fn().mockImplementation(() => Promise.resolve(body)),
+            read: vi.fn().mockImplementation(() => Promise.resolve(body)),
             getAbstractFileByPath: vi.fn().mockReturnValue(null),
             process: vi.fn().mockImplementation((_f: unknown, cb: (d: string) => string) => {
                 body = cb(body);
@@ -409,7 +411,11 @@ describe('title fallback + alias-preserve + tag move together (design §7)', () 
             preserveOldNameAsAlias: true,
             moveTagsToFrontmatter: true,
         };
-        const { app, getFm } = makeApp(body);
+        const { app, getFm, getBody } = makeApp(body);
+        // The title is read from the file's current content, not the cache.
+        app.vault.read.mockImplementation(() =>
+            Promise.resolve('---\ntitle: "From Title"\n---\n' + getBody()),
+        );
         app.metadataCache.getFileCache.mockReturnValue({
             headings: [],
             frontmatter: { title: 'From Title' },

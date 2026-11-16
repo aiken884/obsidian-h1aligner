@@ -30,6 +30,7 @@ interface FakeApp {
     metadataCache: { getFileCache: ReturnType<typeof vi.fn> };
     vault: {
         cachedRead: ReturnType<typeof vi.fn>;
+        read: ReturnType<typeof vi.fn>;
         getAbstractFileByPath: ReturnType<typeof vi.fn>;
     };
     fileManager: {
@@ -43,6 +44,7 @@ function makeApp(): FakeApp {
         metadataCache: { getFileCache: vi.fn().mockReturnValue(null) },
         vault: {
             cachedRead: vi.fn().mockResolvedValue(''),
+            read: vi.fn().mockResolvedValue(''),
             getAbstractFileByPath: vi.fn().mockReturnValue(null),
         },
         fileManager: {
@@ -760,9 +762,24 @@ describe('frontmatter title fallback (batch 3)', () => {
         frontmatter: fm,
     });
 
+    // The title is read from the file's CURRENT content (not metadataCache),
+    // so a "note" is a cache entry plus matching raw content. Values are
+    // written as JSON flow scalars, which is valid YAML (see obsidian-stub).
+    const contentWith = (fm: Record<string, unknown> | undefined, h1?: string) => {
+        const lines = fm ? Object.entries(fm).map(([k, v]) => `${k}: ${JSON.stringify(v)}`) : [];
+        const front = fm ? `---\n${lines.join('\n')}\n---\n` : '';
+        return `${front}${h1 === undefined ? 'body text' : `# ${h1}`}\n`;
+    };
+    // Cache and content agree.
+    const setNote = (fm: Record<string, unknown> | undefined, h1?: string) => {
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith(fm, h1));
+        app.vault.read.mockResolvedValue(contentWith(fm, h1));
+        app.vault.cachedRead.mockResolvedValue(contentWith(fm, h1));
+    };
+
     it('renames from the title when there is no H1, and reports the source', async () => {
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }));
+        setNote({ title: 'From Title' });
         const out = await svc.renameFromH1(file as any);
         expect(out.skipped).toBe('none');
         expect(out.newName).toBe('From Title');
@@ -773,7 +790,7 @@ describe('frontmatter title fallback (batch 3)', () => {
     it('does nothing new while the setting is off (no-h1 as before)', async () => {
         settings.useFrontmatterTitle = false;
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }));
+        setNote({ title: 'From Title' });
         const out = await svc.renameFromH1(file as any);
         expect(out.skipped).toBe('no-h1');
         expect(app.fileManager.renameFile).not.toHaveBeenCalled();
@@ -781,7 +798,7 @@ describe('frontmatter title fallback (batch 3)', () => {
 
     it('an H1 always wins over the title', async () => {
         const file = makeFile({ basename: 'old' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Ignored Title' }, 'Real H1'));
+        setNote({ title: 'Ignored Title' }, 'Real H1');
         const out = await svc.renameFromH1(file as any);
         expect(out.newName).toBe('Real H1');
         expect(out.nameSource).toBeUndefined();
@@ -789,7 +806,7 @@ describe('frontmatter title fallback (batch 3)', () => {
 
     it('an H1 that sanitizes to empty stays empty-after-sanitize — the title is NOT used', async () => {
         const file = makeFile({ basename: 'old' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }, '???'));
+        setNote({ title: 'From Title' }, '???');
         const out = await svc.renameFromH1(file as any);
         expect(out.skipped).toBe('empty-after-sanitize');
         expect(app.fileManager.renameFile).not.toHaveBeenCalled();
@@ -799,7 +816,7 @@ describe('frontmatter title fallback (batch 3)', () => {
         'an unusable title value %j is skipped as no-h1',
         async (value) => {
             const file = makeFile({ basename: 'untitled' });
-            app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: value }));
+            setNote({ title: value });
             const out = await svc.renameFromH1(file as any);
             expect(out.skipped).toBe('no-h1');
             expect(app.fileManager.renameFile).not.toHaveBeenCalled();
@@ -808,7 +825,7 @@ describe('frontmatter title fallback (batch 3)', () => {
 
     it('collapses a multi-line title into one filename', async () => {
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Part one\nPart two' }));
+        setNote({ title: 'Part one\nPart two' });
         const out = await svc.renameFromH1(file as any);
         expect(out.newName).toBe('Part one Part two');
     });
@@ -816,14 +833,14 @@ describe('frontmatter title fallback (batch 3)', () => {
     it('the title goes through the name template like an H1', async () => {
         settings.nameTemplate = '{{date}} {{h1}}';
         const file = makeFile({ basename: 'untitled', ctime: new Date(2026, 0, 15).getTime() });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Meeting' }));
+        setNote({ title: 'Meeting' });
         const out = await svc.renameFromH1(file as any);
         expect(out.newName).toBe('2026-01-15 Meeting');
     });
 
     it('is idempotent: a title that already matches the filename is same-name (no rename, no loop)', async () => {
         const file = makeFile({ basename: 'From Title' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: '  From   Title ' }));
+        setNote({ title: '  From   Title ' });
         const out = await svc.renameFromH1(file as any);
         expect(out.skipped).toBe('same-name');
         expect(app.fileManager.renameFile).not.toHaveBeenCalled();
@@ -837,34 +854,64 @@ describe('frontmatter title fallback (batch 3)', () => {
         expect(app.fileManager.renameFile).not.toHaveBeenCalled();
     });
 
-    it('stale cache: renames from the previous title; the next evaluation with a fresh cache renames again (not same-name)', async () => {
+    it('stale metadataCache: the title comes from the file content, not the cache (regression for Mac #22)', async () => {
         const file = makeFile({ basename: 'untitled' });
+        // The cache still holds the previous title; the file already has the new one.
         app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Previous Title' }));
-        const first = await svc.renameFromH1(file as any);
-        expect(first.newName).toBe('Previous Title');
-        // Obsidian mutates the same TFile in place on rename.
-        file.basename = 'Previous Title';
-        file.name = 'Previous Title.md';
-        file.path = 'Previous Title.md';
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'New Title' }));
-        const second = await svc.renameFromH1(file as any);
-        expect(second.skipped).toBe('none');
-        expect(second.newName).toBe('New Title');
-        expect(app.fileManager.renameFile).toHaveBeenLastCalledWith(file, 'New Title.md');
+        app.vault.read.mockResolvedValue(contentWith({ title: 'New Title' }));
+        app.vault.cachedRead.mockResolvedValue(contentWith({ title: 'New Title' }));
+        const out = await svc.renameFromH1(file as any);
+        expect(out.newName).toBe('New Title');
+        expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
+        expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, 'New Title.md');
+    });
+
+    it('stale cache with the OLD title filename: the new content title still wins (no same-name from the old cache)', async () => {
+        const file = makeFile({ basename: 'Previous Title' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Previous Title' }));
+        app.vault.read.mockResolvedValue(contentWith({ title: 'New Title' }));
+        const out = await svc.renameFromH1(file as any);
+        expect(out.skipped).toBe('none');
+        expect(out.newName).toBe('New Title');
+    });
+
+    it('the cache has a title but the content has none: no-h1 (content is the truth)', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'Cache Only' }));
+        app.vault.read.mockResolvedValue('body only\n');
+        const out = await svc.renameFromH1(file as any);
+        expect(out.skipped).toBe('no-h1');
+        expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+    });
+
+    it('a content read failure yields no title: no-h1, no write', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }));
+        app.vault.read.mockRejectedValue(new Error('read fail'));
+        app.vault.cachedRead.mockRejectedValue(new Error('read fail'));
+        const out = await svc.renameFromH1(file as any);
+        expect(out.skipped).toBe('no-h1');
+        expect(app.fileManager.renameFile).not.toHaveBeenCalled();
+    });
+
+    it('a quoted title with other keys present is parsed from content when the cache is empty', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(null);
+        app.vault.read.mockResolvedValue('---\ntitle: "Quoted Title"\ntags: [a]\n---\nbody\n');
+        const out = await svc.renameFromH1(file as any);
+        expect(out.newName).toBe('Quoted Title');
     });
 
     it('a locked note is still skipped when the fallback would apply', async () => {
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(
-            cacheWith({ title: 'From Title', 'h1aligner-lock': true }),
-        );
+        setNote({ title: 'From Title', 'h1aligner-lock': true });
         const out = await svc.renameFromH1(file as any);
         expect(out.skipped).toBe('locked');
     });
 
     it('a dry run reports the title source without renaming', async () => {
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }));
+        setNote({ title: 'From Title' });
         const out = await svc.renameFromH1(file as any, { dryRun: true });
         expect(out.newName).toBe('From Title');
         expect(out.nameSource).toBe('title');
@@ -874,7 +921,7 @@ describe('frontmatter title fallback (batch 3)', () => {
     it('title fallback together with alias-preserve renames exactly once and leaves the title untouched', async () => {
         settings.preserveOldNameAsAlias = true;
         const file = makeFile({ basename: 'untitled' });
-        app.metadataCache.getFileCache.mockReturnValue(cacheWith({ title: 'From Title' }));
+        setNote({ title: 'From Title' });
         let fm: Record<string, unknown> = { title: 'From Title' };
         app.fileManager.processFrontMatter.mockImplementation(async (_f: unknown, cb: (o: Record<string, unknown>) => void) => cb(fm));
         const out = await svc.renameFromH1(file as any);

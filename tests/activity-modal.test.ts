@@ -15,6 +15,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { App } from 'obsidian';
 import { ActivityModal } from '../src/activity-modal';
 import { ActivityLog } from '../src/activity-log';
+import css from '../styles.css?raw';
 
 interface FakeEl {
     tag: string;
@@ -197,5 +198,26 @@ describe('ActivityModal', () => {
         expect(row1.children[0].text).toContain('a.md');
         expect(row1.children[0].text).toContain('→ Alpha');
         expect(row1.addedClasses).not.toContain('h1aligner-dim');
+    });
+});
+
+describe('ActivityModal list is hand-selectable (Mac desktop finding)', () => {
+    // Obsidian's modal content defaults to user-select: none, so the
+    // "select by hand" fallback after a failed Copy only works if the list
+    // opts back in. The class is set by the modal and styled in styles.css.
+    it('the row list carries the dedicated selectable class', () => {
+        const log = new ActivityLog();
+        log.record({ ts: 1, path: 'a.md', source: 'manual', outcome: 'renamed', newName: 'A' });
+        const modal = new ActivityModal({} as unknown as App, log);
+        modal.open();
+        const list = (modal.contentEl as unknown as FakeEl).children[2];
+        expect(list.addedClasses).toContain('h1aligner-activity-list');
+    });
+
+    it('styles.css makes that class user-select: text (with the -webkit- prefix)', () => {
+        const rule = css.match(/\.h1aligner-activity-list\s*\{([^}]*)\}/);
+        expect(rule).not.toBeNull();
+        expect(rule![1]).toMatch(/(^|[\s;])user-select:\s*text\s*;/);
+        expect(rule![1]).toMatch(/-webkit-user-select:\s*text\s*;/);
     });
 });

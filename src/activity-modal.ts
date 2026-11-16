@@ -44,7 +44,7 @@ export class ActivityModal extends Modal {
         });
 
         const list = contentEl.createDiv();
-        list.classList.add('h1aligner-scroll-list');
+        list.classList.add('h1aligner-scroll-list', 'h1aligner-activity-list');
         for (const e of entries) {
             const row = list.createDiv();
             row.classList.add('h1aligner-row');

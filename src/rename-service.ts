@@ -26,8 +26,9 @@
  * `renameFromH1(file, { dryRun: true })` computes the outcome without
  * touching the vault (used by the batch preview).
  */
+import { parseYaml } from 'obsidian';
 import type { App, TFile } from 'obsidian';
-import { extractFirstH1, hasFrontmatterLock, isLockValue, normalizeTitleValue } from './heading';
+import { extractFirstH1, extractFrontmatterTitle, hasFrontmatterLock, isLockValue } from './heading';
 import { sanitizeFileName } from './filename';
 import { renderNameTemplate } from './template';
 import type { H1AlignerSettings } from './settings';
@@ -337,7 +338,15 @@ export class RenameService {
             // fallback). One read serves both needs.
             if (settings.skipIfFrontmatterLock || !cacheHasUsableH1) {
                 try {
-                    content = await this.app.vault.cachedRead(file);
+                    // With the title fallback on, a note without a cached H1
+                    // may be named from its frontmatter title, which must be
+                    // the file's CURRENT title (metadataCache can lag an
+                    // auto-save by a few ms, so the edit trigger would use
+                    // the previous one). Read from disk then; H1 scan, lock
+                    // check and title all share this one snapshot.
+                    content = settings.useFrontmatterTitle && !cacheHasUsableH1
+                        ? await this.app.vault.read(file)
+                        : await this.app.vault.cachedRead(file);
                 } catch {
                     content = undefined;
                 }
@@ -355,10 +364,12 @@ export class RenameService {
             const extracted = extractFirstH1(cache, content).h1;
             // Opt-in fallback: only when there is NO usable H1 (an H1 that
             // exists but sanitizes to empty is decided below, never replaced
-            // by the title). Read from the same cache entry the H1 path trusts.
+            // by the title). Parsed from the raw content read above, never
+            // from metadataCache. (Reaching here with no H1 means the cache
+            // had no usable H1, so `content` was read — from disk.)
             const titleName =
                 !extracted && settings.useFrontmatterTitle
-                    ? normalizeTitleValue(cache?.frontmatter?.title)
+                    ? extractFrontmatterTitle(content, parseYaml)
                     : null;
             const h1 = extracted ?? titleName;
             const nameSource = extracted ? undefined : titleName ? ('title' as const) : undefined;

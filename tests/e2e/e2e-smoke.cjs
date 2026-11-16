@@ -155,7 +155,21 @@ function normalizePath(p) {
     return String(p).replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
 }
 
-const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, TFolder, normalizePath, getLanguage };
+// Stand-in for Obsidian's parseYaml: flat `key: value` lines, JSON-valued
+// (quoted strings, arrays, numbers) or raw strings. Enough for title tests.
+function parseYaml(text) {
+    const out = {};
+    for (const line of String(text).split(/\r?\n/)) {
+        const m = line.match(/^([\w-]+):\s*(.*)$/);
+        if (!m) continue;
+        const raw = m[2].trim();
+        if (raw === '') { out[m[1]] = null; continue; }
+        try { out[m[1]] = JSON.parse(raw); } catch { out[m[1]] = raw; }
+    }
+    return out;
+}
+
+const obsidianStub = { Plugin, PluginSettingTab, Setting, Modal, Notice, TAbstractFile, TFile, TFolder, normalizePath, getLanguage, parseYaml };
 
 const origResolve = Module._resolveFilename;
 Module._resolveFilename = function (request, ...rest) {
@@ -183,6 +197,12 @@ function makeFakeApp() {
             configDir: '.obsidian',
             on(evt, cb) { vaultHandlers[evt] = cb; return { evt }; },
             async cachedRead(file) {
+                const e = files.get(file.path);
+                if (!e) throw new Error('ENOENT ' + file.path);
+                return e.content;
+            },
+            async read(file) {
+                // Always the file's current content (like a real disk read).
                 const e = files.get(file.path);
                 if (!e) throw new Error('ENOENT ' + file.path);
                 return e.content;
@@ -266,8 +286,21 @@ function addFile(app, p, content, h1InCache, frontmatter) {
         if (h1InCache) cache.headings = [{ level: 1, heading: h1InCache }];
         if (frontmatter) cache.frontmatter = frontmatter;
     }
-    app._files.set(p, { file: f, content: content ?? '', cache });
+    // A frontmatter `title` lives in the file content too (the plugin reads
+    // the title from content, not from the cache). Written as JSON values,
+    // which is valid YAML.
+    let body = content ?? '';
+    if (frontmatter && Object.prototype.hasOwnProperty.call(frontmatter, 'title')) {
+        body = `---\ntitle: ${JSON.stringify(frontmatter.title)}\n---\n` + body;
+    }
+    app._files.set(p, { file: f, content: body, cache });
     return f;
+}
+
+/** Change a note's title in its CONTENT only, leaving metadataCache stale. */
+function setContentTitle(app, p, title) {
+    const e = app._files.get(p);
+    e.content = e.content.replace(/^---\ntitle: .*\n---\n/, `---\ntitle: ${JSON.stringify(title)}\n---\n`);
 }
 
 /**
@@ -1634,26 +1667,30 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     app8._ws['editor-change'](null, { file: app8._files.get('notes/Edited Via Title.md').file });
     await sleep(160);
     assert.equal(app8._renameCalls.length, callsBeforeEdit8 + 1, 'a second edit is idempotent (same-name), no rename loop');
-    // cache ordering (design §5/§7): the cache changes BEFORE the debounce fires → the fresh title is used
+    // freshness (design §5/§7, Mac #22): the title is read from the file's CURRENT content, so a
+    // metadataCache that still holds the previous title (auto-save and the debounce expire together)
+    // must not matter — in either ordering.
     const callsBeforeOrder8 = app8._renameCalls.length;
     const fOrder8 = addFile(app8, 'notes/order-a.md', 'body\n', null, { title: 'Order Old' });
     app8._activeFile = fOrder8;
     app8._ws['editor-change'](null, { file: fOrder8 });
     await sleep(40);
-    app8._files.get('notes/order-a.md').cache.frontmatter.title = 'Order Fresh';
+    setContentTitle(app8, 'notes/order-a.md', 'Order Fresh'); // cache NOT updated: stale 'Order Old'
     await sleep(140);
-    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-a.md', to: 'notes/Order Fresh.md' }, 'cache updated before the debounce fires → the fresh title is used');
-    assert.equal(app8._renameCalls.length, callsBeforeOrder8 + 1, 'exactly one rename for the cache-ordering note');
-    // cache changes only AFTER the rename (stale at evaluation time): renamed from the previous title, then the next evaluation renames again (not same-name)
-    const fOrder8b = addFile(app8, 'notes/order-b.md', 'body\n', null, { title: 'Order Stale' });
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-a.md', to: 'notes/Order Fresh.md' }, 'stale cache + fresh content at the debounce → the content title is used');
+    assert.equal(app8._renameCalls.length, callsBeforeOrder8 + 1, 'exactly one rename for the stale-cache note');
+    // the cache catches up later: nothing more to do (same-name), no second rename
+    app8._files.get('notes/Order Fresh.md').cache.frontmatter.title = 'Order Fresh';
+    app8._ws['editor-change'](null, { file: app8._files.get('notes/Order Fresh.md').file });
+    await sleep(160);
+    assert.equal(app8._renameCalls.length, callsBeforeOrder8 + 1, 'cache catching up causes no extra rename (same-name)');
+    // the cache is ahead of / different from the content: the content decides
+    const fOrder8b = addFile(app8, 'notes/order-b.md', 'body\n', null, { title: 'Order Content' });
+    app8._files.get('notes/order-b.md').cache.frontmatter.title = 'Order Cache Only';
     app8._activeFile = fOrder8b;
     app8._ws['editor-change'](null, { file: fOrder8b });
     await sleep(140);
-    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-b.md', to: 'notes/Order Stale.md' }, 'stale cache at evaluation time → renamed from the previous title');
-    app8._files.get('notes/Order Stale.md').cache.frontmatter.title = 'Order Corrected';
-    app8._ws['editor-change'](null, { file: app8._files.get('notes/Order Stale.md').file });
-    await sleep(160);
-    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/Order Stale.md', to: 'notes/Order Corrected.md' }, 'the next evaluation with the fresh cache renames again (not same-name)');
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-b.md', to: 'notes/Order Content.md' }, 'content title wins over a different cached title');
     console.log('✓ 30. frontmatter title fallback：預設關閉；設定保存；Explain 標明來源；手動與 edit 觸發都只改名一次；H1 優先；陣列 title 不採用');
 
     // --- 31: the title setting invalidates an open batch AND folder preview ---

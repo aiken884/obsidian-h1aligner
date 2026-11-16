@@ -157,6 +157,8 @@ function normalizePath(p) {
 
 // Stand-in for Obsidian's parseYaml: flat `key: value` lines, JSON-valued
 // (quoted strings, arrays, numbers) or raw strings. Enough for title tests.
+// Simplified: does NOT represent real YAML behaviour (comments, single quotes,
+// block scalars, dates, syntax errors, duplicate keys) — verified on a device.
 function parseYaml(text) {
     const out = {};
     for (const line of String(text).split(/\r?\n/)) {
@@ -189,6 +191,12 @@ function makeFakeApp() {
         workspace: {
             on(evt, cb) { wsHandlers[evt] = cb; return { evt }; },
             getActiveFile() { return app._activeFile ?? null; },
+            // Open editors: app._editors maps path -> unsaved buffer text.
+            getLeavesOfType() {
+                return [...(app._editors ?? new Map())].map(([p, text]) => ({
+                    view: { file: { path: p }, editor: { getValue: () => text } },
+                }));
+            },
         },
         metadataCache: {
             getFileCache(file) { return files.get(file.path)?.cache ?? null; },
@@ -1691,6 +1699,23 @@ function addTaggedFile(app, p, h1, body, tagNames) {
     app8._ws['editor-change'](null, { file: fOrder8b });
     await sleep(140);
     assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-b.md', to: 'notes/Order Content.md' }, 'content title wins over a different cached title');
+    // Real Mac #22 timeline: the debounce fires BEFORE the autosave, so disk AND cache still hold
+    // the previous title while the open editor's buffer already has the new one → buffer wins.
+    const fOrder8c = addFile(app8, 'notes/order-c.md', 'body\n', null, { title: 'Buffer Old' });
+    app8._editors = new Map([['notes/order-c.md', '---\ntitle: "Buffer New"\n---\nbody\n']]);
+    app8._activeFile = fOrder8c;
+    const callsBeforeC8 = app8._renameCalls.length;
+    app8._ws['editor-change'](null, { file: fOrder8c });
+    await sleep(140);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-c.md', to: 'notes/Buffer New.md' }, 'open editor buffer (new) beats stale disk and stale cache');
+    assert.equal(app8._renameCalls.length, callsBeforeC8 + 1, 'exactly one rename');
+    // not open in an editor: falls back to the disk content
+    app8._editors = new Map();
+    const fOrder8d = addFile(app8, 'notes/order-d.md', 'body\n', null, { title: 'Disk Title' });
+    app8._activeFile = fOrder8d;
+    app8._ws['editor-change'](null, { file: fOrder8d });
+    await sleep(140);
+    assert.deepEqual(app8._renameCalls.at(-1), { from: 'notes/order-d.md', to: 'notes/Disk Title.md' }, 'not open in an editor → disk content');
     console.log('✓ 30. frontmatter title fallback：預設關閉；設定保存；Explain 標明來源；手動與 edit 觸發都只改名一次；H1 優先；陣列 title 不採用');
 
     // --- 31: the title setting invalidates an open batch AND folder preview ---

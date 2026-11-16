@@ -3,6 +3,9 @@
  * only). vitest.config.ts aliases `obsidian` here so pure modules that call
  * `parseYaml` can run under Node. Handles the flat `key: value` frontmatter
  * the tests use; values try JSON first (quoted strings, arrays, numbers).
+ * Simplified: does NOT represent real YAML behaviour (comments, single
+ * quotes, block scalars, dates, syntax errors, duplicate keys) — those are
+ * verified on a real device.
  */
 export function parseYaml(text: string): unknown {
     const out: Record<string, unknown> = {};

@@ -1,5 +1,6 @@
 import { Notice, Plugin, TFile, TFolder, getLanguage, normalizePath } from 'obsidian';
 import { RenameService, foldName } from './rename-service';
+import { getEditorContent } from './editor-content';
 import { isLockValue } from './heading';
 import {
     batchSettingsFingerprint,
@@ -95,7 +96,12 @@ export default class H1AlignerPlugin extends Plugin {
     private async initialize(): Promise<void> {
         const raw: unknown = await this.loadData();
         this.settings = normalizeSettings(raw);
-        this.renameService = new RenameService(this.app, () => this.settings, this.history);
+        this.renameService = new RenameService(
+            this.app,
+            () => this.settings,
+            this.history,
+            (file) => getEditorContent(this.app, file),
+        );
 
         this.addSettingTab(new H1AlignerSettingTab(this.app, this));
 

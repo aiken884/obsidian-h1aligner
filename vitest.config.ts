@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     resolve: {
         // `obsidian` ships types only; give runtime imports (parseYaml) a stub.
-        alias: { obsidian: new URL('./tests/obsidian-stub.ts', import.meta.url).pathname },
+        alias: { obsidian: fileURLToPath(new URL('./tests/obsidian-stub.ts', import.meta.url)) },
     },
     test: {
         // styles.css is asserted on as raw text (tests/activity-modal.test.ts).

@@ -938,3 +938,71 @@ describe('frontmatter title fallback (batch 3)', () => {
         expect(app.fileManager.renameFile).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('frontmatter title: editor buffer ahead of disk (Mac #22 real timeline)', () => {
+    // Real order on Obsidian: the plugin's debounce fires BEFORE the autosave,
+    // so disk and metadataCache still hold the previous title while the open
+    // editor already holds the new one.
+    const cacheWith = (title: string) => ({ headings: [], frontmatter: { title } });
+    const body = (title: string) => `---\ntitle: ${JSON.stringify(title)}\n---\nbody\n`;
+    let app: FakeApp;
+    let settings: H1AlignerSettings;
+
+    beforeEach(() => {
+        app = makeApp();
+        settings = { ...DEFAULT_SETTINGS, useFrontmatterTitle: true };
+    });
+
+    it('file open in an editor: the buffer (new title) wins over stale disk and stale cache', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith('Old Title'));
+        app.vault.read.mockResolvedValue(body('Old Title'));
+        app.vault.cachedRead.mockResolvedValue(body('Old Title'));
+        const getEditorContent = vi.fn().mockReturnValue(body('New Title'));
+        const svc = new RenameService(app as any, () => settings, undefined, getEditorContent);
+        const out = await svc.renameFromH1(file as any);
+        expect(getEditorContent).toHaveBeenCalledWith(file);
+        expect(out.newName).toBe('New Title');
+        expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, 'New Title.md');
+    });
+
+    it('file not open in an editor: falls back to disk, same as before', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith('Old Title'));
+        app.vault.read.mockResolvedValue(body('Disk Title'));
+        const svc = new RenameService(app as any, () => settings, undefined, () => undefined);
+        const out = await svc.renameFromH1(file as any);
+        expect(out.newName).toBe('Disk Title');
+    });
+
+    it('the editor buffer is not consulted when the cache has a usable H1', async () => {
+        const file = makeFile({ basename: 'old' });
+        app.metadataCache.getFileCache.mockReturnValue({ headings: [{ level: 1, heading: 'Cached H1' }] });
+        const getEditorContent = vi.fn().mockReturnValue(body('New Title'));
+        const svc = new RenameService(app as any, () => settings, undefined, getEditorContent);
+        const out = await svc.renameFromH1(file as any);
+        expect(getEditorContent).not.toHaveBeenCalled();
+        expect(out.newName).toBe('Cached H1');
+    });
+
+    it('the editor buffer is not consulted while the title setting is off', async () => {
+        settings.useFrontmatterTitle = false;
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith('Old Title'));
+        const getEditorContent = vi.fn().mockReturnValue(body('New Title'));
+        const svc = new RenameService(app as any, () => settings, undefined, getEditorContent);
+        const out = await svc.renameFromH1(file as any);
+        expect(getEditorContent).not.toHaveBeenCalled();
+        expect(out.skipped).toBe('no-h1');
+    });
+
+    it('the lock check uses the same buffer snapshot (a lock just typed in the editor)', async () => {
+        const file = makeFile({ basename: 'untitled' });
+        app.metadataCache.getFileCache.mockReturnValue(cacheWith('Old Title'));
+        app.vault.read.mockResolvedValue(body('Old Title'));
+        const locked = '---\ntitle: "New Title"\nh1aligner-lock: true\n---\nbody\n';
+        const svc = new RenameService(app as any, () => settings, undefined, () => locked);
+        const out = await svc.renameFromH1(file as any);
+        expect(out.skipped).toBe('locked');
+    });
+});

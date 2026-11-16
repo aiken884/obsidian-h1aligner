@@ -158,7 +158,7 @@ const en = {
         'Rename "linker.md" to "Linker.md" when only the capitalisation differs. Turn off to keep the file tree still.',
     'set.fmTitle.name': 'Use frontmatter title when there is no H1',
     'set.fmTitle.desc':
-        'Notes without a first H1 are renamed from their frontmatter "title" (text only); a first H1 always wins. The title is read from the file\'s current content, so a rename right after editing it uses the new title.',
+        'Notes without a first H1 are renamed from their frontmatter "title" (text only); a first H1 always wins. At rename time the title is taken from the editor\'s current content or the file\'s content, because Obsidian\'s cache can lag behind an edit.',
     'set.alias.name': 'Preserve old name as alias',
     'set.alias.desc':
         'Adds the previous filename to frontmatter aliases so the old name still works in the quick switcher. Not removed on undo.',
@@ -348,7 +348,7 @@ const zhTW: Record<LocaleKey, string> = {
         '當只有大小寫不同時仍改名（如 "linker.md" → "Linker.md"）。關閉可讓檔案樹保持安定。',
     'set.fmTitle.name': '沒有 H1 時使用 frontmatter 的 title',
     'set.fmTitle.desc':
-        '沒有第一個 H1 的筆記改用 frontmatter 的 "title"（純文字）取檔名；有 H1 一律以 H1 為準。title 是直接讀取檔案目前的內容，剛修改後改名也會用到最新的 title。',
+        '沒有第一個 H1 的筆記改用 frontmatter 的 "title"（純文字）取檔名；有 H1 一律以 H1 為準。改名時 title 以編輯器目前的內容或檔案內容為準，因為 Obsidian 的快取可能比實際編輯慢一步。',
     'set.alias.name': '將舊檔名保留為別名',
     'set.alias.desc':
         '把舊檔名加入 frontmatter 的 aliases，讓舊名稱仍可在快速切換器搜尋到。復原時不會移除。',
@@ -537,7 +537,7 @@ const ja: Record<LocaleKey, string> = {
         '大文字小文字だけが異なる場合もリネームします（例：「linker.md」→「Linker.md」）。オフにするとファイルツリーの揺れを防げます。',
     'set.fmTitle.name': 'H1 がないときは frontmatter の title を使う',
     'set.fmTitle.desc':
-        '最初の H1 がないノートは frontmatter の "title"（テキストのみ）でリネームします。H1 があれば常に H1 が優先されます。title はファイルの現在の内容から読み取るため、変更直後のリネームでも最新の title が使われます。',
+        '最初の H1 がないノートは frontmatter の "title"（テキストのみ）でリネームします。H1 があれば常に H1 が優先されます。リネーム時の title はエディタの現在の内容またはファイルの内容を基準にします（Obsidian のキャッシュは編集より遅れることがあるため）。',
     'set.alias.name': '旧ファイル名をエイリアスとして保存',
     'set.alias.desc':
         '旧ファイル名をフロントマター aliases に追加し、クイックスイッチャーで旧名でも検索できるようにします。取り消しても削除されません。',

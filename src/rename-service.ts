@@ -91,6 +91,9 @@ export class RenameService {
         private readonly app: App,
         private readonly getSettings: () => H1AlignerSettings,
         private readonly history?: RenameHistory,
+        // Current text of a file open in an editor (undefined = not open).
+        // Injected so the service stays testable without a workspace.
+        private readonly getEditorContent: (file: TFile) => string | undefined = () => undefined,
     ) {}
 
     /**
@@ -340,13 +343,16 @@ export class RenameService {
                 try {
                     // With the title fallback on, a note without a cached H1
                     // may be named from its frontmatter title, which must be
-                    // the file's CURRENT title (metadataCache can lag an
-                    // auto-save by a few ms, so the edit trigger would use
-                    // the previous one). Read from disk then; H1 scan, lock
-                    // check and title all share this one snapshot.
-                    content = settings.useFrontmatterTitle && !cacheHasUsableH1
-                        ? await this.app.vault.read(file)
-                        : await this.app.vault.cachedRead(file);
+                    // the file's CURRENT title. On the edit trigger the
+                    // debounce can fire before Obsidian's autosave, so both
+                    // metadataCache AND the disk still hold the previous
+                    // title: prefer the open editor's buffer, else the disk.
+                    // H1 scan, lock check and title share this one snapshot.
+                    if (settings.useFrontmatterTitle && !cacheHasUsableH1) {
+                        content = this.getEditorContent(file) ?? (await this.app.vault.read(file));
+                    } else {
+                        content = await this.app.vault.cachedRead(file);
+                    }
                 } catch {
                     content = undefined;
                 }
@@ -366,7 +372,7 @@ export class RenameService {
             // exists but sanitizes to empty is decided below, never replaced
             // by the title). Parsed from the raw content read above, never
             // from metadataCache. (Reaching here with no H1 means the cache
-            // had no usable H1, so `content` was read — from disk.)
+            // had no usable H1, so `content` was read — editor, else disk.)
             const titleName =
                 !extracted && settings.useFrontmatterTitle
                     ? extractFrontmatterTitle(content, parseYaml)

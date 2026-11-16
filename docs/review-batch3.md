@@ -31,3 +31,23 @@ Correctness reviewer found no invariant violated (H1 wins, off = no change, no c
 ## Verdict
 
 No blocking findings in round 1; the two major test gaps were closed. **Approve for internal testing on this branch.** Not a release approval: the release that ships batch 3 (planned as 0.14.0, after 0.13.0) needs `RELEASING.md`'s gate including MOBILE-TESTING #20–#23 on device (in particular the clipboard behavior per platform and the real-Obsidian event/cache ordering for #22).
+
+## 上線前準備度審查（2026-11-16，雙顧問）
+
+結論：**現況不可發版**；處理下列阻擋項並完成實機驗證後可發 0.14.0。PPLX（原則）與 Opus（技術）無根本分歧，差異只在「依賴升級混版」與「Android 豁免」的判準措辭。
+
+**事實（已實測，HEAD 394984b，Node 26.13.1）**：lint `--max-warnings 0` 通過、build 通過、單元測試 525、E2E 51/51、npm audit 0、osv 0；`main.js` 108,083 bytes，無網路 API，唯一剪貼簿呼叫是 `navigator.clipboard`；設計文件與實作一致；`git diff --check` 通過。
+
+**阻擋項**
+1. `npm ci` 在 HEAD 失敗（EUSAGE，lock 的 eslint 10.14.0 不滿足 10.15.0；394984b 加了 `minimatch` override 但 lock 未重產），CI 與 release workflow 第一步會斷。
+2. 尚未 merge `origin/main`（落後 2 提交：deps 升級、CI Node 24→26）。scratch 模擬：只有 `package.json`／lock 衝突，採 batch3 側並重產 lock 後全閘門綠、`main.js` 逐位元組相同。正式驗證要在實際合併後的提交、乾淨 checkout 上重跑。
+3. 實機驗證未做：#20 Copy、#21 title fallback、#22 編輯觸發下的真實事件／快取順序（設計第 3 輪列為發版閘門）、#23 重啟與載入 0.13.0 `data.json`，以及桌面從 0.13.0 升級 smoke test。
+4. CHANGELOG `Unreleased` 缺摘要行、測試數字（465→525、48→51）與實機狀態，發版時才能改成 `## 0.14.0`。
+
+**需 Aiken 決定**
+- 開發依賴大升級（vitest 5、stryker 10、obsidianmd 0.5）混在功能版：RELEASING 規定應分開。PPLX 判斷不必然是阻擋，條件是合併後最終提交的乾淨安裝與完整閘門通過、無新執行期依賴；產物已證實不變。
+- Android：0.13.0 曾豁免。若再豁免，需記錄理由與範圍、確認本次不涉及 Android 特有路徑、已知缺陷不致資料遺失，並留後續驗證安排。
+
+**建議項（不擋發版）**：「剪貼簿失敗時可手動選取文字」在手機上未驗證，#20 加一步或改寫文案；設計文件狀態列、MOBILE-TESTING「disk version」、本檔最終狀態對齊；e18240e 設定說明精簡補進 CHANGELOG；Setext H1 遇快取過期的小邊界（有 Undo，不擋）。
+
+**改變結論的條件**：合併並重產 lock、HEAD 上 `npm ci` 與閘門全綠；#20–#23 與升級 smoke test 在 Mac／PC／iPhone 通過並寫入 Verification Log；CHANGELOG 補齊 → 改為「可發版」。#20 在某平台失敗 → 先如實改文案。#22 顯示會用舊 title 改名 → 重新評估快取策略，不可發版。

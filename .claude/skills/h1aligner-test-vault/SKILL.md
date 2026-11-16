@@ -11,13 +11,13 @@ ObsidianTestVault is disposable test data only — reshape it freely. This skill
 
 ## Where this runs
 
-This skill drives the **live Obsidian desktop app**. It is for Mac or PC sessions with GUI Obsidian. Home (the Linux server) has no GUI Obsidian, so no agent running on Home can do this — hand it to a Mac/PC session instead.
+This skill drives the **live Obsidian desktop app**. It is for Mac or PC sessions with GUI Obsidian. Home (the Linux server) has no GUI Obsidian, so the CLI-driven steps (reload plugin, eval, screenshots, Sync status) must run on a Mac/PC session. File-level work can be done from Home over SSH (verified 2026-11-17: `ssh mac` can create, write and delete files under the Mac's `/Users/aikenlin/Projects/_scratch/`, and the Mac's `ObsidianTestVault` folder is writable): writing fixture notes and copying the plugin build into `.obsidian/plugins/heading-aligner/`. While Mac Obsidian is running, Sync carries the files to the phone; after changing plugin files the plugin still has to be reloaded on the Mac, and notes written from outside can trigger renames, so write them locked or with the trigger off.
 
 | Machine | Test vault disk path | Real vault (never touch) |
 |---|---|---|
 | Mac | `/Users/aikenlin/Obsidian/ObsidianTestVault` | `/Users/aikenlin/Obsidian/ObsidianVault` |
 | PC | `C:\Obsidian\ObsidianTestVault` | `C:\Obsidian\ObsidianVault` (also leave `C:\Obsidian\NinaVault` alone) |
-| Home | n/a (no GUI) | n/a |
+| Home | no vault of its own; SSH to the Mac paths above for file writes (no GUI) | n/a |
 
 The Obsidian CLI vault id is always `ObsidianTestVault`, and the vault is the single flat folder at the path above. `scripts/dev-deploy.mjs` lists Mac paths only. On PC the `obsidian` CLI is `C:\Program Files\Obsidian\Obsidian.com` (on PATH).
 
@@ -131,6 +131,6 @@ Aiken's rule (2026-10-20): verify the checklist's desktop items by driving the l
 - Hard-deleting instead of `vault.trash` — not recoverable if a note turns out to matter.
 - Forgetting to restore `includeFolders`/`ignoreFolders` after a scope test — the next phase silently inherits a narrowed scope (including folders added during manual exploration).
 - Running against `ObsidianVault` by mistake — always pass `vault=ObsidianTestVault`.
-- Running this skill from Home (no GUI Obsidian) — hand it to a Mac/PC desktop session.
+- Running the CLI-driven steps from Home (no GUI Obsidian) — hand those to a Mac/PC desktop session; only file writes can go over SSH.
 - Leaving a stray plugin folder under an old id installed — harmless to Obsidian but it's noise; delete it.
 - Not locking the index note — see Fixture design principles above; it has a mismatched H1/filename like everything else, so opening it renames it too and drops the sort prefix.

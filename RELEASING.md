@@ -83,6 +83,9 @@ git status                             # clean, on main
 npm version patch             # or: minor / major
 
 # 6. Push the commit and the tag
+#    (`origin` has two push URLs: GitHub is primary, the home Forgejo gets a copy.
+#     Only the GitHub push triggers release.yml. Afterwards optionally compare both
+#     remotes with the ls-remote diff in CLAUDE.md "遠端倉庫".)
 git push origin main
 git push origin X.Y.Z
 ```

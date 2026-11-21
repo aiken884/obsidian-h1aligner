@@ -1,5 +1,14 @@
 # CLAUDE.md
 
+## 遠端倉庫（2026-11-21 決定）
+
+- **GitHub（`origin`）是主倉庫**：對外發布、Release、CI、Dependabot、社群外掛審查都在這裡；forge（home 的 Forgejo，私有）只是副本，不跑 CI、不接 Issue／PR。
+- `origin` 設了兩個推送位址（GitHub、forge），`git push origin …` 一次推兩邊；`forge` remote 仍保留，用於單獨 fetch／比對。
+- 為什麼不改成「forge 為主、push mirror 到 GitHub」：Release 出處證明只有 GitHub Actions 能做；push mirror 等同強制推送，會蓋掉 GitHub 上合併的內容（違反永不 force push）；要存一組 GitHub 寫入憑證進 Forgejo；伺服器端推送會繞過 pre-push 秘密掃描。
+- 已知缺口：在 GitHub 網頁合併的 PR（例如 Dependabot）要等本機 `git fetch` 後再推，才會到 forge，這段落差沒有通知。發版後可用下列指令比對（只讀）：`diff <(git ls-remote --heads --tags https://github.com/aiken884/obsidian-h1aligner.git | sort -k2) <(git ls-remote --heads --tags ssh://git@127.0.0.1:2222/aiken/obsidian-h1aligner.git | sort -k2) && echo 兩邊一致`
+- 未實測：pre-push 掛鉤是否對 forge 位址也各跑一次（對 GitHub 位址照常掃描）。
+- 若落差不能接受，升級做法：home-forge 加排程，GitHub 匿名 fetch 後以不強制 refspec 推到 forge，失敗走 `notify-fail@`（比照 `home-forge/mirror/git-mirror`）；GitHub 改私有時需另加唯讀憑證。
+
 ## 發版
 
 - 已發布：**0.13.0**（階段二 Explain this note／批次 out-of-scope 計數／資料夾 what-if 預覽；2026-10-20，tag `0.13.0`）。GitHub：https://github.com/aiken884/obsidian-h1aligner/releases/tag/0.13.0 。前一版 0.12.0（2026-09-16）。0.13.0 實機驗證：Mac／PC 桌面（含從 0.12.0 升級）與 iPhone 通過，**Android 未測，Aiken 豁免**。
